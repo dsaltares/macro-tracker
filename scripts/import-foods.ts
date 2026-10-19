@@ -2,29 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { foodImportWorkDir, importFoods } from '../lib/data/import-foods.ts';
 import { createFixtureSource } from '../lib/data/sources/fixture.ts';
-import { sourceAdapters } from '../lib/data/sources/registry.ts';
+import { chooseSources } from '../lib/data/sources/registry.ts';
 import type { FoodSource } from '../lib/data/sources/types.ts';
 import { createDatabase } from '../lib/db/client.ts';
 import { migrateToLatest } from '../lib/db/migrator.ts';
 import { databaseUrl } from '../lib/db/url.ts';
-import {
-  type ReferenceSource,
-  referenceSources,
-} from '../lib/domain/foods/sources.ts';
+import { referenceSources } from '../lib/domain/foods/sources.ts';
 import { getLogger } from '../lib/logger.ts';
 
 const usage = `Usage: yarn db:import-foods [--source ${referenceSources.join(',')}] [--fixture]`;
-
-const isReferenceSource = (id: string): id is ReferenceSource =>
-  referenceSources.includes(id as ReferenceSource);
-
-const adapterFor = (id: string): FoodSource => {
-  const create = isReferenceSource(id) ? sourceAdapters[id] : undefined;
-  if (!create) {
-    throw new Error(`No source adapter for ${id}\n${usage}`);
-  }
-  return create();
-};
 
 const chosenSources = (): FoodSource[] => {
   const { values } = parseArgs({
@@ -39,13 +25,18 @@ const chosenSources = (): FoodSource[] => {
     }
     return [createFixtureSource()];
   }
-  const ids =
-    values.source?.split(',').map((id) => id.trim()) ??
-    Object.keys(sourceAdapters);
-  if (ids.length === 0) {
+  const chosen = chooseSources({
+    ids: values.source?.split(',').map((id) => id.trim()),
+  });
+  if (!chosen.found) {
+    throw new Error(
+      `No source adapter for ${chosen.unknown.join(', ')}\n${usage}`,
+    );
+  }
+  if (chosen.sources.length === 0) {
     throw new Error(`No source adapters yet; pass --fixture\n${usage}`);
   }
-  return ids.map(adapterFor);
+  return chosen.sources;
 };
 
 const run = async () => {

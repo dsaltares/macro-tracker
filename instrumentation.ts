@@ -11,6 +11,11 @@ export const register = async () => {
   const { failInterruptedFoodImports } = await import(
     './lib/db/food-imports.ts'
   );
+  const { serverFoodImport } = await import('./lib/data/background-import.ts');
+  const { foodImportCron, scheduleFoodImports } = await import(
+    './lib/data/food-import-schedule.ts'
+  );
+  const { registeredSources } = await import('./lib/data/sources/registry.ts');
   const logger = getLogger('db');
   const applied = await migrateToLatest();
   logger.info({ applied }, 'Database migrated');
@@ -20,4 +25,17 @@ export const register = async () => {
   if (interrupted.length > 0) {
     logger.warn({ interrupted }, 'Failed food imports a restart interrupted');
   }
+  const pattern = foodImportCron(process.env);
+  const importLogger = getLogger('import-foods');
+  if (!pattern) {
+    importLogger.info('Scheduled food imports are off');
+    return;
+  }
+  const startImport = serverFoodImport(getDatabase());
+  scheduleFoodImports({
+    pattern,
+    logger: importLogger,
+    startImport: () => startImport(registeredSources()),
+  });
+  importLogger.info({ pattern }, 'Scheduled food imports');
 };

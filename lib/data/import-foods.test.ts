@@ -84,6 +84,7 @@ const banana = (sourceId = '173944'): SourceFood => ({
   sourceId,
   barcode: null,
   name: `Bananas, raw ${sourceId}`,
+  originalName: null,
   brand: null,
   quantityLabel: null,
   nutrients: { energy_kcal: 89, protein: 1.09 },

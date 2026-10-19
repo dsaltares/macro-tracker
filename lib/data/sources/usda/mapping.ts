@@ -443,6 +443,7 @@ export const sourceFoodFromUsda = (food: UsdaFood): UsdaMapping => {
     sourceId,
     barcode: null,
     name: food.name.trim(),
+    originalName: null,
     brand: null,
     quantityLabel: null,
     ...nutrition,

@@ -49,6 +49,7 @@ export default defineConfig({
       NEXT_DIST_DIR: e2eDistDir,
       NEXT_TELEMETRY_DISABLED: '1',
       DATABASE_URL: e2eDatabaseUrl,
+      FOOD_IMPORT_CRON: '',
     },
   },
 });

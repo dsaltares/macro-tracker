@@ -25,12 +25,19 @@ const tableNames = async (db: ReturnType<typeof createDatabase>) =>
     .filter(isOurs)
     .sort();
 
-const everyMigration = ['0001-meta', '0002-foods', '0003-food-imports'];
+const everyMigration = [
+  '0001-meta',
+  '0002-foods',
+  '0003-food-imports',
+  '0004-food-original-names',
+  '0005-food-source-preferences',
+];
 
 const everyTable = [
   'food_imports',
   'food_nutrients',
   'food_portions',
+  'food_source_preferences',
   'foods',
   'foods_fts',
   'foods_fts_config',
@@ -67,12 +74,33 @@ describe.each(targets)('migrations %s', (_, url) => {
     expect(await migrateToLatest(db)).toEqual([]);
   });
 
+  it('keeps the foods already there searchable across original names, both ways', async () => {
+    const search = async (query: string) =>
+      (
+        await sql<{ name: string }>`
+          select name from foods_fts where foods_fts match ${query}
+        `.execute(db)
+      ).rows.map(({ name }) => name);
+    await migrateToLatest(db);
+    await migrateDown(db);
+    await sql`
+      insert into foods (id, source, source_id, name, created_at, updated_at)
+      values ('food-1', 'off', '3017620422003', 'Nutella', '2026-10-19', '2026-10-19')
+    `.execute(db);
+
+    await migrateToLatest(db);
+    expect(await search('nutella')).toEqual(['Nutella']);
+
+    await migrateDown(db);
+    expect(await search('nutella')).toEqual(['Nutella']);
+  });
+
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
-    expect(await migrateDown(db)).toEqual(['0003-food-imports']);
+    expect(await migrateDown(db)).toEqual(['0005-food-source-preferences']);
     expect(await tableNames(db)).toEqual(
-      everyTable.filter((table) => table !== 'food_imports'),
+      everyTable.filter((table) => table !== 'food_source_preferences'),
     );
   });
 
@@ -80,7 +108,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0003-food-imports']);
+    expect(await migrateToLatest(db)).toEqual(['0005-food-source-preferences']);
   });
 
   it('reads back what is written to meta', async () => {

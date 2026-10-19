@@ -5,7 +5,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 
 ## Commands
 
-- `yarn dev` — dev server on 3014 · `yarn build` · `yarn start`
+- `yarn dev` — `yarn db:seed:foods`, then the dev server on 3014 · `yarn build` · `yarn start`
 - `yarn typecheck` · `yarn lint` · `yarn format`
 - `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
   both. `vitest run --project ui <path>` narrows to one file.
@@ -18,6 +18,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn db:import-foods [--source off,ciqual,…] [--fixture]` — run the importer against
   `DATABASE_URL` after migrating it: the named source adapters, every registered one when none is
   named, or the fixture alone. Refused while another import is running
+- `yarn db:seed:foods` — migrate `DATABASE_URL` and import the fixture into it when it has no
+  reference foods, so a fresh clone has something to search. Does nothing otherwise
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
   (`BACKUP_DIR` overrides), keeping the last ten
 - `yarn data:sample` — rebuild `test/fixtures/off/sample.csv`, the trimmed Open Food Facts export
@@ -64,6 +66,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   An interrupted download resumes with a `Range` request pinned to the first response's ETag.
   `test/fixtures/off/export-header.tsv` is the real export's header; refresh it from upstream
   when the export changes shape.
+  `ciqual/table.ts` asks Recherche Data Gouv for the latest version of the CIQUAL 2025 dataset,
+  reads `alim_*.xml` for the English and French names, then streams `compo_*.xml`, which is
+  grouped by food, and emits each food that declares energy or all three energy macros. The
+  English name is the name; the French one is the `originalName`, which `foods_fts` indexes.
+  `ciqual/mapping.ts` is the table from constituent codes to canonical keys. Its test fails on any
+  code in `test/fixtures/ciqual/const.xml` (the real constituent list) that is neither mapped nor
+  ignored, or whose unit is not the canon's. `alim.xml` and `compo.xml` beside it are seven real
+  foods, cut verbatim from the release (CRLF and BOM, so `.gitattributes` exempts them). A new
+  edition is a new dataset DOI in `ciqualDatasetDoi`. Every source's attribution is in
+  `docs/DATA-SOURCES.md`, which the footer links to.
   `usda/fooddata-central.ts` downloads the Foundation, SR Legacy and FNDDS CSV archives (zips of a
   few MB, read in memory by `usda/zip.ts` and `usda/csv.ts`; the release is in the URL, so a new
   USDA release is a change to `usdaDatasetUrls`). Foods are keyed `ndb:<NDB number>` and
@@ -84,8 +96,22 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `food_imports` (`lib/db/food-imports.ts`), kept current after every batch; a partial unique
   index allows one `running` row, which is the lock, and a second run is answered with it.
   `instrumentation.ts` fails a row still `running` at boot as `interrupted`. "Seen" is an
-  `updated_at` at or after the run's start: every upsert writes it. Adapters the CLI and #14 can
-  name are in `lib/data/sources/registry.ts`.
+  `updated_at` at or after the run's start: every upsert writes it. `launchFoodImport` answers
+  once the row exists, with a `finished` promise; `importFoods` awaits it. The adapters the CLI,
+  the endpoint and the schedule can name are in `lib/data/sources/registry.ts` (`chooseSources`).
+- `lib/data/background-import.ts` — `serverFoodImport(db)` starts a run that outlives the request
+  with the server's clock, logger and work directory: the one code path behind the endpoint and the
+  schedule. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
+  for `yarn db:seed:foods` and `e2e/global-setup.ts`.
+- `lib/data/food-import-schedule.ts` — the in-process schedule (`croner`). `FOOD_IMPORT_CRON` is
+  the pattern; unset means the first Sunday of the month at 03:00 server time, empty means off,
+  and it is always off under Vitest. The e2e server and the `.env` `yarn db:copy-down` writes set
+  it empty.
+- `lib/internal-api/` — `POST /api/internal/imports/foods` (`{ sources? }`, every registered
+  adapter when absent) answers `202` with the new `food_imports` row, or `409` with the running one;
+  `GET` lists the last 20 runs. Both answer `404`, with no body, unless the request carries
+  `Authorization: Bearer <INTERNAL_API_TOKEN>`, and always while that variable is unset. Operator
+  plumbing, not part of `/api/v1`. The route in `app/api/internal/` only wires it to the server.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
   `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.
@@ -97,14 +123,26 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `insertFood` for one, `upsertFoods` for an importer batch on `(source, source_id)`, keeping
   upstream portions by label and never touching user portions. `food_nutrients` has one column
   per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
-  is one. `foods_fts` is external-content FTS5 over `name` and `brand`, kept in step by triggers.
+  is one. `foods_fts` is external-content FTS5 over `name`, `brand` and `original_name`, kept in
+  step by triggers.
+- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`,
+  over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
+  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
+  `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
+  time. A user food is visible only through `owner_user_id` on the statement; user portions only
+  through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
+  food counts and saves a user's generic source preferences; search drops a disabled source in a
+  subquery on the same statement.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
-  the container needs nothing run before it. Anything else that must start with the server goes
+  the container needs nothing run before it, fails imports a restart interrupted, and starts the
+  food import schedule. Anything else that must start with the server goes
   here too.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext` hands
   every procedure its database, `now()`, `nextId()` and `caller` (always `null` until accounts
   land), so tests swap any of them. Procedures live in `routers/`, mounted in `root.ts`. Components
   call them through `useTRPC()` and TanStack Query; `TRPCReactProvider` sits in the root layout.
+  `signedInProcedure` answers `UNAUTHORIZED` without a caller and hands the procedure a non-null
+  one.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client
@@ -176,11 +214,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   those changes. A feature, a fix or a new screen does not.
 - `docs/DOMAIN.md` — the domain vocabulary. Read before touching `lib/domain/`.
 - `docs/GLOSSARY.md` — every DOMAIN term in one table. DOMAIN changes first, then the glossary.
+- `docs/DATA-SOURCES.md` — each reference source, its licence and attribution. A new source adds
+  a section in the same change.
 - `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
   Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
   deployment, and add a record in the same change when you take a decision of that kind.
-- `docs/DATA-SOURCES.md` — where each reference food source comes from, its licence and the
-  attribution it asks for. A new source adds itself there.
 - `docs/DEPLOY.md` — the image, the Docker workflow and `.github/deploy/deploy.sh`, their secrets,
   and the homelab compose entry. The image carries `scripts/backup-database.ts` and the
   `lib/db/` files it imports; a new import there needs a `COPY` in the `Dockerfile`.

@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# CIQUAL fixtures are cut verbatim from the upstream release, which is CRLF with a BOM.
+test/fixtures/ciqual/*.xml -text

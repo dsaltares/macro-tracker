@@ -313,6 +313,7 @@ describe('sourceFoodFromUsda', () => {
         sourceId: 'ndb:11109',
         barcode: null,
         name: 'Cabbage, raw',
+        originalName: null,
         brand: null,
         quantityLabel: null,
         nutrients: {
