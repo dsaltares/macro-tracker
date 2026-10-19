@@ -37,7 +37,13 @@ export default defineConfig({
       include: ['lib/domain/**/*.{ts,tsx}'],
       reporter: ['text', 'html', 'lcov'],
       reportsDirectory: 'coverage',
-      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
+      thresholds: {
+        statements: 90,
+        branches: 90,
+        functions: 90,
+        lines: 90,
+        'lib/domain/nutrition/**': { 100: true },
+      },
     },
   },
 });

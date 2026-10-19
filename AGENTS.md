@@ -22,6 +22,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 
 - `lib/brand.ts` — the app's name, short name, description and background colours. Every place
   that names the app or paints its background reads them from here.
+- `lib/domain/nutrition/` — the nutrient canon (`nutrients.ts`), `NutrientVector` arithmetic
+  (`vector.ts`) and display rounding (`format.ts`), ADR [0004](docs/adr/0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md).
+  Every amount the app adds up goes through `scale`, `sum` and `forGrams`; every amount it shows
+  goes through `formatAmount`. Coverage on it is gated at 100%.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
   `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.
