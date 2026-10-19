@@ -85,11 +85,24 @@ networks:
 
 ```sh
 DATA_PATH=
+INTERNAL_API_TOKEN=
 ```
 
 `DATA_PATH` is a host directory such as `/mnt/store/homelab/macro-tracker`, so borgmatic backs it
 up with the rest; it must be owned by uid 1001 (`sudo chown -R 1001:65533 <dir>`). Left empty,
 the data lives in a named volume instead.
+
+`INTERNAL_API_TOKEN` (`openssl rand -hex 32`) unlocks the internal import endpoint; left empty,
+the endpoint answers `404` to everyone. The server imports reference foods on its own on the first
+Sunday of each month at 03:00 in the container's time zone; `FOOD_IMPORT_CRON` sets another cron
+pattern, and an empty one turns the schedule off. To start an import by hand, or see recent ones:
+
+```sh
+curl -X POST -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+  -d '{"sources":["off"]}' https://macros.saltares.dev/api/internal/imports/foods
+curl -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+  https://macros.saltares.dev/api/internal/imports/foods
+```
 
 Then, in the same repo:
 

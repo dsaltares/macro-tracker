@@ -18,6 +18,7 @@ export type FoodsTable = {
   source_id: string | null;
   barcode: string | null;
   name: string;
+  original_name: string | null;
   brand: string | null;
   quantity_label: string | null;
   owner_user_id: string | null;
@@ -46,6 +47,7 @@ export type FoodsFtsTable = {
   rowid: number;
   name: string;
   brand: string | null;
+  original_name: string | null;
 };
 
 export const foodImportStatuses = [

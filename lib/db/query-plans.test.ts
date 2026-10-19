@@ -155,6 +155,18 @@ describe('query plans', () => {
     );
   });
 
+  it('finds whether any reference food exists without a scan', () => {
+    expectNoScan(
+      db
+        .selectFrom('foods')
+        .select('id')
+        .where('source', 'in', ['off', 'ciqual', 'cofid', 'usda'])
+        .limit(1)
+        .compile(),
+      ['foods'],
+    );
+  });
+
   it('finds the running food import with a search', () => {
     expectSearch(
       db

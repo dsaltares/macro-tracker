@@ -133,7 +133,7 @@ export const searchQuery = (
   }
   return query
     .orderBy(sql`foods.owner_user_id is null`)
-    .orderBy(sql`bm25(foods_fts, ${nameWeight}, ${brandWeight})`)
+    .orderBy(sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`)
     .orderBy('foods.rowid')
     .limit(searchPageSize + 1)
     .offset(offset);

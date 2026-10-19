@@ -36,6 +36,7 @@ export const sourceFoodSchema = z
       .refine(isValidBarcode, 'Not a valid EAN-8 or EAN-13')
       .nullable(),
     name: z.string().min(1),
+    originalName: z.string().min(1).nullable(),
     brand: z.string().min(1).nullable(),
     quantityLabel: z.string().min(1).nullable(),
     nutrients: nutrientVectorSchema,

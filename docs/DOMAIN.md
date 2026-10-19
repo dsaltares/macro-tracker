@@ -38,7 +38,7 @@ A **food** is anything with a nutrient vector per 100 g: a reference product, a 
 a user's own. One table; `source` says where a row came from:
 
 - `off` — Open Food Facts. Barcoded products: brand, quantity, usually a serving size. Few micros.
-- `ciqual` — ANSES CIQUAL (France). Generic foods ("Chicken breast, grilled"), 67 constituents.
+- `ciqual` — ANSES CIQUAL (France). Generic foods ("Chicken breast, grilled"), 74 constituents.
 - `cofid` — McCance and Widdowson's CoFID (UK). Generic foods, full nutrient profile.
 - `usda` — USDA FoodData Central Foundation and SR Legacy, plus FNDDS household portions.
 - `user` — created by a user, by hand, from quick add, or from a label scan. Has an owner and is
@@ -57,6 +57,11 @@ their own foods always appear.
 **Search** matches every word of a query against a food's name and brand, the last word as a
 prefix, ignoring case and diacritics ("jamon" finds "Jamón"). A user's own foods rank above
 reference foods, then the closest match first; archived foods never appear.
+
+A food's **name** is what the app shows. A generic food from a table published in another language
+also keeps its **original name** (CIQUAL's French, "Pomme, chair et peau, crue"), which search
+matches and the app does not show. Who each source is and its licence are in
+[`DATA-SOURCES.md`](DATA-SOURCES.md).
 
 A **trace** is a nutrient a source declares as below a limit (`< 0.5 g`) or as "traces" ("Tr"). It
 is stored as zero, and the food lists it among its traces so it can be shown as such.
