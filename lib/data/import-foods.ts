@@ -4,6 +4,7 @@ import { setImmediate } from 'node:timers/promises';
 import type { Kysely } from 'kysely';
 import type { Logger } from 'pino';
 import {
+  type FoodImport,
   type FoodImportCounts,
   type FoodImportOutcome,
   type FoodImportStart,
@@ -51,7 +52,11 @@ const referenceFood = (food: SourceFood): ReferenceFoodInput => ({
 const reasonOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-export const importFoods = async ({
+export type FoodImportLaunch =
+  | { started: true; run: FoodImport; finished: Promise<FoodImport> }
+  | { started: false; running: FoodImport };
+
+export const launchFoodImport = async ({
   db,
   sources,
   clock,
@@ -60,7 +65,7 @@ export const importFoods = async ({
   workDir,
   fetch = globalThis.fetch,
   batchSize = defaultBatchSize,
-}: ImportFoodsOptions): Promise<FoodImportStart> => {
+}: ImportFoodsOptions): Promise<FoodImportLaunch> => {
   const startedAt = clock.now();
   const start = await startFoodImport(db, {
     id: clock.nextId(),
@@ -106,34 +111,45 @@ export const importFoods = async ({
     await recordFoodImportProgress(db, run.id, counts);
   };
 
-  const finish = async (outcome: FoodImportOutcome) => ({
-    started: true as const,
-    run: await finishFoodImport(db, run.id, counts, outcome, clock.now),
-  });
+  const finish = (outcome: FoodImportOutcome) =>
+    finishFoodImport(db, run.id, counts, outcome, clock.now);
 
-  let tempDir: string | undefined;
-  try {
-    runLogger.info({ sources: run.sources }, 'Importing foods');
-    await mkdir(workDir, { recursive: true });
-    tempDir = await mkdtemp(join(workDir, 'food-import-'));
-    for (const source of sources) {
-      const sourceLogger = runLogger.child({ source: source.id });
-      await importSource(source, {
-        fetch,
-        tempDir,
-        logger: sourceLogger,
-        signal,
-      });
-      sourceLogger.info({ ...counts }, 'Imported a source');
+  const importAll = async () => {
+    let tempDir: string | undefined;
+    try {
+      runLogger.info({ sources: run.sources }, 'Importing foods');
+      await mkdir(workDir, { recursive: true });
+      tempDir = await mkdtemp(join(workDir, 'food-import-'));
+      for (const source of sources) {
+        const sourceLogger = runLogger.child({ source: source.id });
+        await importSource(source, {
+          fetch,
+          tempDir,
+          logger: sourceLogger,
+          signal,
+        });
+        sourceLogger.info({ ...counts }, 'Imported a source');
+      }
+      runLogger.info({ ...counts }, 'Imported foods');
+      return await finish({ status: 'succeeded' });
+    } catch (error) {
+      runLogger.error({ err: error }, 'Food import failed');
+      return await finish({ status: 'failed', error: reasonOf(error) });
+    } finally {
+      if (tempDir) {
+        await rm(tempDir, { recursive: true, force: true });
+      }
     }
-    runLogger.info({ ...counts }, 'Imported foods');
-    return await finish({ status: 'succeeded' });
-  } catch (error) {
-    runLogger.error({ err: error }, 'Food import failed');
-    return await finish({ status: 'failed', error: reasonOf(error) });
-  } finally {
-    if (tempDir) {
-      await rm(tempDir, { recursive: true, force: true });
-    }
-  }
+  };
+
+  return { started: true, run, finished: importAll() };
+};
+
+export const importFoods = async (
+  options: ImportFoodsOptions,
+): Promise<FoodImportStart> => {
+  const launch = await launchFoodImport(options);
+  return launch.started
+    ? { started: true, run: await launch.finished }
+    : launch;
 };

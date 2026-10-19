@@ -5,9 +5,10 @@ import {
   sql,
   type Transaction,
 } from 'kysely';
-import type {
-  PortionSource,
-  ReferenceSource,
+import {
+  type PortionSource,
+  type ReferenceSource,
+  referenceSources,
 } from '../domain/foods/sources.ts';
 import { nutrientKeys } from '../domain/nutrition/nutrients.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
@@ -268,4 +269,14 @@ export const archiveUnseenFoods = async (
     .where('updated_at', '<', seenSince)
     .executeTakeFirst();
   return Number(archived.numUpdatedRows);
+};
+
+export const hasReferenceFoods = async (db: Kysely<Database>) => {
+  const food = await db
+    .selectFrom('foods')
+    .select('id')
+    .where('source', 'in', referenceSources)
+    .limit(1)
+    .executeTakeFirst();
+  return food !== undefined;
 };

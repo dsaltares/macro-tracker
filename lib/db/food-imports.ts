@@ -23,6 +23,19 @@ export const runningFoodImport = (db: Kysely<Database>) =>
     .where('status', '=', 'running')
     .executeTakeFirst();
 
+export const recentFoodImportLimit = 20;
+
+export const recentFoodImports = (
+  db: Kysely<Database>,
+  limit: number = recentFoodImportLimit,
+) =>
+  db
+    .selectFrom('food_imports')
+    .selectAll()
+    .orderBy('started_at', 'desc')
+    .limit(limit)
+    .execute();
+
 export type NewFoodImport = {
   id: string;
   sources: readonly string[];
