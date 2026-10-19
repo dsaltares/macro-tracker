@@ -131,4 +131,39 @@ describe('query plans', () => {
       'food_portions',
     );
   });
+
+  it('archives the unseen foods of a source without a scan', () => {
+    expectNoScan(
+      db
+        .updateTable('foods')
+        .set({ archived_at: 't', updated_at: 't' })
+        .where('source', 'in', ['off', 'usda'])
+        .where('archived_at', 'is', null)
+        .where('updated_at', '<', 't')
+        .compile(),
+      ['foods'],
+    );
+  });
+
+  it('finds the running food import with a search', () => {
+    expectSearch(
+      db
+        .selectFrom('food_imports')
+        .selectAll()
+        .where('status', '=', 'running')
+        .compile(),
+      'food_imports',
+    );
+  });
+
+  it('fails the running food import without a scan', () => {
+    expectNoScan(
+      db
+        .updateTable('food_imports')
+        .set({ status: 'failed', error: 'interrupted', finished_at: 't' })
+        .where('status', '=', 'running')
+        .compile(),
+      ['food_imports'],
+    );
+  });
 });

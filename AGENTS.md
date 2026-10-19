@@ -15,6 +15,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   reload while writing a spec. First time on a machine: `yarn playwright install chromium`.
 - `yarn db:migrate` — apply outstanding migrations to `DATABASE_URL` · `yarn db:migrate down`
   rolls one back
+- `yarn db:import-foods [--source off,ciqual,…] [--fixture]` — run the importer against
+  `DATABASE_URL` after migrating it: the named source adapters, every registered one when none is
+  named, or the fixture alone. Refused while another import is running
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
   (`BACKUP_DIR` overrides), keeping the last ten
 - `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
@@ -41,12 +44,21 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   zero, per serving to per 100 g); barcode validation and UPC-A to EAN-13 (`barcode.ts`). Coverage
   on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
-  A `FoodSource` (`types.ts`) is `{ id, fetch(context) }` yielding `SourceFood`s; it never touches
-  SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
+  A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
+  sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
   canonical ones; its test fails on any key in the real export header or real products
   (`test/fixtures/off/`) that is neither mapped nor ignored. `fixture.ts` reads
   `test/fixtures/foods/sample.jsonl` (Open Food Facts–shaped products, mapped through that table,
   and generic foods as `SourceFood`s) for tests, e2e and local development.
+- `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
+  workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
+  per batch and a yield to the event loop between them, then archives the foods of the sources
+  that adapter `emits` that the run did not see. It takes no request context. A run is a row in
+  `food_imports` (`lib/db/food-imports.ts`), kept current after every batch; a partial unique
+  index allows one `running` row, which is the lock, and a second run is answered with it.
+  `instrumentation.ts` fails a row still `running` at boot as `interrupted`. "Seen" is an
+  `updated_at` at or after the run's start: every upsert writes it. Adapters the CLI and #14 can
+  name are in `lib/data/sources/registry.ts`.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
   `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.

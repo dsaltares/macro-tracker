@@ -44,10 +44,32 @@ export type FoodsFtsTable = {
   brand: string | null;
 };
 
+export const foodImportStatuses = [
+  'queued',
+  'running',
+  'succeeded',
+  'failed',
+] as const;
+
+export type FoodImportStatus = (typeof foodImportStatuses)[number];
+
+export type FoodImportsTable = {
+  id: string;
+  sources: string;
+  status: FoodImportStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  inserted: Generated<number>;
+  updated: Generated<number>;
+  archived: Generated<number>;
+  error: string | null;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
   food_nutrients: FoodNutrientsTable;
   food_portions: FoodPortionsTable;
   foods_fts: FoodsFtsTable;
+  food_imports: FoodImportsTable;
 };

@@ -5,6 +5,7 @@ import {
   type SourceFood,
   sourceFoodSchema,
 } from '../../domain/foods/source-food.ts';
+import { referenceSources } from '../../domain/foods/sources.ts';
 import {
   offProductSchema,
   sourceFoodFromOff,
@@ -42,6 +43,7 @@ export const createFixtureSource = (
   path: string = sampleFixturePath,
 ): FoodSource => ({
   id: 'fixture',
+  emits: referenceSources,
   async *fetch({ logger, signal }) {
     const lines = createInterface({
       input: createReadStream(path, { signal }),

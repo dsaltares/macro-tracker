@@ -47,7 +47,9 @@ a user's own. One table; `source` says where a row came from:
 A **source adapter** streams one upstream dataset as `SourceFood` records
 (`lib/domain/foods/source-food.ts`): canonical nutrients per 100 g, whatever the upstream keys,
 units and basis were (ADR [0005](adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md)).
-The **importer** runs inside the server, upserts them and archives what a run no longer sees. A
+The **importer** runs inside the server, upserts them and archives what a run no longer sees.
+Each run is a **food import**: the sources it read, `queued`, `running`, `succeeded` or `failed`,
+and how many foods it inserted, updated and archived. Only one runs at a time. A
 user chooses which generic sources appear in their search; Open Food Facts and their own foods
 always do.
 

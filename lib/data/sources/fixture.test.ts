@@ -186,6 +186,15 @@ describe('createFixtureSource', () => {
     expect(createFixtureSource().id).toBe('fixture');
   });
 
+  it('emits every reference source', () => {
+    expect(createFixtureSource().emits).toEqual([
+      'off',
+      'ciqual',
+      'cofid',
+      'usda',
+    ]);
+  });
+
   it('emits generic foods as they are and maps Open Food Facts products', async () => {
     const path = await fixtureWith([
       JSON.stringify(genericFood),
