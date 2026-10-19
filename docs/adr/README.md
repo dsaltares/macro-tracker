@@ -13,6 +13,7 @@ order).
 | [0001](0001-one-container-sqlite-on-a-volume.md) | Run as one container, with SQLite on a volume | Accepted | 2026-10-19 |
 | [0002](0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) | Serve the app over tRPC and API keys over REST, both through shared services | Accepted | 2026-10-19 |
 | [0003](0003-diary-entries-snapshot-their-nutrients.md) | Snapshot a diary entry's nutrient vector when it is logged | Accepted | 2026-10-19 |
+| [0004](0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md) | Store one canonical nutrient vector per 100 g, in wide columns, with sodium canonical | Accepted | 2026-10-19 |
 
 ## How to add one
 

@@ -7,7 +7,8 @@ The vocabulary every issue, ADR and module uses. Keep it short; detail belongs i
 
 A **nutrient** is one entry in the canonical list in `lib/domain/nutrition/nutrients.ts`: a key,
 a unit (`kcal`, `g`, `mg`, `µg`), a group and a display order. The list is closed; adding a
-nutrient is a migration and a code change, never a free-text key.
+nutrient is a migration and a code change, never a free-text key. Sodium and kcal are canonical;
+salt and kJ are derived for display (ADR [0004](adr/0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md)).
 
 Groups, in display order:
 
