@@ -56,6 +56,7 @@ const banana: SourceFood = {
 
 const gatedUsda = (): FoodSource => ({
   id: 'usda',
+  kind: 'full',
   emits: ['usda'],
   async *fetch() {
     await gate.released;

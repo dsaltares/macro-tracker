@@ -9,6 +9,7 @@ import {
   type FoodImportOutcome,
   type FoodImportStart,
   finishFoodImport,
+  lastSucceededFoodImport,
   recordFoodImportProgress,
   startFoodImport,
 } from '../db/food-imports.ts';
@@ -103,12 +104,14 @@ export const launchFoodImport = async ({
       await writeBatch(batch);
     }
     signal.throwIfAborted();
-    counts.archived += await archiveUnseenFoods(
-      db,
-      source.emits,
-      startedAt,
-      clock.now,
-    );
+    if (source.kind === 'full') {
+      counts.archived += await archiveUnseenFoods(
+        db,
+        source.emits,
+        startedAt,
+        clock.now,
+      );
+    }
     await recordFoodImportProgress(db, run.id, counts);
   };
 
@@ -123,11 +126,13 @@ export const launchFoodImport = async ({
       tempDir = await mkdtemp(join(workDir, 'food-import-'));
       for (const source of sources) {
         const sourceLogger = runLogger.child({ source: source.id });
+        const last = await lastSucceededFoodImport(db, source.id);
         await importSource(source, {
           fetch,
           tempDir,
           logger: sourceLogger,
           signal,
+          lastSucceededAt: last?.started_at ?? null,
         });
         sourceLogger.info({ ...counts }, 'Imported a source');
       }

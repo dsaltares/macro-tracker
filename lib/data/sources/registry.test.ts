@@ -1,30 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { chooseSources, registeredSources } from './registry.ts';
-import type { FoodSource } from './types.ts';
+import {
+  chooseSources,
+  deltaSources,
+  registeredSources,
+  sourceAdapters,
+} from './registry.ts';
+import type { FoodSource, SourceKind } from './types.ts';
 
 const adapter =
-  (id: string): (() => FoodSource) =>
+  (id: string, kind: SourceKind = 'full'): (() => FoodSource) =>
   () => ({
     id,
+    kind,
     emits: ['usda'],
     async *fetch() {},
   });
 
-const adapters = { usda: adapter('usda'), cofid: adapter('cofid') };
+const adapters = {
+  usda: adapter('usda'),
+  'usda-deltas': adapter('usda-deltas', 'delta'),
+  cofid: adapter('cofid'),
+};
 
 const idsOf = (sources: readonly FoodSource[]) => sources.map(({ id }) => id);
 
 describe('chooseSources', () => {
-  it('chooses every registered adapter when no ids are named', () => {
+  it('chooses every full adapter when no ids are named', () => {
     const chosen = chooseSources({ adapters });
 
     expect(chosen.found && idsOf(chosen.sources)).toEqual(['usda', 'cofid']);
   });
 
-  it('chooses the named adapters in the order named', () => {
-    const chosen = chooseSources({ ids: ['cofid', 'usda'], adapters });
+  it('chooses the named adapters in the order named, deltas included', () => {
+    const chosen = chooseSources({
+      ids: ['cofid', 'usda-deltas', 'usda'],
+      adapters,
+    });
 
-    expect(chosen.found && idsOf(chosen.sources)).toEqual(['cofid', 'usda']);
+    expect(chosen.found && idsOf(chosen.sources)).toEqual([
+      'cofid',
+      'usda-deltas',
+      'usda',
+    ]);
   });
 
   it('names every id with no adapter', () => {
@@ -35,7 +52,25 @@ describe('chooseSources', () => {
 });
 
 describe('registeredSources', () => {
-  it('creates every registered adapter', () => {
+  it('creates every full adapter', () => {
     expect(idsOf(registeredSources(adapters))).toEqual(['usda', 'cofid']);
+  });
+
+  it('registers Open Food Facts, CIQUAL and USDA in full', () => {
+    expect(idsOf(registeredSources(sourceAdapters))).toEqual([
+      'off',
+      'ciqual',
+      'usda',
+    ]);
+  });
+});
+
+describe('deltaSources', () => {
+  it('creates every delta adapter', () => {
+    expect(idsOf(deltaSources(adapters))).toEqual(['usda-deltas']);
+  });
+
+  it('registers the Open Food Facts deltas', () => {
+    expect(idsOf(deltaSources(sourceAdapters))).toEqual(['off-deltas']);
   });
 });

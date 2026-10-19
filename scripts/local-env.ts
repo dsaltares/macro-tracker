@@ -6,7 +6,7 @@ const containerOnly = [
   'DATA_PATH',
 ];
 
-const scheduledImportsOff = { FOOD_IMPORT_CRON: '' };
+const scheduledImportsOff = { FOOD_IMPORT_CRON: '', FOOD_DELTA_CRON: '' };
 
 type Environment = Record<string, string | null | undefined>;
 

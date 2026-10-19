@@ -2,15 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { foodImportWorkDir, importFoods } from '../lib/data/import-foods.ts';
 import { createFixtureSource } from '../lib/data/sources/fixture.ts';
-import { chooseSources } from '../lib/data/sources/registry.ts';
+import { chooseSources, sourceAdapters } from '../lib/data/sources/registry.ts';
 import type { FoodSource } from '../lib/data/sources/types.ts';
 import { createDatabase } from '../lib/db/client.ts';
 import { migrateToLatest } from '../lib/db/migrator.ts';
 import { databaseUrl } from '../lib/db/url.ts';
-import { referenceSources } from '../lib/domain/foods/sources.ts';
 import { getLogger } from '../lib/logger.ts';
 
-const usage = `Usage: yarn db:import-foods [--source ${referenceSources.join(',')}] [--fixture]`;
+const usage = `Usage: yarn db:import-foods [--source ${Object.keys(sourceAdapters).join(',')}] [--fixture]`;
 
 const chosenSources = (): FoodSource[] => {
   const { values } = parseArgs({

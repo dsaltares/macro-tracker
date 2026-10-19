@@ -70,6 +70,7 @@ const sourceOf = (
   ) => Promise<void> = async () => {},
 ): FoodSource => ({
   id: `test-${emits.join('-')}`,
+  kind: 'full',
   emits,
   async *fetch(context) {
     for (const [index, food] of foods.entries()) {
@@ -251,6 +252,41 @@ describe('importFoods', () => {
     expect(archived).toEqual([{ source: 'usda' }]);
   });
 
+  it('never archives after a delta source', async () => {
+    finished(await run([sourceOf(bananas(3))]));
+    const delta: FoodSource = { ...sourceOf(bananas(1)), kind: 'delta' };
+
+    const updated = finished(await run([delta]));
+
+    expect(updated).toMatchObject({ updated: 1, archived: 0 });
+    expect(await archivedSourceIds()).toEqual([]);
+  });
+
+  it('hands each source the start of its last run that succeeded', async () => {
+    const seen: Record<string, string | null> = {};
+    const peeking = (id: string): FoodSource => ({
+      ...sourceOf([banana()], ['usda'], async (_, context) => {
+        seen[id] = context.lastSucceededAt;
+      }),
+      id,
+    });
+    const first = finished(await run([peeking('a')]));
+    const failing: FoodSource = {
+      id: 'a',
+      kind: 'full',
+      emits: ['usda'],
+      async *fetch() {
+        yield* [];
+        throw new Error('upstream went away');
+      },
+    };
+    finished(await run([failing]));
+
+    finished(await run([peeking('a'), peeking('b')]));
+
+    expect(seen).toEqual({ a: first.started_at, b: null });
+  });
+
   it('leaves user foods and user portions alone', async () => {
     finished(await run([sourceOf([banana()])]));
     const reference = await database()
@@ -374,6 +410,7 @@ describe('importFoods', () => {
     finished(await run([sourceOf(bananas(3))]));
     const failing: FoodSource = {
       id: 'broken',
+      kind: 'full',
       emits: ['usda'],
       async *fetch() {
         yield banana('1000');

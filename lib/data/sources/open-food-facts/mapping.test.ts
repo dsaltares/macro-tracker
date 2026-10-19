@@ -8,8 +8,11 @@ import {
   declaredFromOff,
   declaresNutritionFacts,
   ignoredOffNutriments,
+  nutrimentsFromNutrition,
+  type OffNutrition,
   type OffProduct,
   offNutriments,
+  offNutritionSchema,
   offProductSchema,
   sourceFoodFromOff,
 } from './mapping.ts';
@@ -22,6 +25,11 @@ const realProducts = readFileSync('test/fixtures/off/products.jsonl', 'utf8')
   .trim()
   .split('\n')
   .map((line) => offProductSchema.parse(JSON.parse(line)));
+
+const realDeltaNutrition = readFileSync('test/fixtures/off/delta.jsonl', 'utf8')
+  .trim()
+  .split('\n')
+  .map((line) => offNutritionSchema.parse(JSON.parse(line).nutrition ?? {}));
 
 const realProduct = (code: string) => {
   const product = realProducts.find((candidate) => candidate.code === code);
@@ -133,6 +141,14 @@ describe('the Open Food Facts nutriment table', () => {
   it('maps or deliberately ignores every nutriment key on real products', () => {
     const keys = realProducts.flatMap((product) =>
       Object.keys(product.nutriments).map(baseKeyOf),
+    );
+
+    expect(unmapped(keys)).toEqual([]);
+  });
+
+  it('maps or deliberately ignores every nutrient key in a real delta', () => {
+    const keys = realDeltaNutrition.flatMap((nutrition) =>
+      Object.keys(nutrition.aggregated_set?.nutrients ?? {}),
     );
 
     expect(unmapped(keys)).toEqual([]);
@@ -498,5 +514,79 @@ describe('sourceFoodFromOff', () => {
     expect(fromCsv.success && fromCsv.food.lastModified).toBe(
       '2023-11-14T22:13:20.000Z',
     );
+  });
+});
+
+describe('nutrimentsFromNutrition', () => {
+  const nutrition = (aggregated: NonNullable<OffNutrition['aggregated_set']>) =>
+    offNutritionSchema.parse({ aggregated_set: aggregated });
+
+  it('reads the aggregated set as per-100 g nutriments, with their modifiers', () => {
+    expect(
+      nutrimentsFromNutrition(
+        nutrition({
+          preparation: 'as_sold',
+          per: '100g',
+          nutrients: {
+            'energy-kcal': { value: 572, source: 'packaging' },
+            sodium: { value: 0.109, source: 'packaging' },
+            sugars: { value: 0.5, modifier: '<', source: 'packaging' },
+            fat: { value: 37.3, modifier: '~', source: 'manufacturer' },
+          },
+        }),
+      ),
+    ).toEqual({
+      'energy-kcal_100g': 572,
+      sodium_100g: 0.109,
+      sugars_100g: 0.5,
+      sugars_modifier: '<',
+      fat_100g: 37.3,
+      fat_modifier: '~',
+    });
+  });
+
+  it('leaves out what Open Food Facts estimated from the ingredients', () => {
+    expect(
+      nutrimentsFromNutrition(
+        nutrition({
+          preparation: 'as_sold',
+          per: '100g',
+          nutrients: {
+            proteins: { value: 8.6, source: 'packaging' },
+            'vitamin-e': { value: 0.002, modifier: '~', source: 'estimate' },
+          },
+        }),
+      ),
+    ).toEqual({ proteins_100g: 8.6 });
+  });
+
+  it('takes 100 ml as 100 g', () => {
+    expect(
+      nutrimentsFromNutrition(
+        nutrition({
+          preparation: 'as_sold',
+          per: '100ml',
+          nutrients: { 'energy-kcal': { value: 17, source: 'packaging' } },
+        }),
+      ),
+    ).toEqual({ 'energy-kcal_100g': 17 });
+  });
+
+  it.each([
+    { preparation: 'prepared', per: '100g' },
+    { preparation: 'as_sold', per: 'serving' },
+  ])('reads nothing from a set $preparation per $per', (set) => {
+    expect(
+      nutrimentsFromNutrition(
+        nutrition({
+          ...set,
+          nutrients: { proteins: { value: 8.6, source: 'packaging' } },
+        }),
+      ),
+    ).toEqual({});
+  });
+
+  it('reads nothing without an aggregated set', () => {
+    expect(nutrimentsFromNutrition(offNutritionSchema.parse({}))).toEqual({});
   });
 });

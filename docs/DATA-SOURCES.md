@@ -6,8 +6,11 @@ to this page.
 
 ## Open Food Facts
 
-- **What:** barcoded products sold in Europe, from the daily CSV export.
-- **Where:** <https://world.openfoodfacts.org/data>
+- **What:** barcoded products sold in Europe, from the daily CSV export once a month and from the
+  daily delta files of changed products every day in between. Nutrients Open Food Facts estimated
+  from a product's ingredients are left out.
+- **Where:** <https://world.openfoodfacts.org/data>, the deltas at
+  <https://static.openfoodfacts.org/data/delta/index.txt>
 - **Licence:** database under the [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/),
   contents under the [Database Contents License 1.0](https://opendatacommons.org/licenses/dbcl/1-0/),
   product images under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).

@@ -50,6 +50,7 @@ export default defineConfig({
       NEXT_TELEMETRY_DISABLED: '1',
       DATABASE_URL: e2eDatabaseUrl,
       FOOD_IMPORT_CRON: '',
+      FOOD_DELTA_CRON: '',
     },
   },
 });
