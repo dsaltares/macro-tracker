@@ -7,11 +7,23 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 
 - `yarn dev` — dev server on 3014 · `yarn build` · `yarn start`
 - `yarn typecheck` · `yarn lint` · `yarn format`
+- `yarn test` — Vitest once · `yarn test:watch`
+- `yarn db:migrate` — apply outstanding migrations to `DATABASE_URL` · `yarn db:migrate down`
+  rolls one back
+- `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
+  (`BACKUP_DIR` overrides), keeping the last ten
 
 ## Modules
 
 - `lib/brand.ts` — the app's name, short name, description and background colours. Every place
   that names the app or paints its background reads them from here.
+- `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
+  `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
+  `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.
+  Migrations are an ordered map of static imports in `migrator.ts`, never a directory read —
+  `output: 'standalone'` traces modules, not directories. Add a migration, never edit one that has
+  shipped. An index needs a plan, not a hunch: `query-plans.test.ts` runs `EXPLAIN QUERY PLAN`
+  over the real statements and asserts no `SCAN` on the tables each names.
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.
