@@ -42,3 +42,7 @@ next-env.d.ts
 
 # local database and its backups
 /.data/
+/.next-e2e/
+/playwright-report
+/test-results
+/.playwright
