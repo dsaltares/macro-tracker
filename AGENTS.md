@@ -29,6 +29,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `output: 'standalone'` traces modules, not directories. Add a migration, never edit one that has
   shipped. An index needs a plan, not a hunch: `query-plans.test.ts` runs `EXPLAIN QUERY PLAN`
   over the real statements and asserts no `SCAN` on the tables each names.
+- `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext` hands
+  every procedure its database, `now()`, `nextId()` and `caller` (always `null` until accounts
+  land), so tests swap any of them. Procedures live in `routers/`, mounted in `root.ts`. Components
+  call them through `useTRPC()` and TanStack Query; `TRPCReactProvider` sits in the root layout.
+- `lib/logger.ts` — pino; pretty in development, JSON in production.
+- `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
+  test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client
+  providers; `api.fails('<procedure>')` makes one procedure answer 500.
+- `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
+  source; the PNGs are rendered from it.
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.
@@ -56,7 +66,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
     `@testing-library/user-event`, through `renderUi` from `test/ui.tsx`, which wraps the app's
     providers and hands back a `user`: everything a user does to a component and everything it
     says back. Query by role, label and text — never by class, inline style or a fragment of
-    markup. MSW is installed for faking the API once there is one.
+    markup. A component that calls tRPC renders with `renderUi(ui, { wrap: api.wrap })` over
+    `serveApi()` from `test/api.tsx`.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and
