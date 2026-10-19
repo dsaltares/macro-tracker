@@ -14,6 +14,7 @@ order).
 | [0002](0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) | Serve the app over tRPC and API keys over REST, both through shared services | Accepted | 2026-10-19 |
 | [0003](0003-diary-entries-snapshot-their-nutrients.md) | Snapshot a diary entry's nutrient vector when it is logged | Accepted | 2026-10-19 |
 | [0004](0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md) | Store one canonical nutrient vector per 100 g, in wide columns, with sodium canonical | Accepted | 2026-10-19 |
+| [0005](0005-import-reference-foods-in-the-server-open-food-facts-first.md) | Import reference foods inside the server, Open Food Facts first, through one adapter contract | Accepted | 2026-10-19 |
 
 ## How to add one
 

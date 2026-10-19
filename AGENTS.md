@@ -36,6 +36,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`vector.ts`) and display rounding (`format.ts`), ADR [0004](docs/adr/0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md).
   Every amount the app adds up goes through `scale`, `sum` and `forGrams`; every amount it shows
   goes through `formatAmount`. Coverage on it is gated at 100%.
+- `lib/domain/foods/` — `SourceFood`, the Zod schema every source adapter emits, and the
+  normalisation they share (`source-food.ts`: kJ to kcal, salt to sodium, traces to a flagged
+  zero, per serving to per 100 g); barcode validation and UPC-A to EAN-13 (`barcode.ts`). Coverage
+  on it is gated at 100%.
+- `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
+  A `FoodSource` (`types.ts`) is `{ id, fetch(context) }` yielding `SourceFood`s; it never touches
+  SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
+  canonical ones; its test fails on any key in the real export header or real products
+  (`test/fixtures/off/`) that is neither mapped nor ignored. `fixture.ts` reads
+  `test/fixtures/foods/sample.jsonl` (Open Food Facts–shaped products, mapped through that table,
+  and generic foods as `SourceFood`s) for tests, e2e and local development.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
   `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.

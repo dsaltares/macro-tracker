@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { nutrientKeys } from './nutrients.ts';
 import {
   forGrams,
+  kcal,
   kcalFromMacros,
   kJ,
   type NutrientVector,
+  per100gFrom,
   salt,
   scale,
   sodium,
@@ -132,6 +134,27 @@ describe('forGrams', () => {
   });
 });
 
+describe('per100gFrom', () => {
+  it('scales a vector for a weight to 100 g', () => {
+    expect(per100gFrom({ energy_kcal: 60, sodium: 150 }, 30)).toEqual({
+      energy_kcal: 200,
+      sodium: 500,
+    });
+  });
+
+  it('undoes forGrams', () => {
+    fc.assert(
+      fc.property(
+        vector,
+        fc.double({ min: 1, max: 1000, noNaN: true }),
+        (per100g, grams) => {
+          expectClose(per100gFrom(forGrams(per100g, grams), grams), per100g);
+        },
+      ),
+    );
+  });
+});
+
 describe('kcalFromMacros', () => {
   it('counts 4 kcal per g of protein and carbohydrate, 9 of fat and 7 of alcohol', () => {
     expect(
@@ -157,6 +180,21 @@ describe('kJ', () => {
   it('is 4.184 kJ per kcal', () => {
     expect(kJ(100)).toBeCloseTo(418.4);
     expect(kJ(0)).toBe(0);
+  });
+});
+
+describe('kcal', () => {
+  it('is 1 kcal per 4.184 kJ', () => {
+    expect(kcal(418.4)).toBeCloseTo(100);
+    expect(kcal(0)).toBe(0);
+  });
+
+  it('round-trips with kJ', () => {
+    fc.assert(
+      fc.property(amount, (energy) => {
+        expect(kcal(kJ(energy))).toBeCloseTo(energy, 9);
+      }),
+    );
   });
 });
 
