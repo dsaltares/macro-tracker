@@ -29,6 +29,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `output: 'standalone'` traces modules, not directories. Add a migration, never edit one that has
   shipped. An index needs a plan, not a hunch: `query-plans.test.ts` runs `EXPLAIN QUERY PLAN`
   over the real statements and asserts no `SCAN` on the tables each names.
+- `instrumentation.ts` — migrates the database to the latest version when the server boots, so
+  the container needs nothing run before it. Anything else that must start with the server goes
+  here too.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext` hands
   every procedure its database, `now()`, `nextId()` and `caller` (always `null` until accounts
   land), so tests swap any of them. Procedures live in `routers/`, mounted in `root.ts`. Components
@@ -107,5 +110,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
   Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
   deployment, and add a record in the same change when you take a decision of that kind.
+- `docs/DEPLOY.md` — the image, the Docker workflow and `.github/deploy/deploy.sh`, their secrets,
+  and the homelab compose entry. The image carries `scripts/backup-database.ts` and the
+  `lib/db/` files it imports; a new import there needs a `COPY` in the `Dockerfile`.
 - The roadmap, its decisions and its milestones are the pinned GitHub issue #67.
 - Per-item scope and *done when* live on the GitHub issue, not in the repo: `gh issue view <n>`.

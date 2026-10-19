@@ -1,0 +1,18 @@
+name: macro-tracker
+
+services:
+  macro-tracker:
+    build: .
+    ports:
+      - '127.0.0.1:3014:3014'
+    volumes:
+      - macro-tracker-data:/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DATABASE_URL=/data/db.sqlite
+    restart: unless-stopped
+
+volumes:
+  macro-tracker-data:
