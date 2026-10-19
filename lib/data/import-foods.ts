@@ -42,6 +42,7 @@ const referenceFood = (food: SourceFood): ReferenceFoodInput => ({
   source_id: food.sourceId,
   barcode: food.barcode,
   name: food.name,
+  original_name: food.originalName,
   brand: food.brand,
   quantity_label: food.quantityLabel,
   nutrients: food.nutrients,
