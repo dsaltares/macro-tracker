@@ -26,6 +26,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn data:off` — stream the real Open Food Facts export through the adapter without writing
   anything, and print what it kept, the bytes, wall time and peak memory. An optional URL argument
   reads another export
+- `yarn data:usda` — download the three USDA FoodData Central archives and read them through the
+  adapter without writing anything, and print the foods, portions, wall time and peak memory
 - `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
   SSH: an online backup taken in the running container and the environment the service runs with,
   over `ssh homelab` in the compose project named by `DEPLOY_COMPOSE_DIR` and `DEPLOY_SERVICE`.
@@ -62,6 +64,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   An interrupted download resumes with a `Range` request pinned to the first response's ETag.
   `test/fixtures/off/export-header.tsv` is the real export's header; refresh it from upstream
   when the export changes shape.
+  `usda/fooddata-central.ts` downloads the Foundation, SR Legacy and FNDDS CSV archives (zips of a
+  few MB, read in memory by `usda/zip.ts` and `usda/csv.ts`; the release is in the URL, so a new
+  USDA release is a change to `usdaDatasetUrls`). Foods are keyed `foundation:<NDB number>`,
+  `sr-legacy:<NDB number>` and `fndds:<food code>`, never by `fdc_id`, which changes when USDA
+  re-releases a food. An FNDDS food made of one ingredient with no retention code lends its
+  portions to the Foundation and SR Legacy foods with that NDB number and is not emitted itself.
+  `usda/mapping.ts` maps USDA nutrient numbers (`nutrient_nbr`, the one id all three datasets
+  share) to canonical keys and takes fibre out of carbohydrate by difference; its test fails on
+  any number the fixtures in `test/fixtures/usda/` read that is neither mapped nor ignored. Those
+  fixtures are real rows, trimmed to foods that between them read every number the full
+  datasets use; the adapter warns at run time about any new one.
 - `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
   workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
   per batch and a yield to the event loop between them, then archives the foods of the sources
@@ -164,6 +177,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
   Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
   deployment, and add a record in the same change when you take a decision of that kind.
+- `docs/DATA-SOURCES.md` — where each reference food source comes from, its licence and the
+  attribution it asks for. A new source adds itself there.
 - `docs/DEPLOY.md` — the image, the Docker workflow and `.github/deploy/deploy.sh`, their secrets,
   and the homelab compose entry. The image carries `scripts/backup-database.ts` and the
   `lib/db/` files it imports; a new import there needs a `COPY` in the `Dockerfile`.
