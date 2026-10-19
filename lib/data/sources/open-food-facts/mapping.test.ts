@@ -6,6 +6,7 @@ import {
 } from '../../../domain/nutrition/nutrients.ts';
 import {
   declaredFromOff,
+  declaresNutritionFacts,
   ignoredOffNutriments,
   type OffProduct,
   offNutriments,
@@ -245,6 +246,51 @@ describe('declaredFromOff', () => {
         '100g',
       ),
     ).toEqual({});
+  });
+});
+
+describe('declaresNutritionFacts', () => {
+  it('holds for energy and at least one macro per 100 g', () => {
+    expect(
+      declaresNutritionFacts({ 'energy-kcal_100g': 102, proteins_100g: 19 }),
+    ).toBe(true);
+    expect(declaresNutritionFacts({ energy_100g: '427', fat_100g: '0' })).toBe(
+      true,
+    );
+    expect(
+      declaresNutritionFacts({
+        'energy-kj_100g': 1463,
+        carbohydrates_100g: 77,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not hold without declared energy, even when the macros would give it', () => {
+    expect(declaresNutritionFacts({ proteins_100g: 19, fat_100g: 2.5 })).toBe(
+      false,
+    );
+  });
+
+  it('does not hold for energy alone, or a nutrient that is not a macro', () => {
+    expect(declaresNutritionFacts({ 'energy-kcal_100g': 102 })).toBe(false);
+    expect(
+      declaresNutritionFacts({ 'energy-kcal_100g': 102, salt_100g: 1.9 }),
+    ).toBe(false);
+  });
+
+  it('does not hold for values declared only per serving', () => {
+    expect(
+      declaresNutritionFacts({
+        'energy-kcal_serving': 81,
+        proteins_serving: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not hold for empty values', () => {
+    expect(
+      declaresNutritionFacts({ 'energy-kcal_100g': '', proteins_100g: '' }),
+    ).toBe(false);
   });
 });
 

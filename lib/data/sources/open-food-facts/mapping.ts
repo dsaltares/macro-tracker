@@ -151,6 +151,8 @@ export const ignoredOffNutriments: readonly string[] = [
   'nucleotides',
   'added-salt',
   'beta-carotene',
+  'vitamin-d2',
+  'vitamin-d3',
   'silica',
   'bicarbonate',
   'taurine',
@@ -175,6 +177,7 @@ export const ignoredOffNutriments: readonly string[] = [
   'nitrate',
   'acidity',
   'carbohydrates-total',
+  'dry-residue',
   'nova-group',
 ];
 
@@ -206,6 +209,19 @@ export const declaredFromOff = (
         : parsed.amount * factor;
   }
   return declared;
+};
+
+const declaredEnergy: readonly DeclaredKey[] = ['energy_kcal', 'energy_kj'];
+const declaredMacros: readonly DeclaredKey[] = [
+  'protein',
+  'fat',
+  'carbohydrate',
+];
+
+export const declaresNutritionFacts = (nutriments: Record<string, unknown>) => {
+  const declared = declaredFromOff(nutriments, '100g');
+  const declares = (key: DeclaredKey) => declared[key] !== undefined;
+  return declaredEnergy.some(declares) && declaredMacros.some(declares);
 };
 
 const offNumber = z.union([z.number(), z.string()]).nullish();

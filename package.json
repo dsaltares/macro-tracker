@@ -21,6 +21,8 @@
     "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/backup-database.ts",
     "db:import-foods": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/import-foods.ts",
     "db:copy-down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/copy-down.ts",
+    "data:sample": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/data-sample.ts",
+    "data:off": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/read-off-export.ts",
     "prepare": "husky",
     "test:e2e": "playwright test",
     "test:e2e:dev": "E2E_SERVER=dev playwright test"

@@ -20,6 +20,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   named, or the fixture alone. Refused while another import is running
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
   (`BACKUP_DIR` overrides), keeping the last ten
+- `yarn data:sample` — rebuild `test/fixtures/off/sample.csv`, the trimmed Open Food Facts export
+  the adapter's test reads, from `test/fixtures/foods/sample.jsonl`. Run it after changing either
+  that fixture or `test/fixtures/off/export-header.tsv`; a test fails until you do
+- `yarn data:off` — stream the real Open Food Facts export through the adapter without writing
+  anything, and print what it kept, the bytes, wall time and peak memory. An optional URL argument
+  reads another export
 - `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
   SSH: an online backup taken in the running container and the environment the service runs with,
   over `ssh homelab` in the compose project named by `DEPLOY_COMPOSE_DIR` and `DEPLOY_SERVICE`.
@@ -50,6 +56,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`test/fixtures/off/`) that is neither mapped nor ignored. `fixture.ts` reads
   `test/fixtures/foods/sample.jsonl` (Open Food Facts–shaped products, mapped through that table,
   and generic foods as `SourceFood`s) for tests, e2e and local development.
+  `open-food-facts/export.ts` streams the gzipped CSV export (`fetch` → gunzip → lines, flat
+  memory, nothing on disk) and keeps a product only if it is sold in a country of
+  `lib/domain/foods/countries.ts`, has a valid barcode and declares energy and a macro per 100 g.
+  An interrupted download resumes with a `Range` request pinned to the first response's ETag.
+  `test/fixtures/off/export-header.tsv` is the real export's header; refresh it from upstream
+  when the export changes shape.
 - `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
   workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
   per batch and a yield to the event loop between them, then archives the foods of the sources

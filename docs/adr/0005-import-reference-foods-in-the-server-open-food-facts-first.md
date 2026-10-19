@@ -30,8 +30,9 @@ The app runs as one process with SQLite on a volume (ADR 0001), and there is no 
 - **Open Food Facts is the primary source** for barcoded products. The bulk import keeps a product
   only if its code is a valid EAN-8 or EAN-13 (UPC-A normalised), it declares energy and at least
   one macro, and its `countries_tags` include a European country (the list is
-  `lib/domain/foods/countries.ts`, #12). A barcode missed locally falls back to the live API
-  (#19). CIQUAL, CoFID and USDA supply generic foods, and a user chooses which of them appear in
+  `lib/domain/foods/countries.ts`, #12): the UN geoscheme's Europe, Cyprus, and the
+  `en:european-union` tag. `en:world` alone does not count; it names no country. A barcode missed
+  locally falls back to the live API (#19). CIQUAL, CoFID and USDA supply generic foods, and a user chooses which of them appear in
   their search.
 - **One adapter contract.** A source adapter is a `FoodSource` (`lib/data/sources/types.ts`):
   `{ id, fetch(context) }`, where `fetch` returns an `AsyncIterable<SourceFood>` and the context
@@ -42,6 +43,11 @@ The app runs as one process with SQLite on a volume (ADR 0001), and there is no 
   the nutrients the source declared as a **trace**. The normalisation every adapter needs (kJ to
   kcal, salt to sodium, `<` and "traces" to a flagged zero, per-serving values to 100 g, energy from
   the macros when none is declared) lives there once, at 100% coverage.
+- **The bulk import streams the daily CSV export** (#12): `fetch` → gunzip → lines, mapped row by
+  row through the same nutriment table as the live API, so memory stays flat and nothing is saved
+  to disk. A dropped connection resumes with a `Range` request and `If-Range` on the first
+  response's ETag, so a resumed download is the same file or fails. A line that is not a whole row
+  (the export breaks some rows on newlines inside a field) is skipped and logged.
 - **Ingestion runs inside the server process** (#13), streaming each adapter into SQLite in short
   batched transactions with a yield between batches, triggered by a token-protected endpoint and a
   monthly in-process cron (#14). No GitHub Actions and no second process in the data path.
@@ -82,6 +88,20 @@ The app runs as one process with SQLite on a volume (ADR 0001), and there is no 
 - Open Food Facts data is under the ODbL, so attribution ships with the app (`docs/DATA-SOURCES.md`,
   #15) and a derived database stays under it.
 - Tests, e2e and local development never download anything; they import the fixture.
+
+## Measurements
+
+The Open Food Facts adapter reading the whole export without writing anything (`yarn data:off`),
+on 2026-10-19:
+
+| Where | Download | Rows | Kept | Wall time | Peak RSS |
+|---|---|---|---|---|---|
+| Developer laptop (macOS) | 1,222,490,031 B gzipped | 4,866,695 | 1,995,423 | 76 s | 253 MiB |
+| Homelab | _pending: `yarn db:import-foods --source off` (#13), which also writes to SQLite_ | | | | |
+
+Of the rows skipped, 1,644,384 are sold only outside Europe, 1,054,902 declare no energy or no
+macro, 117,104 have no valid barcode, 36,386 fail the schema (mostly no name), and 18,496 are lines
+broken by a newline inside a field. The import (#13) adds SQLite writes on top of these numbers.
 
 ## Revisit trigger
 
