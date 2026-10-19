@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
+import type { Auth } from '../auth/auth.ts';
+import { resolveCaller } from '../auth/caller.ts';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
 
@@ -13,14 +15,18 @@ export type Context = {
 };
 
 export type ContextOptions = {
+  headers: Headers;
   db?: Kysely<Database>;
+  auth?: Auth;
 };
 
-export const createContext = ({
+export const createContext = async ({
+  headers,
   db = getDatabase(),
-}: ContextOptions = {}): Context => ({
+  auth,
+}: ContextOptions): Promise<Context> => ({
   db,
-  caller: null,
+  caller: await resolveCaller(headers, auth),
   now: () => new Date().toISOString(),
   nextId: () => randomUUID(),
 });

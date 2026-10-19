@@ -11,7 +11,7 @@ const handler = (request: Request) =>
     endpoint: trpcEndpoint,
     req: request,
     router: appRouter,
-    createContext: () => createContext(),
+    createContext: () => createContext({ headers: request.headers }),
     onError: ({ error, path }) => {
       log.error({ err: error, path, code: error.code }, 'tRPC call failed');
     },

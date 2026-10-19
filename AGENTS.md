@@ -102,7 +102,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/data/background-import.ts` — `serverFoodImport(db)` starts a run that outlives the request
   with the server's clock, logger and work directory: the one code path behind the endpoint and the
   schedule. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
-  for `yarn db:seed:foods` and `e2e/global-setup.ts`.
+  for `yarn db:seed:foods` and `e2e/prepare-database.ts`.
 - `lib/data/food-import-schedule.ts` — the in-process schedule (`croner`). `FOOD_IMPORT_CRON` is
   the pattern; unset means the first Sunday of the month at 03:00 server time, empty means off,
   and it is always off under Vitest. The e2e server and the `.env` `yarn db:copy-down` writes set
@@ -137,12 +137,32 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
   here too.
-- `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext` hands
-  every procedure its database, `now()`, `nextId()` and `caller` (always `null` until accounts
-  land), so tests swap any of them. Procedures live in `routers/`, mounted in `root.ts`. Components
-  call them through `useTRPC()` and TanStack Query; `TRPCReactProvider` sits in the root layout.
-  `signedInProcedure` answers `UNAUTHORIZED` without a caller and hands the procedure a non-null
-  one.
+- `lib/auth/` — Better Auth (ADR [0006](docs/adr/0006-sessions-only-for-a-confirmed-address.md)).
+  `createAuth({ db, secret, baseUrl, sendEmail, limitRequests })` over the Kysely instance, served
+  at `app/api/auth/[...all]`; `getAuth()` is the server's. Its tables are `users`, `sessions`,
+  `accounts` and `verifications`, snake_case, mapped field by field in `auth.ts`: a new Better Auth
+  field needs its column there too. Email and password with a confirmed address required: sign-up
+  mails a link and opens no session, the link confirms and signs in, a reset signs out every
+  session. `BETTER_AUTH_URL` is mandatory in production (`base-url.ts`); Better Auth's per-IP rate
+  limit is on in production unless `DISABLE_AUTH_RATE_LIMIT=1`. Password rules and every form
+  schema are in `credentials.ts`, shared by the forms and the server's limits. `resolveCaller`
+  turns a confirmed session into the tRPC caller; `session.ts` reads it in a server component and
+  `requireSession(here)` sends someone signed out to sign in and back. `redirect.ts` keeps `next`
+  inside the app and off the auth pages. `client.ts` is the browser client; component tests mock it
+  with `test/auth-client.ts` and `next/navigation` with `test/next-navigation.ts`. The pages are in
+  `app/(auth)/`, the forms in `components/auth/`.
+- `lib/email/` — `sendEmail` (ADR [0007](docs/adr/0007-mail-through-resend-behind-a-send-email-seam.md))
+  takes a rendered `EmailMessage` and never throws: Resend with `RESEND_API_KEY` and `EMAIL_FROM`,
+  otherwise a pino log of the message, link included. A reserved test address is never handed to
+  Resend. With `EMAIL_OUTBOX_DIR` set, every message is also written there as JSON, which is how e2e
+  follows mailed links (`e2e/auth.ts`). Templates are React Email in `templates/`, one
+  `ActionEmail` layout for every message that is a link to follow.
+- `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
+  hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
+  (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,
+  mounted in `root.ts`. Components call them through `useTRPC()` and TanStack Query;
+  `TRPCReactProvider` sits in the root layout. `accountProcedure` answers `UNAUTHORIZED` without a
+  caller and hands the procedure a non-null one.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client
@@ -194,7 +214,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and
     `mobile-chrome` (Pixel 7) projects. E2e has its own database, `.data/e2e.sqlite`, named once
-    in `playwright.config.ts`; `e2e/global-setup.ts` recreates and migrates it before each run.
+    in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
+    the mail outbox, in the web server command before the server starts — not in `globalSetup`,
+    which Playwright runs after the server has the old file open.
 - Mobile-first: the app is used one-handed, standing in a kitchen or at a supermarket shelf.
   Metric units and kcal, English only.
 - Biome formats and lints; single quotes, 2-space indent. A husky pre-commit hook fixes

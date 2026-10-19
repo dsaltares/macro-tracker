@@ -86,11 +86,21 @@ networks:
 ```sh
 DATA_PATH=
 INTERNAL_API_TOKEN=
+BETTER_AUTH_URL=https://macros.saltares.dev
+BETTER_AUTH_SECRET=
+RESEND_API_KEY=
+EMAIL_FROM=Macro Tracker <noreply@macros.saltares.dev>
 ```
 
 `DATA_PATH` is a host directory such as `/mnt/store/homelab/macro-tracker`, so borgmatic backs it
 up with the rest; it must be owned by uid 1001 (`sudo chown -R 1001:65533 <dir>`). Left empty,
 the data lives in a named volume instead.
+
+`BETTER_AUTH_URL` is the public origin; the server refuses to start auth without it, because every
+link it mails is built from it. `BETTER_AUTH_SECRET` (`openssl rand -base64 32`) signs sessions and
+confirmation links; changing it signs everyone out. `RESEND_API_KEY` and `EMAIL_FROM` send the
+confirmation and reset mail through Resend, from a domain verified there; with either empty, the
+mail is only logged and nobody can confirm an address.
 
 `INTERNAL_API_TOKEN` (`openssl rand -hex 32`) unlocks the internal import endpoint; left empty,
 the endpoint answers `404` to everyone. The server imports reference foods on its own on the first
