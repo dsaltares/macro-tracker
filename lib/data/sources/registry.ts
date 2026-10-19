@@ -1,5 +1,6 @@
 import type { ReferenceSource } from '../../domain/foods/sources.ts';
 import { createCiqualSource } from './ciqual/table.ts';
+import { createCofidSource } from './cofid/workbook.ts';
 import { createOpenFoodFactsSource } from './open-food-facts/export.ts';
 import type { FoodSource } from './types.ts';
 import { createUsdaSource } from './usda/fooddata-central.ts';
@@ -9,6 +10,7 @@ export type SourceAdapters = Partial<Record<ReferenceSource, () => FoodSource>>;
 export const sourceAdapters: SourceAdapters = {
   off: () => createOpenFoodFactsSource(),
   ciqual: () => createCiqualSource(),
+  cofid: () => createCofidSource(),
   usda: () => createUsdaSource(),
 };
 

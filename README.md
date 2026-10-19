@@ -36,6 +36,7 @@ publishes `ghcr.io/dsaltares/macro-tracker` and deploys it to the homelab;
 - [`docs/DOMAIN.md`](docs/DOMAIN.md): the domain vocabulary, and
   [`docs/GLOSSARY.md`](docs/GLOSSARY.md): its terms in one table
 - [`docs/adr/`](docs/adr/README.md): architecture decision records
+- [`docs/DATA-SOURCES.md`](docs/DATA-SOURCES.md): the food datasets, their licences and attribution
 - [`docs/DEPLOY.md`](docs/DEPLOY.md): the image, the deploy pipeline and the homelab entry
 - The roadmap is the pinned issue [#67](https://github.com/dsaltares/macro-tracker/issues/67)
 - Scope and acceptance criteria for a piece of work live on its GitHub issue
