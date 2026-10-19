@@ -196,6 +196,7 @@ describe('sourceFoodFromCofid', () => {
         sourceId: '18-323',
         barcode: null,
         name: 'Chicken, breast, grilled without skin, meat only',
+        originalName: null,
         brand: null,
         quantityLabel: null,
         nutrients: { energy_kcal: 148, protein: 32, sodium: 55, niacin: 15.8 },

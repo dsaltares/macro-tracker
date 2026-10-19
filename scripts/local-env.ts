@@ -6,6 +6,8 @@ const containerOnly = [
   'DATA_PATH',
 ];
 
+const scheduledImportsOff = { FOOD_IMPORT_CRON: '' };
+
 type Environment = Record<string, string | null | undefined>;
 
 export const localEnvironment = (
@@ -19,8 +21,7 @@ export const localEnvironment = (
       merged[name] = value;
     }
   }
-  merged.DATABASE_URL = databaseFile;
-  return merged;
+  return { ...merged, ...scheduledImportsOff, DATABASE_URL: databaseFile };
 };
 
 const bare = /^[\w./:@,+-]*$/;

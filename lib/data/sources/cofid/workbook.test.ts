@@ -104,6 +104,7 @@ describe('createCofidSource', () => {
       sourceId: '18-323',
       barcode: null,
       name: 'Chicken, breast, grilled without skin, meat only',
+      originalName: null,
       brand: null,
       quantityLabel: null,
       nutrients: {

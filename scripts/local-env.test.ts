@@ -12,8 +12,19 @@ describe('localEnvironment', () => {
       ),
     ).toEqual({
       DATABASE_URL: '.data/db.sqlite',
+      FOOD_IMPORT_CRON: '',
       NEXT_TELEMETRY_DISABLED: '1',
     });
+  });
+
+  it('turns scheduled food imports off', () => {
+    expect(
+      localEnvironment(
+        { FOOD_IMPORT_CRON: '0 3 * * SUN#1' },
+        { FOOD_IMPORT_CRON: '0 4 * * *' },
+        '.data/db.sqlite',
+      ),
+    ).toMatchObject({ FOOD_IMPORT_CRON: '' });
   });
 
   it('drops what only means something in the container', () => {
@@ -33,6 +44,7 @@ describe('localEnvironment', () => {
     ).toEqual({
       SOME_API_KEY: 'key_123',
       DATABASE_URL: '.data/db.sqlite',
+      FOOD_IMPORT_CRON: '',
     });
   });
 
@@ -47,6 +59,7 @@ describe('localEnvironment', () => {
       SHARED: 'production',
       LOCAL_ONLY: 'local',
       DATABASE_URL: '.data/db.sqlite',
+      FOOD_IMPORT_CRON: '',
     });
   });
 });

@@ -162,6 +162,7 @@ export const sourceFoodFromCofid = (food: CofidFood): CofidMapping => {
     sourceId: food.code,
     barcode: null,
     name: food.name,
+    originalName: null,
     brand: null,
     quantityLabel: null,
     ...nutritionOf(food.values),

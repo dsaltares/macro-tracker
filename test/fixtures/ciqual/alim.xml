@@ -1,0 +1,73 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<TABLE>
+   <ALIM>
+      <alim_code> 1000 </alim_code>
+      <alim_nom_fr> Pastis </alim_nom_fr>
+      <alim_nom_eng> Pastis (anise-flavoured spirit) </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 06 </alim_grp_code>
+      <alim_ssgrp_code> 0603 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 060303 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 1031 </alim_code>
+      <alim_nom_fr> Spécialité végétale type pâté, préemballée </alim_nom_fr>
+      <alim_nom_eng> Plant-based pâté, prepacked </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0403 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040309 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 6150 </alim_code>
+      <alim_nom_fr> Boeuf, jarret cru </alim_nom_fr>
+      <alim_nom_eng> Beef, knuckle, raw </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 04 </alim_grp_code>
+      <alim_ssgrp_code> 0402 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 040201 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 11057 </alim_code>
+      <alim_nom_fr> Vanille, gousse </alim_nom_fr>
+      <alim_nom_eng> Vanilla, pod </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 10 </alim_grp_code>
+      <alim_ssgrp_code> 1005 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 000000 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 12061 </alim_code>
+      <alim_nom_fr> Fromage type feta, au lait de brebis 100% </alim_nom_fr>
+      <alim_nom_eng> Feta or Feta-type cheese, 100% from ewe&apos;s milk </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 05 </alim_grp_code>
+      <alim_ssgrp_code> 0503 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 050305 </alim_ssssgrp_code>
+      <facteur_Jones> 6.38 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 13039 </alim_code>
+      <alim_nom_fr> Pomme, chair et peau, crue </alim_nom_fr>
+      <alim_nom_eng> Apple, flesh and skin, raw </alim_nom_eng>
+      <alim_nom_sci> Malus domestica Borkhausen </alim_nom_sci>
+      <alim_grp_code> 02 </alim_grp_code>
+      <alim_ssgrp_code> 0204 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 020401 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+   <ALIM>
+      <alim_code> 20503 </alim_code>
+      <alim_nom_fr> Haricot rouge, bouilli/cuit à l&apos;eau </alim_nom_fr>
+      <alim_nom_eng> Red kidney bean, boiled/cooked in water </alim_nom_eng>
+      <alim_nom_sci missing=" " />
+      <alim_grp_code> 02 </alim_grp_code>
+      <alim_ssgrp_code> 0203 </alim_ssgrp_code>
+      <alim_ssssgrp_code> 020301 </alim_ssssgrp_code>
+      <facteur_Jones> 6.25 </facteur_Jones>
+   </ALIM>
+</TABLE>

@@ -293,6 +293,7 @@ export const sourceFoodFromOff = (product: OffProduct): OffMapping => {
     sourceId: code,
     barcode,
     name: textOrNull(product.product_name),
+    originalName: null,
     brand: firstBrand(product.brands),
     quantityLabel: textOrNull(product.quantity),
     ...nutritionOf(product.nutriments ?? {}, servingGrams),

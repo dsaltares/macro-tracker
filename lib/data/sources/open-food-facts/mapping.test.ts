@@ -320,6 +320,7 @@ describe('sourceFoodFromOff', () => {
         sourceId: '8410076472960',
         barcode: '8410076472960',
         name: 'Fajitas',
+        originalName: null,
         brand: 'Old El Paso',
         quantityLabel: '500 g',
         nutrients: { energy_kcal: 300, protein: 8, sodium: 600, sugars: 0 },
@@ -338,6 +339,7 @@ describe('sourceFoodFromOff', () => {
         sourceId: '8480000592569',
         barcode: '8480000592569',
         name: 'Jamón cocido lonchas',
+        originalName: null,
         brand: 'MERCADONA',
         quantityLabel: '200 g',
         nutrients: {
@@ -476,6 +478,7 @@ describe('sourceFoodFromOff', () => {
         sourceId: '8410076472960',
         barcode: '8410076472960',
         name: 'Fajitas',
+        originalName: null,
         brand: null,
         quantityLabel: null,
         nutrients: {},

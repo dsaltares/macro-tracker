@@ -406,6 +406,54 @@ describe('foods_fts', () => {
     expect(await search('creme fraiche')).toEqual([creme]);
   });
 
+  it('finds a generic food by its original name', async () => {
+    const lentils = await insertFood(
+      database(),
+      nutella({
+        source: 'ciqual',
+        source_id: '20503',
+        barcode: null,
+        name: 'Red kidney bean, boiled/cooked in water',
+        original_name: "Haricot rouge, bouilli/cuit à l'eau",
+        brand: null,
+      }),
+      context,
+    );
+
+    expect(await search('haricot')).toEqual([lentils]);
+    expect(await search('bean')).toEqual([lentils]);
+  });
+
+  it('follows an original name an import changes', async () => {
+    const generic = nutella({
+      source: 'ciqual',
+      source_id: '13039',
+      barcode: null,
+      name: 'Apple, flesh and skin, raw',
+      original_name: 'Pomme crue',
+      brand: null,
+    });
+    await upsertFoods(database(), [generic], context);
+
+    await upsertFoods(
+      database(),
+      [{ ...generic, original_name: 'Pomme, chair et peau, crue' }],
+      context,
+    );
+
+    expect(await search('crue')).toHaveLength(1);
+    expect(await search('chair')).toHaveLength(1);
+    expect(
+      (
+        await database()
+          .selectFrom('foods')
+          .select('original_name')
+          .where('source_id', '=', '13039')
+          .executeTakeFirstOrThrow()
+      ).original_name,
+    ).toBe('Pomme, chair et peau, crue');
+  });
+
   it('finds a food from the prefix of a word', async () => {
     expect(await search('presi*')).toEqual([creme]);
   });
