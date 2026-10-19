@@ -40,7 +40,10 @@ a user's own. One table; `source` says where a row came from:
 - `off` — Open Food Facts. Barcoded products: brand, quantity, usually a serving size. Few micros.
 - `ciqual` — ANSES CIQUAL (France). Generic foods ("Chicken breast, grilled"), 74 constituents.
 - `cofid` — McCance and Widdowson's CoFID (UK). Generic foods, full nutrient profile.
-- `usda` — USDA FoodData Central Foundation and SR Legacy, plus FNDDS household portions.
+- `usda` — USDA FoodData Central: Foundation and SR Legacy for depth, FNDDS for household portions
+  ("1 cup", "1 medium"). A food in both Foundation and SR Legacy is one food, Foundation's values
+  first and SR Legacy's for any nutrient Foundation lacks. An FNDDS food that is just one of those
+  lends it its portions; any other FNDDS food is a food of its own.
 - `user` — created by a user, by hand, from quick add, or from a label scan. Has an owner and is
   visible only to them. May carry a barcode.
 

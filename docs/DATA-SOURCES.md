@@ -28,3 +28,16 @@ to this page.
   normalised as described in [ADR 0005](adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   Energy for a food that declares only its macros is computed from them.
 - **Adapter:** `lib/data/sources/ciqual/`
+
+## USDA FoodData Central
+
+- **What:** generic foods from three datasets: Foundation Foods (2026-04-30 release) and SR Legacy
+  (April 2018, final) for nutrient depth, and the Food and Nutrient Database for Dietary Studies
+  (FNDDS 2021–2023, released 2024-10-31) for household portions. A food in both Foundation and SR
+  Legacy is one food, Foundation's values first. Branded Foods is not imported.
+- **Where:** <https://fdc.nal.usda.gov/download-datasets/>
+- **Licence:** public domain, published under
+  [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). USDA asks to be cited.
+- **Attribution:** U.S. Department of Agriculture, Agricultural Research Service. FoodData Central.
+  <https://fdc.nal.usda.gov>.
+- **Adapter:** `lib/data/sources/usda/`

@@ -24,6 +24,7 @@
     "db:copy-down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/copy-down.ts",
     "data:sample": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/data-sample.ts",
     "data:off": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/read-off-export.ts",
+    "data:usda": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/read-usda.ts",
     "prepare": "husky",
     "test:e2e": "playwright test",
     "test:e2e:dev": "E2E_SERVER=dev playwright test"
