@@ -54,6 +54,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `output: 'standalone'` traces modules, not directories. Add a migration, never edit one that has
   shipped. An index needs a plan, not a hunch: `query-plans.test.ts` runs `EXPLAIN QUERY PLAN`
   over the real statements and asserts no `SCAN` on the tables each names.
+- `lib/db/foods.ts` — writes foods, their nutrients and portions in one transaction:
+  `insertFood` for one, `upsertFoods` for an importer batch on `(source, source_id)`, keeping
+  upstream portions by label and never touching user portions. `food_nutrients` has one column
+  per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
+  is one. `foods_fts` is external-content FTS5 over `name` and `brand`, kept in step by triggers.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it. Anything else that must start with the server goes
   here too.

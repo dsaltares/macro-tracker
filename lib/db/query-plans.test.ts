@@ -31,6 +31,11 @@ const scansOf = (plan: string[], tables: (keyof Database)[]) =>
 const expectNoScan = (query: CompiledQuery, tables: (keyof Database)[]) =>
   expect(scansOf(planOf(query), tables)).toEqual([]);
 
+const expectSearch = (query: CompiledQuery, table: keyof Database) =>
+  expect(planOf(query)).toEqual([
+    expect.stringMatching(new RegExp(`^SEARCH ${table} USING`)),
+  ]);
+
 describe('query plans', () => {
   it('flags a scan on a table it names', () => {
     const query = db.selectFrom('meta').selectAll().compile();
@@ -42,6 +47,88 @@ describe('query plans', () => {
     expectNoScan(
       db.selectFrom('meta').select('value').where('key', '=', 'k').compile(),
       ['meta'],
+    );
+  });
+
+  it('flags a step that is not a search on the table it names', () => {
+    const query = db.selectFrom('foods').selectAll().compile();
+
+    expect(() => expectSearch(query, 'foods')).toThrow();
+  });
+
+  it('finds a food by id with a search', () => {
+    expectSearch(
+      db.selectFrom('foods').selectAll().where('id', '=', 'f').compile(),
+      'foods',
+    );
+  });
+
+  it('finds foods by barcode with a search', () => {
+    expectSearch(
+      db
+        .selectFrom('foods')
+        .selectAll()
+        .where('barcode', '=', '3017620422003')
+        .compile(),
+      'foods',
+    );
+  });
+
+  it('finds a reference food by source and source id with a search', () => {
+    expectSearch(
+      db
+        .selectFrom('foods')
+        .selectAll()
+        .where('source', '=', 'off')
+        .where('source_id', '=', '3017620422003')
+        .compile(),
+      'foods',
+    );
+  });
+
+  it("finds a user's own foods with a search", () => {
+    expectSearch(
+      db
+        .selectFrom('foods')
+        .selectAll()
+        .where('owner_user_id', '=', 'u')
+        .compile(),
+      'foods',
+    );
+  });
+
+  it("reads a food's nutrients with a search", () => {
+    expectSearch(
+      db
+        .selectFrom('food_nutrients')
+        .selectAll()
+        .where('food_id', '=', 'f')
+        .compile(),
+      'food_nutrients',
+    );
+  });
+
+  it("reads a food's portions in order with a search", () => {
+    expectSearch(
+      db
+        .selectFrom('food_portions')
+        .selectAll()
+        .where('food_id', '=', 'f')
+        .orderBy('position')
+        .compile(),
+      'food_portions',
+    );
+  });
+
+  it("clears a food's stale upstream portions with a search", () => {
+    expectSearch(
+      db
+        .deleteFrom('food_portions')
+        .where('food_id', '=', 'f')
+        .where('source', '=', 'upstream')
+        .where('label', 'not in', ['1 serving'])
+        .compile(),
+      'food_portions',
     );
   });
 });

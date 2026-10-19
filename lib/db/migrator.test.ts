@@ -25,6 +25,20 @@ const tableNames = async (db: ReturnType<typeof createDatabase>) =>
     .filter(isOurs)
     .sort();
 
+const everyMigration = ['0001-meta', '0002-foods'];
+
+const everyTable = [
+  'food_nutrients',
+  'food_portions',
+  'foods',
+  'foods_fts',
+  'foods_fts_config',
+  'foods_fts_data',
+  'foods_fts_docsize',
+  'foods_fts_idx',
+  'meta',
+];
+
 const targets = [
   ['in memory', () => inMemory],
   ['in a file', () => join(directory, 'db.sqlite')],
@@ -42,8 +56,8 @@ describe.each(targets)('migrations %s', (_, url) => {
   });
 
   it('applies every migration on the way up', async () => {
-    expect(await migrateToLatest(db)).toEqual(['0001-meta']);
-    expect(await tableNames(db)).toEqual(['meta']);
+    expect(await migrateToLatest(db)).toEqual(everyMigration);
+    expect(await tableNames(db)).toEqual(everyTable);
   });
 
   it('applies nothing when already at the latest', async () => {
@@ -55,15 +69,15 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
-    expect(await migrateDown(db)).toEqual(['0001-meta']);
-    expect(await tableNames(db)).toEqual([]);
+    expect(await migrateDown(db)).toEqual(['0002-foods']);
+    expect(await tableNames(db)).toEqual(['meta']);
   });
 
   it('can go up again after coming down', async () => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0001-meta']);
+    expect(await migrateToLatest(db)).toEqual(['0002-foods']);
   });
 
   it('reads back what is written to meta', async () => {
@@ -116,7 +130,7 @@ describe('a database in a file', () => {
     await db.destroy();
 
     const reopened = createDatabase(join(directory, 'nested', 'db.sqlite'));
-    expect(await tableNames(reopened)).toEqual(['meta']);
+    expect(await tableNames(reopened)).toEqual(everyTable);
     await reopened.destroy();
   });
 });
