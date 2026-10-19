@@ -1,4 +1,8 @@
-export const referenceSources = ['off', 'ciqual', 'cofid', 'usda'] as const;
+export const genericSources = ['ciqual', 'cofid', 'usda'] as const;
+
+export type GenericSource = (typeof genericSources)[number];
+
+export const referenceSources = ['off', ...genericSources] as const;
 
 export type ReferenceSource = (typeof referenceSources)[number];
 

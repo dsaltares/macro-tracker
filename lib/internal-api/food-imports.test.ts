@@ -45,6 +45,7 @@ const banana: SourceFood = {
   sourceId: '173944',
   barcode: null,
   name: 'Bananas, raw',
+  originalName: null,
   brand: null,
   quantityLabel: null,
   nutrients: { energy_kcal: 89, protein: 1.09 },

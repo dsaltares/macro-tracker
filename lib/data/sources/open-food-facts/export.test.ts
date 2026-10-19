@@ -233,8 +233,8 @@ describe('createOpenFoodFactsSource', () => {
         .filter(({ msg }) => msg.startsWith('skipped a malformed line'))
         .map(({ line, fields }) => [line, fields]),
     ).toEqual([
-      [194, 11],
-      [195, 191],
+      [197, 11],
+      [198, 191],
     ]);
   });
 
@@ -250,7 +250,7 @@ describe('createOpenFoodFactsSource', () => {
     expect(summary).toMatchObject({
       bytes: sampleExport.byteLength,
       resumes: 0,
-      lines: 194,
+      lines: 197,
       malformed: 2,
       foods: foods.length,
     });

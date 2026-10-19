@@ -30,12 +30,14 @@ const everyMigration = [
   '0002-foods',
   '0003-food-imports',
   '0004-food-original-names',
+  '0005-food-source-preferences',
 ];
 
 const everyTable = [
   'food_imports',
   'food_nutrients',
   'food_portions',
+  'food_source_preferences',
   'foods',
   'foods_fts',
   'foods_fts_config',
@@ -96,15 +98,17 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
-    expect(await migrateDown(db)).toEqual(['0004-food-original-names']);
-    expect(await tableNames(db)).toEqual(everyTable);
+    expect(await migrateDown(db)).toEqual(['0005-food-source-preferences']);
+    expect(await tableNames(db)).toEqual(
+      everyTable.filter((table) => table !== 'food_source_preferences'),
+    );
   });
 
   it('can go up again after coming down', async () => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0004-food-original-names']);
+    expect(await migrateToLatest(db)).toEqual(['0005-food-source-preferences']);
   });
 
   it('reads back what is written to meta', async () => {
