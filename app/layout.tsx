@@ -3,7 +3,13 @@ import { Geist } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
-import { appBackground, siteDescription, siteName } from '@/lib/brand';
+import {
+  appBackground,
+  siteDescription,
+  siteName,
+  siteShortName,
+} from '@/lib/brand';
+import { TRPCReactProvider } from '@/lib/trpc/client';
 import '@/app/globals.css';
 
 const sans = Geist({
@@ -18,6 +24,16 @@ export const metadata: Metadata = {
     template: `%s · ${siteName}`,
   },
   description: siteDescription,
+  applicationName: siteName,
+  appleWebApp: {
+    capable: true,
+    title: siteShortName,
+    statusBarStyle: 'black-translucent',
+  },
+  icons: {
+    icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180' }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -34,15 +50,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={sans.variable} suppressHydrationWarning>
       <body className="min-h-dvh font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
+        <TRPCReactProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </TRPCReactProvider>
       </body>
     </html>
   );
