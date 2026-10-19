@@ -54,6 +54,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/domain/` is pure TypeScript: no React, no I/O, no framework imports. It is where
   correctness lives, and the only thing coverage is measured on.
 - `lib/db/` is the only module that talks to SQLite.
+- **One vocabulary.** A name in code, an issue or UI copy is the word `docs/DOMAIN.md` uses for it,
+  checked against `docs/GLOSSARY.md`. A new concept is named in DOMAIN first.
+- **Ownership is on the statement.** Every read and write of a user's data carries
+  `where user_id = ?` for the caller from the context, never a read followed by a check, and the
+  user id never comes from input.
+- **Behaviour lives in services, not transports** (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
+  tRPC procedures and `/api/v1` route handlers authenticate, validate with Zod and call the same
+  function over the context; a user-facing behaviour exists on both or neither.
+- **History is snapshots** (ADR [0003](docs/adr/0003-diary-entries-snapshot-their-nutrients.md)).
+  A diary entry keeps the nutrient vector it resolved to; totals are sums over snapshots, never a
+  join to `foods`, and never stored.
+- A **date** is the user's local day as a `YYYY-MM-DD` string, never a `Date` or a timestamp.
 - **No `console`.** Log through pino: `getLogger('<module>')` from `lib/logger.ts`. Biome enforces
   this everywhere except `scripts/`, which are CLIs and print.
 - **Three kinds of test, and the extension picks the kind.** All three live next to what they
@@ -91,5 +103,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   configure and deploy it, and where the other docs are. A change touches it only when one of
   those changes. A feature, a fix or a new screen does not.
 - `docs/DOMAIN.md` — the domain vocabulary. Read before touching `lib/domain/`.
+- `docs/GLOSSARY.md` — every DOMAIN term in one table. DOMAIN changes first, then the glossary.
+- `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
+  Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
+  deployment, and add a record in the same change when you take a decision of that kind.
 - The roadmap, its decisions and its milestones are the pinned GitHub issue #67.
 - Per-item scope and *done when* live on the GitHub issue, not in the repo: `gh issue view <n>`.

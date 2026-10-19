@@ -23,6 +23,8 @@ The scripts are in `package.json`, and `AGENTS.md` says what each one is for.
 ## Docs
 
 - [`AGENTS.md`](AGENTS.md): commands, conventions and where things live
-- [`docs/DOMAIN.md`](docs/DOMAIN.md): the domain vocabulary
+- [`docs/DOMAIN.md`](docs/DOMAIN.md): the domain vocabulary, and
+  [`docs/GLOSSARY.md`](docs/GLOSSARY.md): its terms in one table
+- [`docs/adr/`](docs/adr/README.md): architecture decision records
 - The roadmap is the pinned issue [#67](https://github.com/dsaltares/macro-tracker/issues/67)
 - Scope and acceptance criteria for a piece of work live on its GitHub issue
