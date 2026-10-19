@@ -17,6 +17,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   rolls one back
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
   (`BACKUP_DIR` overrides), keeping the last ten
+- `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
+  SSH: an online backup taken in the running container and the environment the service runs with,
+  over `ssh homelab` in the compose project named by `DEPLOY_COMPOSE_DIR` and `DEPLOY_SERVICE`.
+  Each of those three is read from the environment, then `~/.config/macro-tracker/env`; the deploy
+  variables then fall back to `gh variable get`, so it works from any worktree.
+  `scripts/local-env.ts` turns production's environment into the `.env`: production's secrets
+  plus the local settings production lacks, `DATABASE_URL` pointed at this machine, the
+  container's paths and mode dropped. What each replaces is kept as `<file>.before-copy-down`;
+  stop `yarn dev` first. The copy holds real diaries and the reference food tables. It refuses to
+  run under `NODE_ENV=production`
 
 ## Modules
 
