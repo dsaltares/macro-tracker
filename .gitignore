@@ -2,6 +2,11 @@
 
 # dependencies
 /node_modules
+
+# yarn (corepack-managed, node-modules linker)
+/.yarn/*
+!/.yarn/patches
+.yarn/install-state.gz
 /.pnp
 .pnp.js
 
