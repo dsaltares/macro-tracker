@@ -33,6 +33,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | nutrient | One key in the closed canon in `lib/domain/nutrition/nutrients.ts`, with a unit, a group and a display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient group | Energy, macros, fat detail, carbohydrate detail, minerals, vitamins, other — in that display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
+| original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |
 | portion | A named quantity in grams for one food. Every food has `100 g` and `1 g`. | [Foods](DOMAIN.md#foods) |
 | profile | Sex, date of birth, height in cm and activity level. | [Body and goals](DOMAIN.md#body-and-goals) |
 | quick entry | A diary entry with a label and a nutrient vector typed directly, no food. | [Diary](DOMAIN.md#diary) |

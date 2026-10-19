@@ -11,6 +11,7 @@ const food: SourceFood = {
   sourceId: '3017620422003',
   barcode: '3017620422003',
   name: 'Hazelnut spread',
+  originalName: null,
   brand: 'Brand',
   quantityLabel: '400 g',
   nutrients: { energy_kcal: 539, fat: 30.9, sodium: 42.8, sugars: 0 },

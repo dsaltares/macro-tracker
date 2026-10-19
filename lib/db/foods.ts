@@ -27,6 +27,7 @@ export type PortionInput = {
 type FoodFields = {
   barcode: string | null;
   name: string;
+  original_name?: string | null;
   brand: string | null;
   quantity_label: string | null;
   nutrients: NutrientVector;
@@ -161,9 +162,16 @@ const replaceUpstreamPortions = async (
     .execute();
 };
 
-const foodColumns = ({ barcode, name, brand, quantity_label }: FoodFields) => ({
+const foodColumns = ({
   barcode,
   name,
+  original_name = null,
+  brand,
+  quantity_label,
+}: FoodFields) => ({
+  barcode,
+  name,
+  original_name,
   brand,
   quantity_label,
 });
@@ -225,6 +233,7 @@ export const upsertFoods = (
           conflict.columns(['source', 'source_id']).doUpdateSet((eb) => ({
             barcode: eb.ref('excluded.barcode'),
             name: eb.ref('excluded.name'),
+            original_name: eb.ref('excluded.original_name'),
             brand: eb.ref('excluded.brand'),
             quantity_label: eb.ref('excluded.quantity_label'),
             archived_at: null,

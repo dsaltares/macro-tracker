@@ -64,6 +64,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   An interrupted download resumes with a `Range` request pinned to the first response's ETag.
   `test/fixtures/off/export-header.tsv` is the real export's header; refresh it from upstream
   when the export changes shape.
+  `ciqual/table.ts` asks Recherche Data Gouv for the latest version of the CIQUAL 2025 dataset,
+  reads `alim_*.xml` for the English and French names, then streams `compo_*.xml`, which is
+  grouped by food, and emits each food that declares energy or all three energy macros. The
+  English name is the name; the French one is the `originalName`, which `foods_fts` indexes.
+  `ciqual/mapping.ts` is the table from constituent codes to canonical keys. Its test fails on any
+  code in `test/fixtures/ciqual/const.xml` (the real constituent list) that is neither mapped nor
+  ignored, or whose unit is not the canon's. `alim.xml` and `compo.xml` beside it are seven real
+  foods, cut verbatim from the release (CRLF and BOM, so `.gitattributes` exempts them). A new
+  edition is a new dataset DOI in `ciqualDatasetDoi`. Every source's attribution is in
+  `docs/DATA-SOURCES.md`, which the footer links to.
 - `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
   workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
   per batch and a yield to the event loop between them, then archives the foods of the sources
@@ -98,7 +108,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `insertFood` for one, `upsertFoods` for an importer batch on `(source, source_id)`, keeping
   upstream portions by label and never touching user portions. `food_nutrients` has one column
   per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
-  is one. `foods_fts` is external-content FTS5 over `name` and `brand`, kept in step by triggers.
+  is one. `foods_fts` is external-content FTS5 over `name`, `brand` and `original_name`, kept in
+  step by triggers.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
@@ -178,6 +189,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   those changes. A feature, a fix or a new screen does not.
 - `docs/DOMAIN.md` — the domain vocabulary. Read before touching `lib/domain/`.
 - `docs/GLOSSARY.md` — every DOMAIN term in one table. DOMAIN changes first, then the glossary.
+- `docs/DATA-SOURCES.md` — each reference source, its licence and attribution. A new source adds
+  a section in the same change.
 - `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
   Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
   deployment, and add a record in the same change when you take a decision of that kind.
