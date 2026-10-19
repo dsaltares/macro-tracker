@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
 import {
   type FoodReader,
   findFood,
@@ -15,6 +16,7 @@ import type { Context } from '../context.ts';
 import { publicProcedure, router, signedInProcedure } from '../trpc.ts';
 
 const maxQueryLength = 200;
+const maxPortionLabelLength = 60;
 
 const readerOf = ({ db, caller }: Context): FoodReader => ({
   db,
@@ -31,6 +33,12 @@ const sourcePreferencesInput = z
       ),
     { message: 'List every generic source exactly once' },
   );
+
+const portionInput = z.object({
+  foodId: z.string().min(1),
+  label: z.string().trim().min(1).max(maxPortionLabelLength),
+  grams: z.number().positive().finite(),
+});
 
 export const foodRouter = router({
   search: publicProcedure
@@ -66,5 +74,32 @@ export const foodRouter = router({
     .mutation(async ({ ctx, input }) => {
       await setFoodSourcePreferences(ctx.db, ctx.caller.userId, input);
       return listFoodSources(ctx.db, ctx.caller.userId);
+    }),
+  addPortion: signedInProcedure
+    .input(portionInput)
+    .mutation(async ({ ctx, input }) => {
+      const added = await addUserPortion(
+        ctx.db,
+        ctx.caller.userId,
+        input,
+        ctx.nextId,
+      );
+      if (added.outcome === 'food-not-found') {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+      if (added.outcome === 'label-taken') {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'The food already has a portion with this label',
+        });
+      }
+      return added.portion;
+    }),
+  removePortion: signedInProcedure
+    .input(z.string().min(1))
+    .mutation(async ({ ctx, input }) => {
+      if (!(await removeUserPortion(ctx.db, ctx.caller.userId, input))) {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
     }),
 });

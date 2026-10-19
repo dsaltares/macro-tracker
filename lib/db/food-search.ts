@@ -6,7 +6,7 @@ import {
   withStandardPortions,
 } from '../domain/foods/portions.ts';
 import { matchExpression, searchPageSize } from '../domain/foods/search.ts';
-import type { Source } from '../domain/foods/sources.ts';
+import type { PortionSource, Source } from '../domain/foods/sources.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
 import { nutrientsOf } from './foods.ts';
 import type { Database } from './schema.ts';
@@ -34,6 +34,11 @@ export type FoodSearchPage = {
   nextCursor: number | null;
 };
 
+export type StoredPortion = Portion & {
+  id: string;
+  source: PortionSource;
+};
+
 export type Food = {
   id: string;
   source: Source;
@@ -43,7 +48,7 @@ export type Food = {
   quantityLabel: string | null;
   archived: boolean;
   nutrients: NutrientVector;
-  portions: Portion[];
+  portions: (StoredPortion | Portion)[];
 };
 
 const nameWeight = 4;
@@ -73,7 +78,7 @@ export const portionsQuery = (
 ) =>
   db
     .selectFrom('food_portions')
-    .select(['food_id', 'label', 'grams'])
+    .select(['id', 'food_id', 'label', 'grams', 'source'])
     .where('food_id', 'in', foodIds)
     .where(visiblePortions(userId))
     .orderBy('food_id')
@@ -84,16 +89,16 @@ const portionsByFood = async (
   { db, userId }: FoodReader,
   foodIds: readonly string[],
 ) => {
-  const byFood = new Map<string, Portion[]>();
+  const byFood = new Map<string, StoredPortion[]>();
   if (foodIds.length === 0) {
     return byFood;
   }
-  for (const { food_id, label, grams } of await portionsQuery(
+  for (const { food_id, ...portion } of await portionsQuery(
     db,
     userId,
     foodIds,
   ).execute()) {
-    byFood.set(food_id, [...(byFood.get(food_id) ?? []), { label, grams }]);
+    byFood.set(food_id, [...(byFood.get(food_id) ?? []), portion]);
   }
   return byFood;
 };
@@ -139,6 +144,11 @@ export const searchQuery = (
     .offset(offset);
 };
 
+const labelAndGrams = ({ label, grams }: Portion): Portion => ({
+  label,
+  grams,
+});
+
 export const searchFoods = async (
   reader: FoodReader,
   { query, cursor }: { query: string; cursor: number },
@@ -169,7 +179,7 @@ export const searchFoods = async (
       protein: row.protein,
       carbohydrate: row.carbohydrate,
       fat: row.fat,
-      defaultPortion: defaultPortion(portions.get(row.id) ?? []),
+      defaultPortion: labelAndGrams(defaultPortion(portions.get(row.id) ?? [])),
     })),
     nextCursor: rows.length > searchPageSize ? cursor + searchPageSize : null,
   };
