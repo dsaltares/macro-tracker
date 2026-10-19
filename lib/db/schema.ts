@@ -1,5 +1,9 @@
 import type { ColumnType, Generated } from 'kysely';
-import type { PortionSource, Source } from '../domain/foods/sources.ts';
+import type {
+  GenericSource,
+  PortionSource,
+  Source,
+} from '../domain/foods/sources.ts';
 import type { NutrientKey } from '../domain/nutrition/nutrients.ts';
 
 export type MetaTable = {
@@ -65,6 +69,13 @@ export type FoodImportsTable = {
   error: string | null;
 };
 
+export type FoodSourcePreferencesTable = {
+  user_id: string;
+  source: GenericSource;
+  enabled: 0 | 1;
+  position: number;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -72,4 +83,5 @@ export type Database = {
   food_portions: FoodPortionsTable;
   foods_fts: FoodsFtsTable;
   food_imports: FoodImportsTable;
+  food_source_preferences: FoodSourcePreferencesTable;
 };

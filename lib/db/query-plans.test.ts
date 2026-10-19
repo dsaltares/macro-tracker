@@ -1,6 +1,16 @@
 import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  foodByBarcodeQuery,
+  foodByIdQuery,
+  portionsQuery,
+  searchQuery,
+} from './food-search.ts';
+import {
+  liveFoodCountsQuery,
+  sourcePreferencesQuery,
+} from './food-source-preferences.ts';
 import { migrateToLatest } from './migrator.ts';
 import type { Database } from './schema.ts';
 
@@ -164,6 +174,57 @@ describe('query plans', () => {
         .where('status', '=', 'running')
         .compile(),
       ['food_imports'],
+    );
+  });
+
+  it('searches foods through the full-text index without a scan', () => {
+    const plan = planOf(searchQuery(db, null, '"nut"*', 0).compile());
+
+    expect(plan).toContainEqual(
+      expect.stringMatching(/^SCAN foods_fts VIRTUAL TABLE INDEX/),
+    );
+    expect(scansOf(plan, ['foods', 'food_nutrients'])).toEqual([]);
+  });
+
+  it("searches a user's foods and enabled sources without a scan", () => {
+    expectNoScan(searchQuery(db, 'u', '"nut"*', 30).compile(), [
+      'foods',
+      'food_nutrients',
+      'food_source_preferences',
+    ]);
+  });
+
+  it('reads the portions a user sees of a page of foods with a search', () => {
+    expectNoScan(portionsQuery(db, 'u', ['f', 'g']).compile(), [
+      'food_portions',
+    ]);
+  });
+
+  it('finds a food a user sees by id with a search', () => {
+    expectSearch(foodByIdQuery(db, 'u', 'f').compile(), 'foods');
+  });
+
+  it('finds the food a user sees by barcode without a scan', () => {
+    expectNoScan(foodByBarcodeQuery(db, 'u', '3017620422003').compile(), [
+      'foods',
+    ]);
+    expectNoScan(foodByBarcodeQuery(db, null, '3017620422003').compile(), [
+      'foods',
+    ]);
+  });
+
+  it('counts the live foods of every source from a covering index', () => {
+    expect(planOf(liveFoodCountsQuery(db).compile())).toEqual([
+      expect.stringMatching(
+        /^SEARCH foods USING COVERING INDEX foods_live_source/,
+      ),
+    ]);
+  });
+
+  it("reads a user's source preferences with a search", () => {
+    expectSearch(
+      sourcePreferencesQuery(db, 'u').compile(),
+      'food_source_preferences',
     );
   });
 });

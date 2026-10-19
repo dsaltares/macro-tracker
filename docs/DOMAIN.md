@@ -50,8 +50,13 @@ units and basis were (ADR [0005](adr/0005-import-reference-foods-in-the-server-o
 The **importer** runs inside the server, upserts them and archives what a run no longer sees.
 Each run is a **food import**: the sources it read, `queued`, `running`, `succeeded` or `failed`,
 and how many foods it inserted, updated and archived. Only one runs at a time. A
-user chooses which generic sources appear in their search; Open Food Facts and their own foods
-always do.
+user's **source preferences** choose which generic sources appear in their search, and in what
+order they are listed; every one is enabled until the user says otherwise. Open Food Facts and
+their own foods always appear.
+
+**Search** matches every word of a query against a food's name and brand, the last word as a
+prefix, ignoring case and diacritics ("jamon" finds "Jamón"). A user's own foods rank above
+reference foods, then the closest match first; archived foods never appear.
 
 A **trace** is a nutrient a source declares as below a limit (`< 0.5 g`) or as "traces" ("Tr"). It
 is stored as zero, and the food lists it among its traces so it can be shown as such.
@@ -61,7 +66,9 @@ upstream is **archived**: hidden from search, still resolvable from the diary.
 
 A **portion** is a named quantity in grams for one food ("1 serving = 30 g", "1 tbsp = 15 g").
 Every food has `100 g` and `1 g`; a reference food may add its upstream serving; a user adds their
-own. Millilitres are grams unless a food declares a density.
+own, to their foods or to a reference food, and only they see them. A food's **default portion**
+is the first of its own portions, or `100 g` when it has none. Millilitres are grams unless a food
+declares a density.
 
 A **barcode** is an EAN-8 or EAN-13 (UPC-A is normalised to EAN-13 by a leading zero). Lookup
 order: the caller's own foods, reference foods, live Open Food Facts, then the miss flow.

@@ -17,6 +17,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | cooked weight | A recipe's optional weight in grams once cooked. | [Recipes](DOMAIN.md#recipes) |
 | date | The user's local calendar day as `YYYY-MM-DD`. Never a timestamp. | [Diary](DOMAIN.md#diary) |
 | day totals | The sum of a day's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
+| default portion | A food's first own portion, or `100 g` when it has none. What search shows beside a food. | [Foods](DOMAIN.md#foods) |
 | derived goal | A goal computed from a weekly rate target, protein in g per kg, a fat share of energy and carbohydrate as the remainder. | [Body and goals](DOMAIN.md#body-and-goals) |
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
@@ -39,10 +40,12 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | recipe | A name, servings, an optional cooked weight and ordered ingredients. Nests one level. Private. | [Recipes](DOMAIN.md#recipes) |
 | recipe entry | A diary entry for a recipe: a number of servings or grams. | [Diary](DOMAIN.md#diary) |
 | reference food | A food from a `source` other than `user`, written only by the importer. Upserted on `(source, source_id)`. | [Foods](DOMAIN.md#foods) |
+| search | Every word of a query against name and brand, the last as a prefix, diacritics ignored. A user's own foods first; archived foods never. | [Foods](DOMAIN.md#foods) |
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |
 | snapshot | The nutrient vector a diary entry resolved to when logged. Editing the food or recipe changes future entries only. | [Diary](DOMAIN.md#diary), [ADR 0003](adr/0003-diary-entries-snapshot-their-nutrients.md) |
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |
+| source preferences | Which generic sources a user's search includes, and their order. All enabled by default; Open Food Facts is always on. | [Foods](DOMAIN.md#foods) |
 | trace | A nutrient a source declares as below a limit or as "traces": stored as zero and listed among the food's traces. | [Foods](DOMAIN.md#foods) |
 | TDEE | Total daily energy expenditure: BMR times the activity multiplier. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trend weight | An exponential moving average over the weight log. | [Body and goals](DOMAIN.md#body-and-goals) |
