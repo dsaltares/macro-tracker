@@ -44,9 +44,15 @@ a user's own. One table; `source` says where a row came from:
 - `user` — created by a user, by hand, from quick add, or from a label scan. Has an owner and is
   visible only to them. May carry a barcode.
 
-A **source adapter** streams one upstream dataset as `SourceFood` records. The **importer** runs
-inside the server, upserts them and archives what a run no longer sees. A user chooses which
-generic sources appear in their search; Open Food Facts and their own foods always do.
+A **source adapter** streams one upstream dataset as `SourceFood` records
+(`lib/domain/foods/source-food.ts`): canonical nutrients per 100 g, whatever the upstream keys,
+units and basis were (ADR [0005](adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md)).
+The **importer** runs inside the server, upserts them and archives what a run no longer sees. A
+user chooses which generic sources appear in their search; Open Food Facts and their own foods
+always do.
+
+A **trace** is a nutrient a source declares as below a limit (`< 0.5 g`) or as "traces" ("Tr"). It
+is stored as zero, and the food lists it among its traces so it can be shown as such.
 
 `(source, source_id)` is the upsert key for reference foods. A reference food that disappears
 upstream is **archived**: hidden from search, still resolvable from the diary.

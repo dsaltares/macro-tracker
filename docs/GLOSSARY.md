@@ -42,6 +42,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | snapshot | The nutrient vector a diary entry resolved to when logged. Editing the food or recipe changes future entries only. | [Diary](DOMAIN.md#diary), [ADR 0003](adr/0003-diary-entries-snapshot-their-nutrients.md) |
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |
+| trace | A nutrient a source declares as below a limit or as "traces": stored as zero and listed among the food's traces. | [Foods](DOMAIN.md#foods) |
 | TDEE | Total daily energy expenditure: BMR times the activity multiplier. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trend weight | An exponential moving average over the weight log. | [Body and goals](DOMAIN.md#body-and-goals) |
 | user food | A food with `source` `user`: owned by one user, visible only to them, may carry a barcode. | [Foods](DOMAIN.md#foods) |

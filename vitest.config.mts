@@ -43,6 +43,7 @@ export default defineConfig({
         functions: 90,
         lines: 90,
         'lib/domain/nutrition/**': { 100: true },
+        'lib/domain/foods/**': { 100: true },
       },
     },
   },

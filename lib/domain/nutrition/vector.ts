@@ -37,6 +37,9 @@ export const sum = (vectors: readonly NutrientVector[]): NutrientVector => {
 export const forGrams = (per100g: NutrientVector, grams: number) =>
   scale(per100g, grams / gramsPerReference);
 
+export const per100gFrom = (vector: NutrientVector, grams: number) =>
+  scale(vector, gramsPerReference / grams);
+
 export const kcalFromMacros = (vector: NutrientVector): number | undefined => {
   const contributions = energyMacros.flatMap((key) => {
     const grams = vector[key];
@@ -48,6 +51,8 @@ export const kcalFromMacros = (vector: NutrientVector): number | undefined => {
 };
 
 export const kJ = (kcal: number) => kcal * kJPerKcal;
+
+export const kcal = (kJ: number) => kJ / kJPerKcal;
 
 export const salt = (sodiumMg: number) =>
   (sodiumMg * saltPerSodium) / mgPerGram;
