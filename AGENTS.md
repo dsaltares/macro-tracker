@@ -133,6 +133,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
   subquery on the same statement.
+  `food-portions.ts` adds and removes a user's portions: an add reads the food through the same
+  visibility as `food.get` and refuses a label the food already shows that user; a remove deletes
+  only on `source = 'user'` and the caller's `user_id`. `food.get` returns stored portions with
+  their `id` and `source`, the standard ones without.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
