@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Macro Tracker</title>
+  <rect width="512" height="512" rx="112" fill="#0c0a09"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#ffd230" stroke-width="72" stroke-linecap="butt" stroke-dasharray="350.99 942.48" stroke-dashoffset="0.00" transform="rotate(-90 256 256)"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#fe9a00" stroke-width="72" stroke-linecap="butt" stroke-dasharray="303.87 942.48" stroke-dashoffset="-376.99" transform="rotate(-90 256 256)"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#bb4d00" stroke-width="72" stroke-linecap="butt" stroke-dasharray="209.62 942.48" stroke-dashoffset="-706.86" transform="rotate(-90 256 256)"/>
+</svg>

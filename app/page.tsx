@@ -1,3 +1,4 @@
+import { ServerStatus } from '@/components/server-status';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { siteDescription, siteName } from '@/lib/brand';
 
@@ -9,6 +10,7 @@ export default function HomePage() {
         <ThemeToggle />
       </header>
       <p className="text-muted-foreground">{siteDescription}</p>
+      <ServerStatus />
     </main>
   );
 }
