@@ -4,13 +4,16 @@ import { nutrientKeys } from '../../../domain/nutrition/nutrients.ts';
 import {
   declaredFromUsda,
   ignoredUsdaNutrients,
+  mergeAmounts,
   mergePortions,
+  mergeReferenceFoods,
   sourceFoodFromUsda,
   type UsdaDataset,
   type UsdaFood,
   usdaDatasets,
   usdaNutrients,
   usdaPortion,
+  usdaSourceId,
 } from './mapping.ts';
 
 const fixtureRecords = (dataset: UsdaDataset, file: string) => {
@@ -302,12 +305,12 @@ describe('sourceFoodFromUsda', () => {
     portions: [{ label: '1 cup, chopped', grams: 89 }],
   };
 
-  it('maps a food to a generic USDA food keyed by dataset and code', () => {
+  it('maps a Foundation or SR Legacy food to a generic USDA food keyed by NDB number', () => {
     expect(sourceFoodFromUsda(food)).toEqual({
       success: true,
       food: {
         source: 'usda',
-        sourceId: 'sr-legacy:11109',
+        sourceId: 'ndb:11109',
         barcode: null,
         name: 'Cabbage, raw',
         brand: null,
@@ -339,7 +342,7 @@ describe('sourceFoodFromUsda', () => {
       sourceFoodFromUsda({ ...food, amounts: amounts({ '301': 40 }) }),
     ).toEqual({
       success: false,
-      reason: 'sr-legacy:11109: declares no energy',
+      reason: 'ndb:11109: declares no energy',
     });
   });
 
@@ -353,5 +356,68 @@ describe('sourceFoodFromUsda', () => {
     const mapping = sourceFoodFromUsda({ ...food, publishedOn: '' });
 
     expect(mapping.success && mapping.food.lastModified).toBeNull();
+  });
+});
+
+describe('mergeAmounts', () => {
+  it('keeps every nutrient the first declares and fills the rest from the second', () => {
+    expect(
+      mergeAmounts(
+        amounts({ '208': 60, '203': 3.27 }),
+        amounts({ '208': 61, '203': 3.15, '430': 0.3 }),
+      ),
+    ).toEqual(amounts({ '208': 60, '203': 3.27, '430': 0.3 }));
+  });
+
+  it('fills a nutrient by nutrient, never by number, so precedence cannot reach past the first', () => {
+    expect(
+      mergeAmounts(
+        amounts({ '958': 60, '417': 0 }),
+        amounts({ '208': 61, '435': 5 }),
+      ),
+    ).toEqual(amounts({ '958': 60, '417': 0 }));
+  });
+});
+
+describe('mergeReferenceFoods', () => {
+  it('keeps the Foundation food, with SR Legacy nutrients it lacks and SR Legacy portions after its own', () => {
+    const foundation: UsdaFood = {
+      dataset: 'foundation',
+      code: '1077',
+      name: 'Milk, whole, 3.25% milkfat, with added vitamin D',
+      publishedOn: '2019-12-16',
+      amounts: amounts({ '208': 60 }),
+      portions: [{ label: '1 cup', grams: 249 }],
+    };
+
+    expect(
+      mergeReferenceFoods(foundation, {
+        ...foundation,
+        dataset: 'sr-legacy',
+        name: 'Milk, whole',
+        publishedOn: '2019-04-01',
+        amounts: amounts({ '208': 61, '430': 0.3 }),
+        portions: [
+          { label: '1 cup', grams: 244 },
+          { label: '1 tbsp', grams: 15 },
+        ],
+      }),
+    ).toEqual({
+      ...foundation,
+      amounts: amounts({ '208': 60, '430': 0.3 }),
+      portions: [
+        { label: '1 cup', grams: 249 },
+        { label: '1 cup', grams: 244 },
+        { label: '1 tbsp', grams: 15 },
+      ],
+    });
+  });
+});
+
+describe('usdaSourceId', () => {
+  it('keys Foundation and SR Legacy foods by their shared NDB number, FNDDS foods by food code', () => {
+    expect(usdaSourceId('foundation', '1077')).toBe('ndb:1077');
+    expect(usdaSourceId('sr-legacy', '1077')).toBe('ndb:1077');
+    expect(usdaSourceId('fndds', '11111000')).toBe('fndds:11111000');
   });
 });

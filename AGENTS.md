@@ -66,10 +66,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   when the export changes shape.
   `usda/fooddata-central.ts` downloads the Foundation, SR Legacy and FNDDS CSV archives (zips of a
   few MB, read in memory by `usda/zip.ts` and `usda/csv.ts`; the release is in the URL, so a new
-  USDA release is a change to `usdaDatasetUrls`). Foods are keyed `foundation:<NDB number>`,
-  `sr-legacy:<NDB number>` and `fndds:<food code>`, never by `fdc_id`, which changes when USDA
-  re-releases a food. An FNDDS food made of one ingredient with no retention code lends its
-  portions to the Foundation and SR Legacy foods with that NDB number and is not emitted itself.
+  USDA release is a change to `usdaDatasetUrls`). Foods are keyed `ndb:<NDB number>` and
+  `fndds:<food code>`, never by `fdc_id`, which changes when USDA re-releases a food. A food in
+  both Foundation and SR Legacy (same NDB number) is one food: Foundation's name and nutrients,
+  SR Legacy filling each nutrient Foundation does not declare, both sets of portions. An FNDDS food
+  made of one ingredient with no retention code lends its portions to the food with that NDB
+  number and is not emitted itself.
   `usda/mapping.ts` maps USDA nutrient numbers (`nutrient_nbr`, the one id all three datasets
   share) to canonical keys and takes fibre out of carbohydrate by difference; its test fails on
   any number the fixtures in `test/fixtures/usda/` read that is neither mapped nor ignored. Those

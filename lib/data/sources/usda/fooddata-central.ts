@@ -3,6 +3,7 @@ import type { FoodSource, SourceContext } from '../types.ts';
 import { csvRecords } from './csv.ts';
 import {
   ignoredUsdaNutrients,
+  mergeReferenceFoods,
   sourceFoodFromUsda,
   type UsdaDataset,
   type UsdaFood,
@@ -53,8 +54,9 @@ const ignoredNumbers = new Set(Object.keys(ignoredUsdaNutrients));
 export type UsdaCounts = {
   bytes: number;
   read: Record<UsdaDataset, number>;
-  rejected: Record<UsdaDataset, number>;
+  analysedInBoth: number;
   describedByFndds: number;
+  rejected: number;
   foods: number;
 };
 
@@ -63,8 +65,9 @@ const perDataset = () => ({ foundation: 0, 'sr-legacy': 0, fndds: 0 });
 const emptyCounts = (): UsdaCounts => ({
   bytes: 0,
   read: perDataset(),
-  rejected: perDataset(),
+  analysedInBoth: 0,
   describedByFndds: 0,
+  rejected: 0,
   foods: 0,
 });
 
@@ -124,6 +127,7 @@ const readFoods = async (
 ): Promise<Map<string, MutableFood>> => {
   const { dataset, records } = archive;
   const codes = await codesOf(archive);
+  const foods = new Map<string, MutableFood>();
 
   const numbers = new Map<string, string>();
   for await (const row of records('nutrient.csv')) {
@@ -136,7 +140,6 @@ const readFoods = async (
     units.set(row.id ?? '', row.name ?? '');
   }
 
-  const foods = new Map<string, MutableFood>();
   for await (const row of records('food.csv')) {
     const code = codes.get(row.fdc_id ?? '');
     if (code !== undefined) {
@@ -262,11 +265,31 @@ export const createUsdaSource = ({
       }
     }
 
+    const foundation = await readFoods(archives.foundation, unknownNumbers);
+    const srLegacy = await readFoods(archives['sr-legacy'], unknownNumbers);
+    counts.read.foundation = foundation.size;
+    counts.read['sr-legacy'] = srLegacy.size;
+    counts.read.fndds = fndds.size;
+    const srLegacyByCode = new Map(
+      [...srLegacy.values()].map((food) => [food.code, food]),
+    );
+    const referenceFoods: UsdaFood[] = [];
+    for (const analysed of foundation.values()) {
+      const legacy = srLegacyByCode.get(analysed.code);
+      srLegacyByCode.delete(analysed.code);
+      if (legacy) {
+        counts.analysedInBoth += 1;
+      }
+      referenceFoods.push(
+        legacy ? mergeReferenceFoods(analysed, legacy) : analysed,
+      );
+    }
+    referenceFoods.push(...srLegacyByCode.values());
+
     const mapped = (food: UsdaFood) => {
-      counts.read[food.dataset] += 1;
       const mapping = sourceFoodFromUsda(food);
       if (!mapping.success) {
-        counts.rejected[food.dataset] += 1;
+        counts.rejected += 1;
         logger.debug({ reason: mapping.reason }, 'rejected a USDA food');
         return undefined;
       }
@@ -274,16 +297,13 @@ export const createUsdaSource = ({
       return mapping.food;
     };
 
-    for (const dataset of referenceDatasets) {
-      const foods = await readFoods(archives[dataset], unknownNumbers);
-      for (const food of foods.values()) {
-        const sourceFood = mapped({
-          ...food,
-          portions: [...food.portions, ...(fnddsPortions.get(food.code) ?? [])],
-        });
-        if (sourceFood) {
-          yield sourceFood;
-        }
+    for (const food of referenceFoods) {
+      const sourceFood = mapped({
+        ...food,
+        portions: [...food.portions, ...(fnddsPortions.get(food.code) ?? [])],
+      });
+      if (sourceFood) {
+        yield sourceFood;
       }
     }
     for (const food of standalone) {

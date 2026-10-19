@@ -395,7 +395,37 @@ export type UsdaMapping =
   | { success: false; reason: string };
 
 export const usdaSourceId = (dataset: UsdaDataset, code: string) =>
-  `${dataset}:${code}`;
+  dataset === 'fndds' ? `fndds:${code}` : `ndb:${code}`;
+
+const declaredKeyOf = new Map<string, DeclaredKey>(
+  usdaNutrients.map(({ number, declares }) => [number, declares]),
+);
+
+export const mergeAmounts = (
+  primary: ReadonlyMap<string, number>,
+  fallback: ReadonlyMap<string, number>,
+): Map<string, number> => {
+  const covered = new Set(
+    [...primary.keys()].flatMap((number) => declaredKeyOf.get(number) ?? []),
+  );
+  const merged = new Map(primary);
+  for (const [number, amount] of fallback) {
+    const declares = declaredKeyOf.get(number);
+    if (declares !== undefined && !covered.has(declares)) {
+      merged.set(number, amount);
+    }
+  }
+  return merged;
+};
+
+export const mergeReferenceFoods = (
+  foundation: UsdaFood,
+  srLegacy: UsdaFood,
+): UsdaFood => ({
+  ...foundation,
+  amounts: mergeAmounts(foundation.amounts, srLegacy.amounts),
+  portions: [...foundation.portions, ...srLegacy.portions],
+});
 
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 

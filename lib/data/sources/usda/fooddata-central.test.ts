@@ -93,32 +93,31 @@ describe('createUsdaSource', () => {
     ]);
   });
 
-  it('emits Foundation and SR Legacy foods by NDB number, then the FNDDS foods that describe neither by food code', async () => {
+  it('emits one food per NDB number, Foundation first and then SR Legacy, then the FNDDS foods that describe neither by food code', async () => {
     const foods = await fixtureFoods();
 
     expect([...foods.keys()]).toEqual([
-      'foundation:11296',
-      'foundation:9123',
-      'foundation:11251',
-      'foundation:1077',
-      'foundation:16500',
-      'foundation:11090',
-      'foundation:4582',
-      'foundation:9500',
-      'foundation:4042',
-      'foundation:100259',
-      'foundation:16222',
-      'foundation:100274',
-      'foundation:9266',
-      'foundation:100310',
-      'foundation:100300',
-      'foundation:15266',
-      'sr-legacy:11267',
-      'sr-legacy:11109',
-      'sr-legacy:21240',
-      'sr-legacy:13366',
-      'sr-legacy:1077',
-      'sr-legacy:22974',
+      'ndb:11296',
+      'ndb:9123',
+      'ndb:11251',
+      'ndb:1077',
+      'ndb:16500',
+      'ndb:11090',
+      'ndb:4582',
+      'ndb:9500',
+      'ndb:4042',
+      'ndb:100259',
+      'ndb:16222',
+      'ndb:100274',
+      'ndb:9266',
+      'ndb:100310',
+      'ndb:100300',
+      'ndb:15266',
+      'ndb:11267',
+      'ndb:11109',
+      'ndb:21240',
+      'ndb:13366',
+      'ndb:22974',
       'fndds:11100000',
       'fndds:24198736',
     ]);
@@ -136,7 +135,7 @@ describe('createUsdaSource', () => {
   });
 
   it('maps a food through the nutrient table, carbohydrate without its fibre', async () => {
-    const cabbage = (await fixtureFoods()).get('sr-legacy:11109');
+    const cabbage = (await fixtureFoods()).get('ndb:11109');
 
     expect(cabbage).toMatchObject({
       name: 'Cabbage, raw',
@@ -168,7 +167,7 @@ describe('createUsdaSource', () => {
   it('attaches the portions of an FNDDS food made of one uncooked ingredient to that SR Legacy food, its own portions first', async () => {
     const foods = await fixtureFoods();
 
-    expect(labels(foods.get('sr-legacy:11109'))).toEqual([
+    expect(labels(foods.get('ndb:11109'))).toEqual([
       '1 cup, chopped = 89 g',
       '1 cup, shredded = 70 g',
       '1 head, large (about 7" dia) = 1248 g',
@@ -180,29 +179,46 @@ describe('createUsdaSource', () => {
       '1 cup = 90 g',
       '1 head = 900 g',
     ]);
-    expect(labels(foods.get('sr-legacy:1077'))).toEqual([
-      '1 cup = 244 g',
-      '1 fl oz = 30.5 g',
-      '1 tbsp = 15 g',
-      '1 quart = 976 g',
-      '1 individual school container = 244 g',
-    ]);
   });
 
-  it('attaches the same FNDDS portions to the Foundation food with that NDB number', async () => {
+  it('attaches the same FNDDS portions to a Foundation food', async () => {
     const foods = await fixtureFoods();
 
-    expect(labels(foods.get('foundation:1077'))).toEqual([
-      '1 cup = 249 g',
-      '1 fl oz = 30.5 g',
-      '1 individual school container = 244 g',
-    ]);
-    expect(labels(foods.get('foundation:100300'))).toEqual([
+    expect(labels(foods.get('ndb:100300'))).toEqual([
       '1 cracker-size slice = 9 g',
       '1 slice = 21 g',
       '1 cup = 135 g',
       '1 oz = 28.35 g',
       '1 cubic inch = 18 g',
+    ]);
+  });
+
+  it('merges a food in both Foundation and SR Legacy: Foundation wins, SR Legacy fills what it lacks', async () => {
+    const milk = (await fixtureFoods()).get('ndb:1077');
+
+    expect(milk).toMatchObject({
+      name: 'Milk, whole, 3.25% milkfat, with added vitamin D',
+      nutrients: {
+        energy_kcal: 60,
+        protein: 3.27,
+        fat: 3.2,
+        carbohydrate: 4.63,
+        sugars: 4.81,
+        choline: 17.8,
+        folate: 0,
+        iodine: 37.9,
+        fibre: 0,
+        vitamin_k: 0.3,
+        vitamin_c: 0,
+        caffeine: 0,
+      },
+    });
+    expect(labels(milk)).toEqual([
+      '1 cup = 249 g',
+      '1 fl oz = 30.5 g',
+      '1 tbsp = 15 g',
+      '1 quart = 976 g',
+      '1 individual school container = 244 g',
     ]);
   });
 
@@ -234,10 +250,11 @@ describe('createUsdaSource', () => {
     expect(
       logs.find(({ msg }) => msg === 'read USDA FoodData Central'),
     ).toMatchObject({
-      read: { foundation: 16, 'sr-legacy': 6, fndds: 3 },
-      rejected: { foundation: 0, 'sr-legacy': 0, fndds: 1 },
+      read: { foundation: 16, 'sr-legacy': 6, fndds: 8 },
+      analysedInBoth: 1,
       describedByFndds: 5,
-      foods: 24,
+      rejected: 1,
+      foods: 23,
     });
     expect(
       logs.some(({ msg }) => msg.includes('neither mapped nor ignored')),
@@ -345,19 +362,19 @@ describe('importing USDA FoodData Central', () => {
 
     expect(first.started && first.run).toMatchObject({
       status: 'succeeded',
-      inserted: 24,
+      inserted: 23,
       archived: 0,
     });
     expect(second.started && second.run).toMatchObject({
       status: 'succeeded',
       inserted: 0,
-      updated: 24,
+      updated: 23,
       archived: 0,
     });
     const portions = await db()
       .selectFrom('food_portions')
       .innerJoin('foods', 'foods.id', 'food_portions.food_id')
-      .where('foods.source_id', '=', 'sr-legacy:1077')
+      .where('foods.source_id', '=', 'ndb:1077')
       .select(['label', 'grams'])
       .orderBy('position')
       .execute();

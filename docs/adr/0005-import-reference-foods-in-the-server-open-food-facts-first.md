@@ -53,8 +53,8 @@ The app runs as one process with SQLite on a volume (ADR 0001), and there is no 
   monthly in-process cron (#14). No GitHub Actions and no second process in the data path.
 - **Upsert on `(source, source_id)`.** A reference food's identity is its upstream id: an Open
   Food Facts `code` as published (the barcode column holds the normalised EAN), a CIQUAL or CoFID
-  food code, a USDA NDB number or FNDDS food code prefixed by its dataset (`sr-legacy:1077`; USDA's
-  `fdc_id` changes when a food is re-released). Re-importing unchanged data changes nothing.
+  food code, a USDA NDB number (`ndb:1077`, shared by Foundation and SR Legacy, which merge into one
+  food) or FNDDS food code (`fndds:11111000`); USDA's `fdc_id` changes when a food is re-released. Re-importing unchanged data changes nothing.
 - **Archive on disappearance, never delete.** A reference food that a complete run of its source
   no longer emits gets `archived_at`: hidden from search, still resolvable by id, so diary entries
   and recipes that point at it keep working. Their nutrients are snapshots anyway (ADR 0003).
