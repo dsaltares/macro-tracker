@@ -7,7 +7,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 
 - `yarn dev` — dev server on 3014 · `yarn build` · `yarn start`
 - `yarn typecheck` · `yarn lint` · `yarn format`
-- `yarn test` — Vitest once · `yarn test:watch`
+- `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
+  both. `vitest run --project ui <path>` narrows to one file.
+- `yarn test:e2e` — Playwright against a production build of its own (`next build` then
+  `next start`, in `.next-e2e` on 3015), never a server already running; `E2E_PORT` moves it when
+  another worktree holds 3015. `yarn test:e2e:dev` runs it against `next dev` instead, for hot
+  reload while writing a spec. First time on a machine: `yarn playwright install chromium`.
 - `yarn db:migrate` — apply outstanding migrations to `DATABASE_URL` · `yarn db:migrate down`
   rolls one back
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
@@ -53,14 +58,21 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   this everywhere except `scripts/`, which are CLIs and print.
 - **Three kinds of test, and the extension picks the kind.** All three live next to what they
   cover, except the end-to-end ones.
-  - `*.test.ts` — Vitest, `environment: 'node'`. Pure logic, and the modules that own I/O driven
-    for real against an in-memory database.
-  - `*.test.tsx` — Vitest, `environment: 'happy-dom'`. React Testing Library and
-    `@testing-library/user-event`: everything a user does to a component and everything it says
-    back. Query by role, label and text — never by class, inline style or a fragment of markup.
+  - `*.test.ts` — Vitest `unit` project, `environment: 'node'`. Pure logic, and the modules that
+    own I/O driven for real against an in-memory database: `migratedDatabasePerTest()` from
+    `test/db.ts` gives each test a fresh, migrated one. Coverage is measured on this project alone,
+    over `lib/domain/**`, and fails the run under 90% — which is why `yarn test` runs Vitest twice.
+  - `*.test.tsx` — Vitest `ui` project, `environment: 'happy-dom'`. React Testing Library and
+    `@testing-library/user-event`, through `renderUi` from `test/ui.tsx`, which wraps the app's
+    providers and hands back a `user`: everything a user does to a component and everything it
+    says back. Query by role, label and text — never by class, inline style or a fragment of
+    markup. A component that calls tRPC renders with `renderUi(ui, { wrap: api.wrap })` over
+    `serveApi()` from `test/api.tsx`.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
-    no browser, it belongs in a `*.test.tsx`.
+    no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and
+    `mobile-chrome` (Pixel 7) projects. E2e has its own database, `.data/e2e.sqlite`, named once
+    in `playwright.config.ts`; `e2e/global-setup.ts` recreates and migrates it before each run.
 - Mobile-first: the app is used one-handed, standing in a kitchen or at a supermarket shelf.
   Metric units and kcal, English only.
 - Biome formats and lints; single quotes, 2-space indent. A husky pre-commit hook fixes

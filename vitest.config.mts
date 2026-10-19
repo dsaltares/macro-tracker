@@ -1,6 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+const shared = {
+  exclude: ['**/node_modules/**', '.next/**', '.next-e2e/**', 'e2e/**'],
+  clearMocks: true,
+};
+
 export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('.', import.meta.url)) },
@@ -10,24 +15,29 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          ...shared,
           name: 'unit',
           environment: 'node',
           include: ['**/*.test.ts'],
-          exclude: ['**/node_modules/**', '.next/**', 'e2e/**'],
-          clearMocks: true,
         },
       },
       {
         extends: true,
         test: {
+          ...shared,
           name: 'ui',
           environment: 'happy-dom',
           include: ['**/*.test.tsx'],
-          exclude: ['**/node_modules/**', '.next/**', 'e2e/**'],
           setupFiles: ['./test/dom-setup.ts'],
-          clearMocks: true,
         },
       },
     ],
+    coverage: {
+      provider: 'v8',
+      include: ['lib/domain/**/*.{ts,tsx}'],
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: 'coverage',
+      thresholds: { statements: 90, branches: 90, functions: 90, lines: 90 },
+    },
   },
 });
