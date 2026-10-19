@@ -31,6 +31,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn data:cofid-sample [url-or-path]` — rebuild `test/fixtures/cofid/sample.xlsx`, the trimmed
   CoFID workbook the adapter's tests read, from the real one: its three header rows and the foods
   whose codes `scripts/cofid-sample.ts` lists
+- `yarn data:usda` — download the three USDA FoodData Central archives and read them through the
+  adapter without writing anything, and print the foods, portions, wall time and peak memory
 - `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
   SSH: an online backup taken in the running container and the environment the service runs with,
   over `ssh homelab` in the compose project named by `DEPLOY_COMPOSE_DIR` and `DEPLOY_SERVICE`.
@@ -75,12 +77,25 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   code in `test/fixtures/ciqual/const.xml` (the real constituent list) that is neither mapped nor
   ignored, or whose unit is not the canon's. `alim.xml` and `compo.xml` beside it are seven real
   foods, cut verbatim from the release (CRLF and BOM, so `.gitattributes` exempts them). A new
-  edition is a new dataset DOI in `ciqualDatasetDoi`.
+  edition is a new dataset DOI in `ciqualDatasetDoi`. Every source's attribution is in
+  `docs/DATA-SOURCES.md`, which the footer links to.
   `cofid/workbook.ts` downloads the CoFID 2021 workbook (4.6 MB, read whole with
   `read-excel-file`) and joins its Proximates, Inorganics and Vitamins sheets on the food code;
   `cofid/mapping.ts` is its column table, whose test fails on any column of those sheets that is
   neither mapped nor ignored.
-  Every source's attribution is in `docs/DATA-SOURCES.md`, which the footer links to.
+  `usda/fooddata-central.ts` downloads the Foundation, SR Legacy and FNDDS CSV archives (zips of a
+  few MB, read in memory by `usda/zip.ts` and `usda/csv.ts`; the release is in the URL, so a new
+  USDA release is a change to `usdaDatasetUrls`). Foods are keyed `ndb:<NDB number>` and
+  `fndds:<food code>`, never by `fdc_id`, which changes when USDA re-releases a food. A food in
+  both Foundation and SR Legacy (same NDB number) is one food: Foundation's name and nutrients,
+  SR Legacy filling each nutrient Foundation does not declare, both sets of portions. An FNDDS food
+  made of one ingredient with no retention code lends its portions to the food with that NDB
+  number and is not emitted itself.
+  `usda/mapping.ts` maps USDA nutrient numbers (`nutrient_nbr`, the one id all three datasets
+  share) to canonical keys and takes fibre out of carbohydrate by difference; its test fails on
+  any number the fixtures in `test/fixtures/usda/` read that is neither mapped nor ignored. Those
+  fixtures are real rows, trimmed to foods that between them read every number the full
+  datasets use; the adapter warns at run time about any new one.
 - `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
   workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
   per batch and a yield to the event loop between them, then archives the foods of the sources
@@ -117,6 +132,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
   is one. `foods_fts` is external-content FTS5 over `name`, `brand` and `original_name`, kept in
   step by triggers.
+- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`,
+  over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
+  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
+  `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
+  time. A user food is visible only through `owner_user_id` on the statement; user portions only
+  through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
+  food counts and saves a user's generic source preferences; search drops a disabled source in a
+  subquery on the same statement.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
@@ -125,6 +148,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   every procedure its database, `now()`, `nextId()` and `caller` (always `null` until accounts
   land), so tests swap any of them. Procedures live in `routers/`, mounted in `root.ts`. Components
   call them through `useTRPC()` and TanStack Query; `TRPCReactProvider` sits in the root layout.
+  `signedInProcedure` answers `UNAUTHORIZED` without a caller and hands the procedure a non-null
+  one.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client
