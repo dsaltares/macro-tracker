@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "db:migrate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/migrate.ts",
     "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/backup-database.ts",
+    "db:import-foods": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/import-foods.ts",
     "db:copy-down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/copy-down.ts",
     "prepare": "husky",
     "test:e2e": "playwright test",

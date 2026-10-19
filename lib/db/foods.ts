@@ -249,3 +249,23 @@ export const nutrientsOf = async (db: Kysely<Database>, foodId: string) => {
     .executeTakeFirst();
   return row && nutrientVector(row);
 };
+
+export const archiveUnseenFoods = async (
+  db: Kysely<Database>,
+  sources: readonly ReferenceSource[],
+  seenSince: string,
+  now: () => string,
+) => {
+  if (sources.length === 0) {
+    return 0;
+  }
+  const at = now();
+  const archived = await db
+    .updateTable('foods')
+    .set({ archived_at: at, updated_at: at })
+    .where('source', 'in', sources)
+    .where('archived_at', 'is', null)
+    .where('updated_at', '<', seenSince)
+    .executeTakeFirst();
+  return Number(archived.numUpdatedRows);
+};
