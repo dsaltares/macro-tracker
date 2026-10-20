@@ -239,6 +239,23 @@ beforeEach(async () => {
   }
 });
 
+describe('account.get', () => {
+  it("is the caller's account and profile", async () => {
+    expect(await as('user-1').account.get()).toEqual({
+      id: 'user-1',
+      email: 'user-1@example.test',
+      name: 'user-1',
+      profile,
+    });
+  });
+
+  it('is refused without a caller', async () => {
+    await expect(as(null).account.get()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
 describe('account.delete', () => {
   it("deletes the caller's account and everything it owns, and nobody else's", async () => {
     const before = await rowsOf('user-2');

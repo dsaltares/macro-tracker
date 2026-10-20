@@ -289,8 +289,11 @@ function FavouriteToggle({ foodId }: { foodId: string }) {
   );
 }
 
+export type AmountSource = Pick<Food, 'nutrients'>;
+
 export function EntryForm({
-  food,
+  source,
+  foodId = null,
   portions,
   logged,
   defaultValues,
@@ -298,7 +301,8 @@ export function EntryForm({
   onSave,
   children,
 }: {
-  food: Food | null;
+  source: AmountSource | null;
+  foodId?: string | null;
   portions: readonly Portion[];
   logged?: LoggedAmount;
   defaultValues: EntryValues;
@@ -326,10 +330,10 @@ export function EntryForm({
     quantity === defaultValues.quantity &&
     portionLabel === defaultValues.portion;
   const preview =
-    logged !== undefined && (food === null || amountUnchanged)
+    logged !== undefined && (source === null || amountUnchanged)
       ? logged
-      : food !== null && portion !== undefined
-        ? resolveEntry(food, portion, usableQuantity(quantity))
+      : source !== null && portion !== undefined
+        ? resolveEntry(source, portion, usableQuantity(quantity))
         : null;
 
   return (
@@ -339,7 +343,7 @@ export function EntryForm({
       onSubmit={handleSubmit(onSave)}
       noValidate
     >
-      {food === null ? null : (
+      {source === null ? null : (
         <div className="flex flex-col gap-1">
           <div className="grid grid-cols-2 gap-3">
             <TextField
@@ -365,10 +369,12 @@ export function EntryForm({
               )}
             />
           </div>
-          <PortionAdder
-            foodId={food.id}
-            onAdded={(label) => setValue('portion', label)}
-          />
+          {foodId === null ? null : (
+            <PortionAdder
+              foodId={foodId}
+              onAdded={(label) => setValue('portion', label)}
+            />
+          )}
         </div>
       )}
       {preview === null ? null : <NutrientPreview {...preview} />}
@@ -382,7 +388,7 @@ export function EntryForm({
         </SelectField>
         <TextField label="Time" type="time" {...register('time')} />
       </div>
-      {food === null ? null : <FavouriteToggle foodId={food.id} />}
+      {foodId === null ? null : <FavouriteToggle foodId={foodId} />}
       <div className="flex flex-col gap-2">
         <Button type="submit" size="lg" className="h-11" disabled={saving}>
           {saving ? 'Saving…' : 'Save'}

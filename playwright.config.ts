@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { installBannerDismissedKey } from './lib/install.ts';
 
 const isCI = !!process.env.CI;
 const port = Number(process.env.E2E_PORT) || 3015;
@@ -35,6 +36,15 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: baseURL,
+          localStorage: [{ name: installBannerDismissedKey, value: 'true' }],
+        },
+      ],
+    },
   },
   projects: [
     {

@@ -2,7 +2,12 @@ import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accountDeletion } from './accounts.ts';
-import { apiKeyRevocation, liveApiKeysQuery } from './api-keys.ts';
+import {
+  apiKeyByHashQuery,
+  apiKeyRevocation,
+  apiKeyUse,
+  liveApiKeysQuery,
+} from './api-keys.ts';
 import {
   latestMeasurementQuery,
   measurementDeletion,
@@ -26,6 +31,7 @@ import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
   foodByIdQuery,
+  foodNutrientsQuery,
   foodSummariesQuery,
   portionsQuery,
   searchQuery,
@@ -62,6 +68,7 @@ import {
   ownFoodQuery,
   userFoodArchival,
 } from './user-foods.ts';
+import { accountQuery } from './users.ts';
 
 const sqlite = new SQLite(':memory:');
 const db = new Kysely<Database>({
@@ -530,6 +537,13 @@ describe('query plans', () => {
     ]);
   });
 
+  it('reads the nutrients of some foods a user sees with a search', () => {
+    expectNoScan(foodNutrientsQuery(db, 'u', ['f', 'g']).compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
+  });
+
   it("reads a user's favourites without a scan", () => {
     expectNoScan(favouritesQuery(db, 'u').compile(), ['favourites']);
   });
@@ -612,13 +626,14 @@ describe('query plans', () => {
   });
 
   it('finds an API key by its hash with a search', () => {
-    expectSearch(
-      db
-        .selectFrom('api_keys')
-        .select('id')
-        .where('key_hash', '=', 'h')
-        .compile(),
-      'api_keys',
-    );
+    expectSearch(apiKeyByHashQuery(db, 'h').compile(), 'api_keys');
+  });
+
+  it("records an API key's use by id with a search", () => {
+    expectSearch(apiKeyUse(db, 'k', 't', 's').compile(), 'api_keys');
+  });
+
+  it("reads a user's account by id with a search", () => {
+    expectSearch(accountQuery(db, 'u').compile(), 'users');
   });
 });

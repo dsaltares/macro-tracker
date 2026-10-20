@@ -21,6 +21,12 @@ export const recipesFailed = 'Your recipes could not be loaded. Try again.';
 export const noRecipesYet =
   'Recipes you build appear here, to log by the serving or the gram.';
 
+export const noRecipeMatches = (query: string) =>
+  `None of your recipes match “${query}”.`;
+
+export const recipeMatches = (name: string, query: string) =>
+  name.toLocaleLowerCase('en').includes(query.trim().toLocaleLowerCase('en'));
+
 export const servingsOf = ({ servings }: Pick<RecipeSummary, 'servings'>) =>
   `${formatQuantity(servings)} ${servings === 1 ? 'serving' : 'servings'}`;
 

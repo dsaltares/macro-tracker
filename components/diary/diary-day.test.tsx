@@ -3,10 +3,17 @@ import { NuqsTestingAdapter, type UrlUpdateEvent } from 'nuqs/adapters/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { noGoal } from '@/components/diary/day-totals';
 import { DiaryDay, loadFailed } from '@/components/diary/diary-day';
+import { recipeGone } from '@/components/diary/edit-entry-dialog';
 import { clearFailed, copyFailed } from '@/components/diary/meal-menu';
 import { Toaster } from '@/components/ui/sonner';
 import { listMeasurements } from '@/lib/db/body-measurements';
-import { diaryDay } from '@/lib/db/diary';
+import { diaryDay, logRecipe } from '@/lib/db/diary';
+import { insertFood } from '@/lib/db/foods';
+import {
+  addIngredient,
+  createRecipe,
+  removeIngredient,
+} from '@/lib/db/recipes';
 import { dayTotals } from '@/lib/domain/diary/entries';
 import { formatAmount } from '@/lib/domain/nutrition/format';
 import { salt } from '@/lib/domain/nutrition/vector';
@@ -60,6 +67,62 @@ const previewed = (dialog: HTMLElement, label: string) => {
   const terms = within(nutrientsIn(dialog)).getAllByRole('term');
   const index = terms.findIndex((term) => term.textContent === label);
   return within(nutrientsIn(dialog)).getAllByRole('definition')[index];
+};
+
+const seedRecipeEntry = async () => {
+  const db = api.database();
+  let ids = 0;
+  const context = {
+    nextId: () => `recipe-seed-${++ids}`,
+    now: () => new Date(Date.UTC(2026, 9, 19, 12, ids)).toISOString(),
+  };
+  const lentils = await insertFood(
+    db,
+    {
+      source: 'ciqual',
+      source_id: '20503',
+      barcode: null,
+      name: 'Cooked lentils',
+      brand: null,
+      quantity_label: null,
+      nutrients: { energy_kcal: 120, protein: 9, carbohydrate: 17, fat: 0.5 },
+      portions: [],
+    },
+    context,
+  );
+  const dal = await createRecipe(
+    db,
+    'user-1',
+    { name: 'Dal', servings: 4, cookedWeightG: null, notes: null },
+    context,
+  );
+  const ingredient = await addIngredient(
+    db,
+    'user-1',
+    {
+      recipeId: dal,
+      ingredient: { kind: 'food', foodId: lentils },
+      portion: '100 g',
+      quantity: 8,
+    },
+    context,
+  );
+  const logged = await logRecipe(
+    db,
+    'user-1',
+    {
+      date: day,
+      meal: 'lunch',
+      time: null,
+      recipeId: dal,
+      amount: { servings: 1 },
+    },
+    context,
+  );
+  if (logged.outcome !== 'logged' || ingredient.outcome !== 'saved') {
+    throw new Error('Could not seed the recipe entry');
+  }
+  return { dal, ingredientId: ingredient.ingredient.id, entry: logged.entry };
 };
 
 const storedDay = (date = day) => diaryDay(api.database(), 'user-1', date);
@@ -322,6 +385,77 @@ describe('DiaryDay', () => {
     expect(
       (await storedDay()).find((entry) => entry.id === pizzaEntry.id),
     ).toMatchObject({ meal: 'lunch', time: null });
+  });
+
+  it('marks a recipe entry as a recipe', async () => {
+    await seedDay();
+    await seedRecipeEntry();
+    render();
+
+    const dal = await screen.findByRole('button', { name: /Dal/ });
+    expect(within(dal).getByText('Recipe')).toBeInTheDocument();
+    expect(dal).toHaveTextContent('1 × 1 serving');
+    expect(dal).toHaveTextContent('240 kcal');
+    expect(
+      within(entryIn('Breakfast', 'Nutella')).queryByText('Recipe'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('changes the servings of a recipe entry, and opens the recipe', async () => {
+    const { dal, entry } = await seedRecipeEntry();
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: /Dal/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Dal' });
+    expect(await within(dialog).findByLabelText('Quantity')).toHaveValue(1);
+    expect(within(dialog).getByLabelText('Portion')).toHaveValue('1 serving');
+    expect(
+      within(dialog).getByRole('link', { name: 'Open recipe' }),
+    ).toHaveAttribute('href', `/foods/recipes/${dal}`);
+    expect(
+      within(dialog).queryByRole('button', { name: 'Favourite' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: 'Add portion' }),
+    ).not.toBeInTheDocument();
+
+    await user.clear(within(dialog).getByLabelText('Quantity'));
+    await user.type(within(dialog).getByLabelText('Quantity'), '1.5');
+    expect(previewed(dialog, 'Energy')).toHaveTextContent('360 kcal');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect((await storedDay()).find(({ id }) => id === entry.id)).toMatchObject(
+      {
+        quantity: 1.5,
+        portionLabel: '1 serving',
+        grams: 300,
+        nutrients: expect.objectContaining({ energy_kcal: 360 }),
+      },
+    );
+  });
+
+  it('keeps a recipe entry whose recipe lost its ingredients, without an amount to change', async () => {
+    const { dal, ingredientId } = await seedRecipeEntry();
+    await removeIngredient(
+      api.database(),
+      'user-1',
+      ingredientId,
+      () => '2026-10-19T13:00:00.000Z',
+    );
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: /Dal/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Dal' });
+
+    expect(await within(dialog).findByText(recipeGone)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText('Quantity')).not.toBeInTheDocument();
+    expect(previewed(dialog, 'Energy')).toHaveTextContent('240 kcal');
+    expect(
+      within(dialog).getByRole('link', { name: 'Open recipe' }),
+    ).toHaveAttribute('href', `/foods/recipes/${dal}`);
   });
 
   it('refuses a quantity of zero', async () => {

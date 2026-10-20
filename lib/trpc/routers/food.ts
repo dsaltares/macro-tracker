@@ -6,27 +6,25 @@ import {
   removeFavourite,
 } from '../../db/diary.ts';
 import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
-import {
-  type FoodReader,
-  findFood,
-  findFoodByBarcode,
-  listUserFoods,
-  searchFoods,
-} from '../../db/food-search.ts';
+import { listUserFoods } from '../../db/food-search.ts';
 import {
   listFoodSources,
   setFoodSourcePreferences,
 } from '../../db/food-source-preferences.ts';
 import {
   archiveUserFood,
-  createUserFood,
   type UserFoodWrite,
   updateUserFood,
 } from '../../db/user-foods.ts';
 import { maxPortionLabelLength } from '../../domain/foods/portions.ts';
 import { genericSources } from '../../domain/foods/sources.ts';
 import { userFoodSchema } from '../../domain/foods/user-food.ts';
-import type { Context } from '../context.ts';
+import {
+  createUserFood,
+  findFood,
+  findFoodByBarcode,
+  searchFoods,
+} from '../../services/foods.ts';
 import { accountProcedure, publicProcedure, router } from '../trpc.ts';
 
 const maxQueryLength = 200;
@@ -48,11 +46,6 @@ const savedId = (written: UserFoodWrite) => {
   }
   return written.id;
 };
-
-const readerOf = ({ db, caller }: Context): FoodReader => ({
-  db,
-  userId: caller?.userId ?? null,
-});
 
 const sourcePreferencesInput = z
   .array(z.object({ source: z.enum(genericSources), enabled: z.boolean() }))
@@ -78,7 +71,7 @@ const portionInput = z.object({
 
 export const foodRouter = router({
   search: publicProcedure.input(searchInput).query(({ ctx, input }) =>
-    searchFoods(readerOf(ctx), {
+    searchFoods(ctx, {
       query: input.query,
       cursor: input.cursor ?? 0,
     }),
@@ -86,7 +79,7 @@ export const foodRouter = router({
   get: publicProcedure
     .input(z.string().min(1))
     .query(async ({ ctx, input }) => {
-      const food = await findFood(readerOf(ctx), input);
+      const food = await findFood(ctx, input);
       if (food === null) {
         throw new TRPCError({ code: 'NOT_FOUND' });
       }
@@ -94,7 +87,7 @@ export const foodRouter = router({
     }),
   byBarcode: publicProcedure
     .input(z.string())
-    .query(({ ctx, input }) => findFoodByBarcode(readerOf(ctx), input)),
+    .query(({ ctx, input }) => findFoodByBarcode(ctx, input)),
   mine: accountProcedure.input(searchInput).query(({ ctx, input }) =>
     listUserFoods(ctx.db, ctx.caller.userId, {
       query: input.query,
@@ -104,7 +97,7 @@ export const foodRouter = router({
   create: accountProcedure
     .input(userFoodSchema)
     .mutation(async ({ ctx, input }) =>
-      savedId(await createUserFood(ctx.db, ctx.caller.userId, input, ctx)),
+      savedId(await createUserFood(ctx, input)),
     ),
   update: accountProcedure
     .input(userFoodSchema.extend({ id: z.string().min(1) }))

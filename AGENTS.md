@@ -206,7 +206,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
   is one. `foods_fts` is external-content FTS5 over `name`, `brand` and `original_name`, kept in
   step by triggers.
-- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`,
+- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`
+  (through `lib/services/foods.ts`),
   over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
   FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
   `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
@@ -239,7 +240,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   meal of a date. `logQuickEntry`
   logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
   in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
-  (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
+  (`lib/trpc/routers/diary.ts`) is these over the caller, through `lib/services/diary.ts` wherever
+  `/api/v1` has the same behaviour. Adding a favourite
   reads the food through the same visibility as `food.get`; `food.setFavourite`
   (`{ foodId, favourite }`, idempotent) is it over the caller. `recentFoods`
   (`diary.recentFoods`), `frequentFoods` (`diary.frequentFoods`, the 90 days up to a date) and
@@ -274,6 +276,42 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `revoke`) is these over the caller. `ApiKeysSettings` (`components/settings/`) is Settings › API
   keys: a name and scopes, the new key in a dialog to copy, and the list with each key's prefix,
   scopes, creation and last use, revoked once confirmed.
+- `lib/api/` — the REST surface under `/api/v1` for API keys (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
+  `apiHandler({ scope, input, params, status, handle })` (`handler.ts`) authenticates the bearer
+  key (`authenticate.ts`: by its hash, refusing a revoked one, writing `last_used_at` at most once
+  a minute), checks the route's scope, validates the path parameters and the query or JSON body
+  with Zod, and calls `handle` with a `ServiceContext` for the key's user; it returns
+  `(server: ApiServer) => (request, { params })`, and `apiServer()` (`server.ts`) is the server's.
+  Every error is `{ error: { code, message, issues? } }` (`errors.ts`); `handle` throws
+  `apiError(code, message)` for an expected one. Pages are `{ items, nextCursor }` with an opaque
+  cursor (`pagination.ts`). Routes are in `routes/` and tested there with the real handler over
+  `migratedDatabasePerTest()`; each `app/api/v1/**/route.ts` only wires one to `apiServer()`, and
+  `app/api/v1/[...path]` answers the envelope's `404` to any other path. `GET /api/v1/me` is the
+  key's account, profile and the key's name, prefix and scopes. `routes/foods.ts` is
+  `GET /api/v1/foods?q=&cursor=` (search, paged as `food.search`), `GET /api/v1/foods/{id}`,
+  `GET /api/v1/foods/{id}/portions`, `GET /api/v1/foods/barcode/{ean}` (`400` on what is not an
+  EAN-8, EAN-13 or UPC-A) and `POST /api/v1/foods` (`write`, a user food over `userFoodSchema`
+  with `brand`, `barcode`, `quantityLabel` and `portions` optional, `201` with the food, `409`
+  `CONFLICT` on a barcode the caller's foods already have). Every food carries
+  `canonicalNutrients`: each canonical nutrient key in canon order, `null` where unknown. A
+  portion is `{ id, label, grams, source }`, a standard one with `id: null` and
+  `source: 'standard'`. The diary is `routes/diary.ts`:
+  `GET /api/v1/diary/{date}` (`read`) is the day as `diary.day` has it; `POST
+  /api/v1/diary/entries` (`write`, `201`) takes a `kind` of `food`, `recipe` (servings or grams)
+  or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
+  and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
+  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`. Each entry goes out
+  through `entryOf`, its portion label as `portion`.
+- `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
+  `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
+  (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or
+  barcode, the nutrients of a page of foods and creating a user food, behind `food.search`,
+  `food.get`, `food.byBarcode`, `food.create` and the foods routes; its reads take a
+  `FoodReadContext`, whose caller may be null, since the app searches signed out too.
+  `diary.ts` is the diary day, adding a food, recipe or quick entry, updating and removing one,
+  copying a meal, and the Zod schemas of the fields both surfaces take (`dateSchema`,
+  `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). A `lib/db/`
+  function moves behind a service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -424,17 +462,21 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
-  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. The results are
-  virtualised (`VirtualFoodList`, `@tanstack/react-virtual`, loaded by `next/dynamic`) in a scroll
-  container of their own, each row carrying `aria-setsize` and `aria-posinset`. The sheet itself
-  is loaded by `next/dynamic`, so the day view's first load leaves it out. The first three
-  are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
+  view, and the Recent, Frequent, Favourites, All and Recipes tabs, typing moving to All unless on
+  Recipes, which filters `recipe.list` by name. The All results are virtualised
+  (`VirtualFoodList`, `@tanstack/react-virtual`, loaded by `next/dynamic`) in a scroll container
+  of their own, each row carrying `aria-setsize` and `aria-posinset`. The sheet itself is loaded
+  by `next/dynamic`, so the day view's first load leaves it out. The first three are
+  `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
   date and meal in one tap, leaving the sheet open. Choosing a food
   opens `FoodStep` in the same sheet, which reads it with `food.get` and logs it with
-  `diary.addFood`. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
+  `diary.addFood`. Choosing a recipe opens `RecipeStep` (`recipe-step.tsx`), which reads it with
+  `recipe.get` and logs servings or grams of it with `diary.addRecipe`, or offers to open a recipe
+  without ingredients. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
   quantity and portion, a live preview of the nutrients (`resolveEntry`, or an entry's snapshot
   until its amount changes), *Add portion* inline (`food.addPortion`), meal, time and the
-  favourite toggle. *Quick add* opens `QuickAddStep` in the same sheet,
+  favourite toggle, the last two only for a food. A recipe entry is badged *Recipe* in its meal;
+  its editor reads `recipe.get` for the portions and links to the recipe. *Quick add* opens `QuickAddStep` in the same sheet,
   named after the search: a label and either amounts per 100 g (the three macros, optional energy,
   and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
   `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
@@ -512,7 +554,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   providers; `api.fails('<procedure>')` makes one procedure answer 500.
 - `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
   source; the PNGs are rendered from it. **No service worker**: nothing is cached on the device,
-  and `e2e/install.spec.ts` fails if one is registered (ADR 0014).
+  and `e2e/install.spec.ts` fails if one is registered (ADR 0014). The manifest and the meta
+  theme-color carry `lib/brand.ts`'s hex colours; `ThemeColor` (`components/theme-color.tsx`, in
+  the root layout) sets every `theme-color` meta to the theme chosen in Settings, so the browser
+  bars follow it rather than the system's. iOS ignores the manifest at launch: its splash is an
+  `apple-touch-startup-image` per screen of `splashScreens` (`lib/splash.ts`), each prerendered at
+  build by `app/splash/[size]/route.tsx` (the icon on the dark background, through `next/og`); a
+  new iPhone screen size is a new row there. `InstallBanner` (`components/app-shell/`, ADR 0015)
+  tells a phone how to install: Share → Add to Home Screen on iOS, the browser menu's Install app
+  on Android (`installPlatform`, `lib/install.ts`), nothing on a desktop, when standalone, or once
+  dismissed. Playwright's default storage state dismisses it, so only `e2e/install.spec.ts` sees it.
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.

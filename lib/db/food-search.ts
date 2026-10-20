@@ -9,7 +9,7 @@ import { matchExpression, searchPageSize } from '../domain/foods/search.ts';
 import type { PortionSource, Source } from '../domain/foods/sources.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
 import { getLogger } from '../logger.ts';
-import { nutrientsOf } from './foods.ts';
+import { nutrientsOf, nutrientVector } from './foods.ts';
 import type { Database } from './schema.ts';
 
 export type FoodReader = {
@@ -229,6 +229,29 @@ export const foodSummariesQuery = (
     .select(summaryColumns)
     .where('foods.id', 'in', foodIds)
     .where(visibleFoods(userId));
+
+export const foodNutrientsQuery = (
+  db: Kysely<Database>,
+  userId: string | null,
+  foodIds: readonly string[],
+) =>
+  db
+    .selectFrom('foods')
+    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
+    .selectAll('food_nutrients')
+    .where('foods.id', 'in', foodIds)
+    .where(visibleFoods(userId));
+
+export const nutrientsByFood = async (
+  { db, userId }: FoodReader,
+  foodIds: readonly string[],
+): Promise<Map<string, NutrientVector>> => {
+  if (foodIds.length === 0) {
+    return new Map();
+  }
+  const rows = await foodNutrientsQuery(db, userId, foodIds).execute();
+  return new Map(rows.map((row) => [row.food_id, nutrientVector(row)]));
+};
 
 const lastLoggedAmount = (
   portions: readonly Portion[],

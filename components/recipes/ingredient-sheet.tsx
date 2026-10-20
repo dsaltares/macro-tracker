@@ -17,7 +17,12 @@ import {
   ingredientLoadFailed,
   useIngredientSource,
 } from '@/components/recipes/ingredient-amount';
-import { RecipeRowContent, recipesFailed } from '@/components/recipes/recipes';
+import {
+  noRecipeMatches,
+  RecipeRowContent,
+  recipeMatches,
+  recipesFailed,
+} from '@/components/recipes/recipes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -35,17 +40,11 @@ import { failureOf } from '@/lib/trpc/failure';
 
 export const noOtherRecipes = 'Your other recipes appear here.';
 
-export const noRecipeMatches = (query: string) =>
-  `None of your recipes match “${query}”.`;
-
 type Chosen = { ref: IngredientRef; name: string };
 
 type IngredientList = 'foods' | 'recipes';
 
 const defaultQuantity = 1;
-
-const matches = (name: string, query: string) =>
-  name.toLocaleLowerCase('en').includes(query.trim().toLocaleLowerCase('en'));
 
 function RecipeChoices({
   recipeId,
@@ -71,7 +70,7 @@ function RecipeChoices({
   }
 
   const others = recipes.data.filter(({ id }) => id !== recipeId);
-  const matching = others.filter(({ name }) => matches(name, query));
+  const matching = others.filter(({ name }) => recipeMatches(name, query));
   if (matching.length === 0) {
     return (
       <Message>

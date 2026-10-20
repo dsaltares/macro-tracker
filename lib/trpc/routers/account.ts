@@ -9,6 +9,7 @@ import {
   setPassword,
   signInMethods,
 } from '../../db/sign-in-methods.ts';
+import { findAccount } from '../../services/account.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 export const wrongConfirmation = 'That is not the address on this account.';
@@ -19,6 +20,7 @@ export const lastSignInMethod =
   'That is the only way to sign in to this account. Add another before disconnecting it.';
 
 export const accountRouter = router({
+  get: accountProcedure.query(({ ctx }) => findAccount(ctx)),
   delete: accountProcedure
     .input(z.object({ email }))
     .mutation(async ({ ctx, input }) => {
