@@ -105,6 +105,15 @@ salt for sodium; any other nutrient; and the food's own portions. Editing a food
 entries only. A user **archives** a food they no longer want: it leaves their foods, search and
 barcode lookup, and stays resolvable from the diary.
 
+A **label reading** is what a vision model transcribed from a photo of a nutrition label: the
+product name, brand, net quantity and serving size, the nutrition table per 100 g and per serving
+as printed, each amount with its printed unit, a confidence from 0 to 1 for every field, and notes
+on what it could not read. It needs values per 100 g or per serving, and a serving size when it
+has only the latter. The app turns it into a user food's fields itself (ADR
+[0013](adr/0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md)): the
+values per 100 g when there are any, otherwise those per serving scaled by its size; kJ to kcal and
+salt to sodium as for a source; the serving as a portion. The photo is never kept.
+
 A **portion** is a named quantity in grams for one food ("1 serving = 30 g", "1 tbsp = 15 g").
 Every food has `100 g`, `1 g` and `1 ml`; a reference food may add its upstream serving; a user adds
 their own, to their foods or to a reference food, and only they see them. A food never shows one

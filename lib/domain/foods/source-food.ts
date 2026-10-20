@@ -63,6 +63,8 @@ type DerivingKey = keyof typeof derivedFrom;
 
 export type DeclaredKey = NutrientKey | DerivingKey;
 
+export const derivingKeys = Object.keys(derivedFrom) as DerivingKey[];
+
 export type DeclaredAmount = number | string | null | undefined;
 
 export type DeclaredNutrients = Partial<Record<DeclaredKey, DeclaredAmount>>;
@@ -95,6 +97,9 @@ export type NormalisedNutrients = {
 
 const isDeriving = (key: DeclaredKey): key is DerivingKey =>
   Object.hasOwn(derivedFrom, key);
+
+export const canonicalKeyOf = (key: DeclaredKey): NutrientKey =>
+  isDeriving(key) ? derivedFrom[key].into : key;
 
 export const normaliseNutrients = (
   declared: DeclaredNutrients,

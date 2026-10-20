@@ -288,6 +288,19 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   Resend. With `EMAIL_OUTBOX_DIR` set, every message is also written there as JSON, which is how e2e
   follows mailed links (`e2e/auth.ts`). Templates are React Email in `templates/`, one
   `ActionEmail` layout for every message that is a link to follow.
+- `lib/ai/` — the only module importing the Vercel AI SDK (ADR [0013](docs/adr/0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md)).
+  `createLabelReader({ model })` over any `LanguageModel`; its `readLabel(image)` sends the bytes
+  with `prompts/label.ts` and never throws: the `LabelReading`, or a failure (`unreadable`,
+  `rejected`, `rate-limited`, `unavailable`) with a message, never the SDK's error, whose request
+  holds the photo. The photo is never written or logged. `resolveLanguageModel` (`model.ts`) reads
+  `AI_PROVIDER` (`openai`), `AI_MODEL` and `AI_API_KEY`, `null` without a key;
+  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The schema
+  sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
+  answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
+  `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
+  the table as printed, each amount with its unit and a confidence, turned into a user food's
+  fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
+  per 100 g winning over those per serving, the first of a nutrient read twice winning.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,
