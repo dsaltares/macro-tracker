@@ -29,6 +29,17 @@ export type FoodSummary = {
   defaultPortion: Portion;
 };
 
+export type FoodWithLastLoggedAmount = FoodSummary & {
+  portion: Portion;
+  quantity: number;
+};
+
+export type LastLoggedAmount = {
+  foodId: string;
+  portionLabel: string | null;
+  quantity: number | null;
+};
+
 export type FoodSearchPage = {
   foods: FoodSummary[];
   nextCursor: number | null;
@@ -103,6 +114,30 @@ const portionsByFood = async (
   return byFood;
 };
 
+const summaryColumns = [
+  'foods.id',
+  'foods.name',
+  'foods.brand',
+  'foods.quantity_label',
+  'foods.source',
+  'food_nutrients.energy_kcal',
+  'food_nutrients.protein',
+  'food_nutrients.carbohydrate',
+  'food_nutrients.fat',
+] as const;
+
+type SummaryRow = {
+  id: string;
+  name: string;
+  brand: string | null;
+  quantity_label: string | null;
+  source: Source;
+  energy_kcal: number | null;
+  protein: number | null;
+  carbohydrate: number | null;
+  fat: number | null;
+};
+
 export const searchQuery = (
   db: Kysely<Database>,
   userId: string | null,
@@ -113,17 +148,7 @@ export const searchQuery = (
     .selectFrom('foods_fts')
     .innerJoin('foods', 'foods.rowid', 'foods_fts.rowid')
     .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
-    .select([
-      'foods.id',
-      'foods.name',
-      'foods.brand',
-      'foods.quantity_label',
-      'foods.source',
-      'food_nutrients.energy_kcal',
-      'food_nutrients.protein',
-      'food_nutrients.carbohydrate',
-      'food_nutrients.fat',
-    ])
+    .select(summaryColumns)
     .where(sql<boolean>`foods_fts match ${match}`)
     .where('foods.archived_at', 'is', null)
     .where(visibleFoods(userId));
@@ -149,6 +174,74 @@ const labelAndGrams = ({ label, grams }: Portion): Portion => ({
   grams,
 });
 
+const summaryOf = (
+  row: SummaryRow,
+  portions: readonly Portion[],
+): FoodSummary => ({
+  id: row.id,
+  name: row.name,
+  brand: row.brand,
+  quantityLabel: row.quantity_label,
+  source: row.source,
+  energyKcal: row.energy_kcal,
+  protein: row.protein,
+  carbohydrate: row.carbohydrate,
+  fat: row.fat,
+  defaultPortion: labelAndGrams(defaultPortion(portions)),
+});
+
+export const foodSummariesQuery = (
+  db: Kysely<Database>,
+  userId: string | null,
+  foodIds: readonly string[],
+) =>
+  db
+    .selectFrom('foods')
+    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
+    .select(summaryColumns)
+    .where('foods.id', 'in', foodIds)
+    .where(visibleFoods(userId));
+
+const lastLoggedAmount = (
+  portions: readonly Portion[],
+  { portionLabel, quantity }: LastLoggedAmount,
+) => {
+  const portion = withStandardPortions(portions).find(
+    ({ label }) => label === portionLabel,
+  );
+  return portion === undefined || quantity === null
+    ? { portion: labelAndGrams(defaultPortion(portions)), quantity: 1 }
+    : { portion: labelAndGrams(portion), quantity };
+};
+
+export const withLastLoggedAmounts = async (
+  reader: FoodReader,
+  amounts: readonly LastLoggedAmount[],
+): Promise<FoodWithLastLoggedAmount[]> => {
+  if (amounts.length === 0) {
+    return [];
+  }
+  const foodIds = amounts.map(({ foodId }) => foodId);
+  const [rows, portions] = await Promise.all([
+    foodSummariesQuery(reader.db, reader.userId, foodIds).execute(),
+    portionsByFood(reader, foodIds),
+  ]);
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+  return amounts.flatMap((amount) => {
+    const row = rowsById.get(amount.foodId);
+    if (row === undefined) {
+      return [];
+    }
+    const foodPortions = portions.get(row.id) ?? [];
+    return [
+      {
+        ...summaryOf(row, foodPortions),
+        ...lastLoggedAmount(foodPortions, amount),
+      },
+    ];
+  });
+};
+
 export const searchFoods = async (
   reader: FoodReader,
   { query, cursor }: { query: string; cursor: number },
@@ -169,18 +262,7 @@ export const searchFoods = async (
     page.map(({ id }) => id),
   );
   return {
-    foods: page.map((row) => ({
-      id: row.id,
-      name: row.name,
-      brand: row.brand,
-      quantityLabel: row.quantity_label,
-      source: row.source,
-      energyKcal: row.energy_kcal,
-      protein: row.protein,
-      carbohydrate: row.carbohydrate,
-      fat: row.fat,
-      defaultPortion: labelAndGrams(defaultPortion(portions.get(row.id) ?? [])),
-    })),
+    foods: page.map((row) => summaryOf(row, portions.get(row.id) ?? [])),
     nextCursor: rows.length > searchPageSize ? cursor + searchPageSize : null,
   };
 };

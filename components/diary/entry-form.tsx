@@ -260,8 +260,7 @@ function FavouriteToggle({ foodId }: { foodId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const favourites = useQuery(trpc.food.favourites.queryOptions());
-  const favourite =
-    favourites.data?.some((entry) => entry.foodId === foodId) ?? false;
+  const favourite = favourites.data?.some(({ id }) => id === foodId) ?? false;
   const set = useMutation(
     trpc.food.setFavourite.mutationOptions({
       onSuccess: () =>

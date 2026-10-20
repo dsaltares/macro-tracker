@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { portionTaken } from '@/components/diary/entry-form';
+import { addAgainFailed, foodListFailed } from '@/components/diary/food-lists';
 import {
   noMatches,
   searchFailed,
@@ -8,7 +9,7 @@ import {
 } from '@/components/diary/food-search-results';
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { addFailed } from '@/components/diary/food-step';
-import { diaryDay, favourites } from '@/lib/db/diary';
+import { addFavourite, diaryDay, favourites, logFood } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { searchPageSize } from '@/lib/domain/foods/search';
 import { serveApi } from '@/test/api';
@@ -53,7 +54,7 @@ const seedFoods = async () => {
     },
     context,
   );
-  await insertFood(
+  const oats = await insertFood(
     db,
     {
       source: 'ciqual',
@@ -72,8 +73,37 @@ const seedFoods = async () => {
     },
     context,
   );
-  return { nutella };
+  return { nutella, oats };
 };
+
+let entries = 0;
+
+const logging: FoodWriteContext = {
+  nextId: () => `entry-${++entries}`,
+  now: () => new Date(Date.UTC(2026, 9, 19, 8, entries)).toISOString(),
+};
+
+const logged = async (foodId: string, portion: string, quantity: number) =>
+  logFood(
+    api.database(),
+    'user-1',
+    { date: day, meal: 'breakfast', time: null, foodId, portion, quantity },
+    logging,
+  );
+
+const lunch = async () =>
+  (await diaryDay(api.database(), 'user-1', day))
+    .filter(({ meal }) => meal === 'lunch')
+    .map(({ label, quantity, portionLabel }) => ({
+      label,
+      quantity,
+      portionLabel,
+    }));
+
+const addButtonLabels = async () =>
+  (await within(sheet()).findAllByRole('button', { name: /^Add .+ of / })).map(
+    (button) => button.getAttribute('aria-label'),
+  );
 
 const seedApples = async (count: number) => {
   const context = seeding();
@@ -135,17 +165,21 @@ describe('FoodSearchSheet', () => {
       within(sheet()).getByRole('tab', { name: 'Recent' }),
     ).toHaveAttribute('aria-selected', 'true');
     expect(
-      within(sheet()).getByText('Foods you log appear here.'),
+      await within(sheet()).findByText('Foods you log appear here.'),
     ).toBeInTheDocument();
 
     await user.click(within(sheet()).getByRole('tab', { name: 'Frequent' }));
     expect(
-      within(sheet()).getByText('The foods you log most often appear here.'),
+      await within(sheet()).findByText(
+        'The foods you log most often appear here.',
+      ),
     ).toBeVisible();
 
     await user.click(within(sheet()).getByRole('tab', { name: 'Favourites' }));
     expect(
-      within(sheet()).getByText('Foods you mark as favourites appear here.'),
+      await within(sheet()).findByText(
+        'Foods you mark as favourites appear here.',
+      ),
     ).toBeVisible();
 
     await user.click(within(sheet()).getByRole('tab', { name: 'All' }));
@@ -434,5 +468,87 @@ describe('FoodSearchSheet', () => {
     await searchFor(user, 'nutella');
 
     expect(await within(sheet()).findByText(searchFailed)).toBeInTheDocument();
+  });
+
+  it('logs a recent food to the meal in one tap, with the portion and quantity it was last logged with', async () => {
+    const { nutella, oats } = await seedFoods();
+    await logged(oats, '100 g', 1);
+    await logged(nutella, '1 serving', 2);
+    const { user } = render();
+
+    expect(await addButtonLabels()).toEqual([
+      'Add 2 × 1 serving of Nutella',
+      'Add 1 × 100 g of Rolled oats',
+    ]);
+
+    await user.click(
+      within(sheet()).getByRole('button', {
+        name: 'Add 2 × 1 serving of Nutella',
+      }),
+    );
+
+    await vi.waitFor(async () =>
+      expect(await lunch()).toEqual([
+        { label: 'Nutella', quantity: 2, portionLabel: '1 serving' },
+      ]),
+    );
+  });
+
+  it('lists the foods logged most often on the frequent tab, ready to log again', async () => {
+    const { nutella, oats } = await seedFoods();
+    await logged(nutella, '1 serving', 1);
+    await logged(oats, '100 g', 1);
+    await logged(oats, '1 g', 40);
+    const { user } = render();
+
+    await screen.findByRole('dialog', { name: 'Add to lunch' });
+    await user.click(within(sheet()).getByRole('tab', { name: 'Frequent' }));
+
+    expect(await addButtonLabels()).toEqual([
+      'Add 40 × 1 g of Rolled oats',
+      'Add 1 × 1 serving of Nutella',
+    ]);
+  });
+
+  it('lists the favourites, each ready to log with its default portion until it is logged', async () => {
+    const { nutella } = await seedFoods();
+    await addFavourite(api.database(), 'user-1', nutella, logging.now);
+    const { user } = render();
+
+    await screen.findByRole('dialog', { name: 'Add to lunch' });
+    await user.click(within(sheet()).getByRole('tab', { name: 'Favourites' }));
+    await user.click(
+      await within(sheet()).findByRole('button', {
+        name: 'Add 1 × 1 serving of Nutella',
+      }),
+    );
+
+    await vi.waitFor(async () =>
+      expect(await lunch()).toEqual([
+        { label: 'Nutella', quantity: 1, portionLabel: '1 serving' },
+      ]),
+    );
+  });
+
+  it('says so when a list cannot be loaded or a food cannot be added again', async () => {
+    const { nutella } = await seedFoods();
+    await logged(nutella, '1 serving', 2);
+    api.fails('diary.addFood');
+    const { user } = render();
+
+    await user.click(
+      await within(sheet()).findByRole('button', {
+        name: 'Add 2 × 1 serving of Nutella',
+      }),
+    );
+    expect(await within(sheet()).findByRole('alert')).toHaveTextContent(
+      addAgainFailed,
+    );
+
+    api.fails('diary.frequentFoods');
+    await user.click(within(sheet()).getByRole('tab', { name: 'Frequent' }));
+    expect(
+      await within(sheet()).findByText(foodListFailed),
+    ).toBeInTheDocument();
   });
 });
