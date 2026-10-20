@@ -11,6 +11,7 @@ import {
   diaryDayQuery,
   diaryEntryDeletion,
   diaryEntryQuery,
+  diaryMealDeletion,
   favouriteDeletion,
   favouritesQuery,
   frequentFoodsQuery,
@@ -327,6 +328,16 @@ describe('query plans', () => {
 
   it("removes a user's diary entry by id with a search", () => {
     expectSearch(diaryEntryDeletion(db, 'u', 'e').compile(), 'diary_entries');
+  });
+
+  it("clears one meal of a user's day with a search", () => {
+    expectSearch(
+      diaryMealDeletion(db, 'u', {
+        date: '2026-10-20',
+        meal: 'lunch',
+      }).compile(),
+      'diary_entries',
+    );
   });
 
   it("clears a deleted food's link from the diary with a search", () => {

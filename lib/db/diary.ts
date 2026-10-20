@@ -375,6 +375,35 @@ export const removeDiaryEntry = async (
   return numDeletedRows > 0n;
 };
 
+export type DiaryMeal = {
+  date: string;
+  meal: Meal;
+};
+
+export const diaryMealDeletion = (
+  db: Kysely<Database>,
+  userId: string,
+  { date, meal }: DiaryMeal,
+) =>
+  db
+    .deleteFrom('diary_entries')
+    .where('user_id', '=', userId)
+    .where('date', '=', date)
+    .where('meal', '=', meal);
+
+export const clearDiaryMeal = async (
+  db: Kysely<Database>,
+  userId: string,
+  meal: DiaryMeal,
+) => {
+  const { numDeletedRows } = await diaryMealDeletion(
+    db,
+    userId,
+    meal,
+  ).executeTakeFirst();
+  return Number(numDeletedRows);
+};
+
 export const favouritesQuery = (db: Kysely<Database>, userId: string) =>
   db
     .selectFrom('favourites')

@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import {
+  clearDiaryMeal,
   copyDiaryMeal,
   diaryDay,
   frequentFoods,
@@ -176,4 +177,9 @@ export const diaryRouter = router({
     .mutation(({ ctx, input }) =>
       copyDiaryMeal(ctx.db, ctx.caller.userId, input, ctx),
     ),
+  clearMeal: accountProcedure
+    .input(z.object({ date: dateInput, meal: mealInput }))
+    .mutation(async ({ ctx, input }) => ({
+      cleared: await clearDiaryMeal(ctx.db, ctx.caller.userId, input),
+    })),
 });

@@ -56,6 +56,7 @@ function Day({ date }: { date: string }) {
       {day.data.meals.map(({ meal, entries, totals }) => (
         <MealSection
           key={meal}
+          date={date}
           meal={meal}
           entries={entries}
           totals={totals}
