@@ -359,31 +359,24 @@ export type AddedFavourite =
   | { outcome: 'added' }
   | { outcome: 'food-not-found' };
 
-const insertFavourite = async (
-  db: Kysely<Database>,
-  userId: string,
-  foodId: string,
-  now: () => string,
-): Promise<AddedFavourite> => {
-  const food = await foodByIdQuery(db, userId, foodId).executeTakeFirst();
-  if (food === undefined) {
-    return { outcome: 'food-not-found' };
-  }
-  await db
-    .insertInto('favourites')
-    .values({ user_id: userId, food_id: foodId, created_at: now() })
-    .onConflict((conflict) => conflict.doNothing())
-    .execute();
-  return { outcome: 'added' };
-};
-
 export const addFavourite = (
   db: Kysely<Database>,
   userId: string,
   foodId: string,
   now: () => string,
 ): Promise<AddedFavourite> =>
-  db.transaction().execute((trx) => insertFavourite(trx, userId, foodId, now));
+  db.transaction().execute(async (trx) => {
+    const food = await foodByIdQuery(trx, userId, foodId).executeTakeFirst();
+    if (food === undefined) {
+      return { outcome: 'food-not-found' };
+    }
+    await trx
+      .insertInto('favourites')
+      .values({ user_id: userId, food_id: foodId, created_at: now() })
+      .onConflict((conflict) => conflict.doNothing())
+      .execute();
+    return { outcome: 'added' };
+  });
 
 export const favouriteDeletion = (
   db: Kysely<Database>,
@@ -407,22 +400,6 @@ export const removeFavourite = async (
   ).executeTakeFirst();
   return numDeletedRows > 0n;
 };
-
-export type ToggledFavourite = AddedFavourite | { outcome: 'removed' };
-
-export const toggleFavourite = (
-  db: Kysely<Database>,
-  userId: string,
-  foodId: string,
-  now: () => string,
-): Promise<ToggledFavourite> =>
-  db
-    .transaction()
-    .execute(async (trx) =>
-      (await removeFavourite(trx, userId, foodId))
-        ? { outcome: 'removed' }
-        : insertFavourite(trx, userId, foodId, now),
-    );
 
 export const foodListLength = 30;
 

@@ -1,6 +1,10 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { favouriteFoods, toggleFavourite } from '../../db/diary.ts';
+import {
+  addFavourite,
+  favouriteFoods,
+  removeFavourite,
+} from '../../db/diary.ts';
 import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
 import {
   type FoodReader,
@@ -12,12 +16,12 @@ import {
   listFoodSources,
   setFoodSourcePreferences,
 } from '../../db/food-source-preferences.ts';
+import { maxPortionLabelLength } from '../../domain/foods/portions.ts';
 import { genericSources } from '../../domain/foods/sources.ts';
 import type { Context } from '../context.ts';
 import { accountProcedure, publicProcedure, router } from '../trpc.ts';
 
 const maxQueryLength = 200;
-const maxPortionLabelLength = 60;
 
 const readerOf = ({ db, caller }: Context): FoodReader => ({
   db,
@@ -34,6 +38,11 @@ const sourcePreferencesInput = z
       ),
     { message: 'List every generic source exactly once' },
   );
+
+const favouriteInput = z.object({
+  foodId: z.string().min(1),
+  favourite: z.boolean(),
+});
 
 const portionInput = z.object({
   foodId: z.string().min(1),
@@ -79,19 +88,22 @@ export const foodRouter = router({
   favourites: accountProcedure.query(({ ctx }) =>
     favouriteFoods(ctx.db, ctx.caller.userId),
   ),
-  toggleFavourite: accountProcedure
-    .input(z.string().min(1))
-    .mutation(async ({ ctx, input }) => {
-      const toggled = await toggleFavourite(
+  setFavourite: accountProcedure
+    .input(favouriteInput)
+    .mutation(async ({ ctx, input: { foodId, favourite } }) => {
+      if (!favourite) {
+        await removeFavourite(ctx.db, ctx.caller.userId, foodId);
+        return;
+      }
+      const added = await addFavourite(
         ctx.db,
         ctx.caller.userId,
-        input,
+        foodId,
         ctx.now,
       );
-      if (toggled.outcome === 'food-not-found') {
+      if (added.outcome === 'food-not-found') {
         throw new TRPCError({ code: 'NOT_FOUND' });
       }
-      return { favourite: toggled.outcome === 'added' };
     }),
   addPortion: accountProcedure
     .input(portionInput)

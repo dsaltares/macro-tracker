@@ -24,7 +24,7 @@ import { useTRPC } from '@/lib/trpc/client';
 
 export const foodListFailed = 'These foods could not be loaded.';
 
-export const addFailed = 'Could not add. Try again.';
+export const addAgainFailed = 'Could not add. Try again.';
 
 export const lastLoggedAmountOf = ({
   quantity,
@@ -84,7 +84,7 @@ function AddAgain({
       </Button>
       {add.isError ? (
         <p role="alert" className="text-destructive text-xs">
-          {addFailed}
+          {addAgainFailed}
         </p>
       ) : null}
     </div>

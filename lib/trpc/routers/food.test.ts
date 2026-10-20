@@ -470,6 +470,56 @@ describe('food.addPortion', () => {
   });
 });
 
+describe('food.setFavourite', () => {
+  it('marks a food a favourite once, and unmarks it', async () => {
+    const id = await idOf('nutella');
+    const user = as('user-1');
+
+    await user.food.setFavourite({ foodId: id, favourite: true });
+    await user.food.setFavourite({ foodId: id, favourite: true });
+
+    expect((await user.food.favourites()).map(({ id }) => id)).toEqual([id]);
+
+    await user.food.setFavourite({ foodId: id, favourite: false });
+    await user.food.setFavourite({ foodId: id, favourite: false });
+
+    expect(await user.food.favourites()).toEqual([]);
+  });
+
+  it("keeps each user's favourites to themselves", async () => {
+    const id = await idOf('nutella');
+    await as('user-1').food.setFavourite({ foodId: id, favourite: true });
+
+    expect(await as('user-2').food.favourites()).toEqual([]);
+
+    await as('user-2').food.setFavourite({ foodId: id, favourite: false });
+
+    expect(await as('user-1').food.favourites()).toHaveLength(1);
+  });
+
+  it("answers not found for a food the user does not see, such as another user's own", async () => {
+    const id = await userFood();
+
+    for (const foodId of [id, 'missing']) {
+      await expect(
+        as('user-2').food.setFavourite({ foodId, favourite: true }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    }
+  });
+
+  it('refuses anyone not signed in', async () => {
+    await expect(anonymous().food.favourites()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+    await expect(
+      anonymous().food.setFavourite({
+        foodId: await idOf('nutella'),
+        favourite: true,
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
 describe('food.removePortion', () => {
   it("removes a user's portion", async () => {
     const id = await idOf('nutella');
@@ -678,51 +728,15 @@ describe('food.setSourcePreferences', () => {
   });
 });
 
-describe('food.toggleFavourite', () => {
-  it('marks a food a favourite, then unmarks it', async () => {
-    const nutellaId = await idOf('nutella');
-
-    expect(await as('user-1').food.toggleFavourite(nutellaId)).toEqual({
-      favourite: true,
-    });
-    expect((await as('user-1').food.favourites()).map(({ id }) => id)).toEqual([
-      nutellaId,
-    ]);
-
-    expect(await as('user-1').food.toggleFavourite(nutellaId)).toEqual({
-      favourite: false,
-    });
-    expect(await as('user-1').food.favourites()).toEqual([]);
-  });
-
-  it("answers not found for a food the user does not see, such as another user's own", async () => {
-    const ownId = await userFood();
-
-    await expect(
-      as('user-2').food.toggleFavourite(ownId),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await expect(
-      as('user-2').food.toggleFavourite('nope'),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    expect(await as('user-2').food.favourites()).toEqual([]);
-  });
-
-  it('answers unauthorized without a caller', async () => {
-    await expect(
-      anonymous().food.toggleFavourite(await idOf('nutella')),
-    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    await expect(anonymous().food.favourites()).rejects.toMatchObject({
-      code: 'UNAUTHORIZED',
-    });
-  });
-});
-
 describe('food.favourites', () => {
   it('is the newest favourite first, each with the portion and quantity it was last logged with, or one default portion', async () => {
     const nutellaId = await idOf('nutella');
     const ownId = await userFood({ name: 'Peanut butter' });
-    await as('user-1').food.toggleFavourite(nutellaId);
-    await as('user-1').food.toggleFavourite(ownId);
+    await as('user-1').food.setFavourite({
+      foodId: nutellaId,
+      favourite: true,
+    });
+    await as('user-1').food.setFavourite({ foodId: ownId, favourite: true });
     for (const quantity of [1, 3]) {
       await as('user-1').diary.addFood({
         date: '2026-10-19',
@@ -745,11 +759,5 @@ describe('food.favourites', () => {
       },
       { name: 'Nutella', portion: { label: '100 g', grams: 100 }, quantity: 3 },
     ]);
-  });
-
-  it("keeps each user's favourites to themselves", async () => {
-    await as('user-1').food.toggleFavourite(await idOf('nutella'));
-
-    expect(await as('user-2').food.favourites()).toEqual([]);
   });
 });

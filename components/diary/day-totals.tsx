@@ -6,7 +6,7 @@ import { amountOf, knownAmountOf, saltOf } from '@/components/diary/amounts';
 import type { NutrientVector } from '@/lib/domain/nutrition/vector';
 import { cn } from '@/lib/utils';
 
-function Amount({ label, value }: { label: string; value: string }) {
+export function Amount({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-muted-foreground text-xs">{label}</dt>
