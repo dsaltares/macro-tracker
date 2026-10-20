@@ -25,6 +25,16 @@ describe('AccountMenu', () => {
     ).toHaveAttribute('href', '/terms');
   });
 
+  it('links to the profile', async () => {
+    const { user } = renderUi(<AccountMenu email={email} />);
+
+    await user.click(screen.getByRole('button', { name: 'Account' }));
+
+    expect(
+      await screen.findByRole('menuitem', { name: 'Profile' }),
+    ).toHaveAttribute('href', '/settings/profile');
+  });
+
   it('signs out and goes to sign in', async () => {
     const { user } = renderUi(<AccountMenu email={email} />);
 

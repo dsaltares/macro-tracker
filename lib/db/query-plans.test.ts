@@ -14,6 +14,7 @@ import {
   sourcePreferencesQuery,
 } from './food-source-preferences.ts';
 import { migrateToLatest } from './migrator.ts';
+import { profileQuery } from './profiles.ts';
 import type { Database } from './schema.ts';
 
 const sqlite = new SQLite(':memory:');
@@ -250,5 +251,9 @@ describe('query plans', () => {
       sourcePreferencesQuery(db, 'u').compile(),
       'food_source_preferences',
     );
+  });
+
+  it("reads a user's profile by its key", () => {
+    expectSearch(profileQuery(db, 'u').compile(), 'profiles');
   });
 });

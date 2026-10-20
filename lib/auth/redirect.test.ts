@@ -24,6 +24,10 @@ describe('afterAuthPath', () => {
   it('never goes back to an auth page', () => {
     expect(afterAuthPath('/sign-in?next=%2Fdiary')).toBe('/');
   });
+
+  it('never goes back to onboarding', () => {
+    expect(afterAuthPath('/onboarding?next=%2Fdiary')).toBe('/');
+  });
 });
 
 describe('authUrl', () => {

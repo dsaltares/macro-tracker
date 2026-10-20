@@ -34,6 +34,7 @@ const everyMigration = [
   '0006-accounts',
   '0007-food-import-history',
   '0008-terms-accepted',
+  '0009-profiles',
 ];
 
 const everyTable = [
@@ -49,6 +50,7 @@ const everyTable = [
   'foods_fts_docsize',
   'foods_fts_idx',
   'meta',
+  'profiles',
   'sessions',
   'users',
   'verifications',
@@ -107,15 +109,20 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    const beforeProfiles = everyTable.filter((table) => table !== 'profiles');
+
+    expect(await migrateDown(db)).toEqual(['0009-profiles']);
+    expect(await tableNames(db)).toEqual(beforeProfiles);
+
     expect(await migrateDown(db)).toEqual(['0008-terms-accepted']);
-    expect(await tableNames(db)).toEqual(everyTable);
+    expect(await tableNames(db)).toEqual(beforeProfiles);
 
     expect(await migrateDown(db)).toEqual(['0007-food-import-history']);
-    expect(await tableNames(db)).toEqual(everyTable);
+    expect(await tableNames(db)).toEqual(beforeProfiles);
 
     expect(await migrateDown(db)).toEqual(['0006-accounts']);
     expect(await tableNames(db)).toEqual(
-      everyTable.filter((table) => !accountTables.includes(table)),
+      beforeProfiles.filter((table) => !accountTables.includes(table)),
     );
   });
 
@@ -123,7 +130,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0008-terms-accepted']);
+    expect(await migrateToLatest(db)).toEqual(['0009-profiles']);
   });
 
   it('reads back what is written to meta', async () => {
