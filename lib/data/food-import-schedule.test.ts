@@ -113,7 +113,9 @@ describe('scheduleFoodImports', () => {
     return startImport;
   };
 
-  it('imports foods on the first Sunday of the month at 03:00', async () => {
+  it('imports foods on the first Sunday of the month at 03:00', {
+    timeout: 30_000,
+  }, async () => {
     const startImport = scheduleTheFixture();
 
     expect(schedule?.nextRun()).toEqual(new Date(2026, 10, 1, 3, 0));

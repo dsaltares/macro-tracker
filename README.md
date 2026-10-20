@@ -39,5 +39,7 @@ publishes `ghcr.io/dsaltares/macro-tracker` and deploys it to the homelab;
 - [`docs/adr/`](docs/adr/README.md): architecture decision records
 - [`docs/DATA-SOURCES.md`](docs/DATA-SOURCES.md): the food datasets, their licences and attribution
 - [`docs/DEPLOY.md`](docs/DEPLOY.md): the image, the deploy pipeline and the homelab entry
+- [`docs/API.md`](docs/API.md): the REST API for API keys, with a curl for each endpoint; the
+  OpenAPI document is served at `/api/v1/openapi.json` and the reference at `/api/docs`
 - The roadmap is the pinned issue [#67](https://github.com/dsaltares/macro-tracker/issues/67)
 - Scope and acceptance criteria for a piece of work live on its GitHub issue

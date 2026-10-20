@@ -64,7 +64,17 @@ const withParams = (params: RouteParams) => ({
   params: Promise.resolve(params),
 });
 
+const described = {
+  method: 'GET',
+  path: '/things',
+  operationId: 'things',
+  summary: 'Things',
+  description: 'A route of the tests.',
+  example: {},
+} as const;
+
 const whoAmI = apiHandler({
+  ...described,
   scope: 'read',
   handle: ({ context, apiKey }) => ({
     userId: context.caller.userId,
@@ -181,7 +191,12 @@ describe('apiHandler', () => {
   });
 
   describe('scopes', () => {
-    const write = apiHandler({ scope: 'write', handle: () => ({ ok: true }) });
+    const write = apiHandler({
+      ...described,
+      method: 'POST',
+      scope: 'write',
+      handle: () => ({ ok: true }),
+    });
 
     it('answers 403 INSUFFICIENT_SCOPE to a key without the route scope', async () => {
       const key = await keyWith(['read']);
@@ -250,6 +265,7 @@ describe('apiHandler', () => {
 
   describe('input', () => {
     const search = apiHandler({
+      ...described,
       scope: 'read',
       input: z.object({
         q: z.string().min(1),
@@ -260,6 +276,8 @@ describe('apiHandler', () => {
     });
 
     const create = apiHandler({
+      ...described,
+      method: 'POST',
       scope: 'write',
       input: z.object({
         name: z.string().min(1),
@@ -349,6 +367,7 @@ describe('apiHandler', () => {
 
   describe('path parameters', () => {
     const one = apiHandler({
+      ...described,
       scope: 'read',
       params: z.object({ id: z.string().regex(/^\d+$/) }),
       handle: ({ params }) => params,
@@ -387,7 +406,12 @@ describe('apiHandler', () => {
   describe('results and failures', () => {
     it('answers 204 with no body to a route that returns nothing', async () => {
       const key = await keyWith(['write']);
-      const remove = apiHandler({ scope: 'write', handle: () => undefined });
+      const remove = apiHandler({
+        ...described,
+        method: 'DELETE',
+        scope: 'write',
+        handle: () => undefined,
+      });
 
       const response = await remove(server())(
         request(key, { method: 'DELETE' }),
@@ -400,6 +424,7 @@ describe('apiHandler', () => {
     it('answers the envelope of an error the route throws', async () => {
       const key = await keyWith(['read']);
       const missing = apiHandler({
+        ...described,
         scope: 'read',
         handle: () => {
           throw apiError('NOT_FOUND', 'No such food.');
@@ -417,6 +442,7 @@ describe('apiHandler', () => {
     it('answers 500 INTERNAL_ERROR to anything else, without its details', async () => {
       const key = await keyWith(['read']);
       const broken = apiHandler({
+        ...described,
         scope: 'read',
         handle: () => {
           throw new Error('secret detail');

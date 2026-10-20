@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import type { DiaryEntry } from '../../db/diary.ts';
+import { dateSchema } from '../../domain/dates.ts';
 import {
   addFoodEntry,
   addQuickEntry,
   addRecipeEntry,
   copyMeal,
-  dateSchema,
   entryLabelSchema,
   findDiaryDay,
   mealSchema,
@@ -17,9 +17,10 @@ import {
   timeSchema,
   updateEntry,
 } from '../../services/diary.ts';
-import { logMeal, mealToLogSchema } from '../../services/meal.ts';
-import { apiError } from '../errors.ts';
+import { logMeal, maxMealItems, mealToLogSchema } from '../../services/meal.ts';
+import { type ApiError, apiError, apiFailure } from '../errors.ts';
 import { apiHandler } from '../handler.ts';
+import { diaryDay, diaryEntry, idSchema } from '../schemas.ts';
 
 const entryOf = (entry: DiaryEntry) => ({
   id: entry.id,
@@ -38,54 +39,141 @@ const entryOf = (entry: DiaryEntry) => ({
   updatedAt: entry.updatedAt,
 });
 
-const entryParams = z.object({ id: z.string().min(1) });
+const entryParams = z.object({
+  id: idSchema.describe('The entry id, as the diary returned it.'),
+});
 
-const entryNotFound = () =>
-  apiError('NOT_FOUND', 'There is no such diary entry.');
-
-const portionNotFound = () =>
-  apiError('INVALID_REQUEST', 'The food has no portion with this label.');
+const entryNotFound = apiFailure('NOT_FOUND', 'There is no such diary entry.');
+const foodNotFound = apiFailure('NOT_FOUND', 'There is no such food.');
+const recipeNotFound = apiFailure('NOT_FOUND', 'There is no such recipe.');
+const portionNotFound = apiFailure(
+  'INVALID_REQUEST',
+  'The food has no portion with this label.',
+);
+const emptyRecipe = apiFailure(
+  'INVALID_REQUEST',
+  'The recipe has no ingredients.',
+);
+const noAmount = apiFailure(
+  'INVALID_REQUEST',
+  'A quick entry has no quantity or portion.',
+);
+const foodGone = apiFailure(
+  'CONFLICT',
+  'The food or recipe this entry was logged from no longer exists.',
+);
 
 const when = {
   date: dateSchema,
   meal: mealSchema,
-  time: timeSchema.default(null),
+  time: timeSchema
+    .default(null)
+    .describe('The time of day as HH:MM. Leave out for none.'),
 };
 
-const foodEntrySchema = z.strictObject({
-  kind: z.literal('food'),
-  ...when,
-  foodId: z.string().min(1),
-  portion: portionSchema,
-  quantity: quantitySchema,
-});
+const foodEntrySchema = z
+  .strictObject({
+    kind: z.literal('food'),
+    ...when,
+    foodId: idSchema.describe('A food id from search.'),
+    portion: portionSchema.describe(
+      'The label of one of the food\'s portions, such as "100 g" or "1 serving (40 g)".',
+    ),
+    quantity: quantitySchema.describe('How many of that portion.'),
+  })
+  .meta({ title: 'Food entry' });
 
 const recipeEntrySchema = z
   .strictObject({
     kind: z.literal('recipe'),
     ...when,
-    recipeId: z.string().min(1),
-    servings: quantitySchema.optional(),
-    grams: quantitySchema.optional(),
+    recipeId: idSchema,
+    servings: quantitySchema
+      .optional()
+      .describe('How many servings. Give this or grams.'),
+    grams: quantitySchema
+      .optional()
+      .describe('The weight eaten. Give this or servings.'),
   })
   .refine(
     ({ servings, grams }) => (servings === undefined) !== (grams === undefined),
     { message: 'Give either servings or grams', path: ['servings'] },
-  );
+  )
+  .meta({ title: 'Recipe entry' });
 
 const quickEntrySchema = savingOnlyPer100g(
   z.strictObject({
     kind: z.literal('quick'),
     ...when,
-    label: entryLabelSchema,
-    nutrients: quickNutrientsSchema,
-    saveAsFood: z.boolean().default(false),
+    label: entryLabelSchema.describe('What was eaten, in a few words.'),
+    nutrients: quickNutrientsSchema.describe(
+      'Either amounts per 100 g with the grams eaten, or the totals eaten. Energy is worked out from the macros when left out.',
+    ),
+    saveAsFood: z
+      .boolean()
+      .default(false)
+      .describe(
+        'Also create a food of the caller’s own from the amounts per 100 g, so search finds it next time.',
+      ),
   }),
-);
+).meta({ title: 'Quick entry' });
+
+const exampleEntryId = '2c4e6a8b-0d1f-4a3b-8c5d-9e7f6a5b4c3d';
+const exampleFoodId = '7d1f4c2e-9b3a-4f6e-8c5d-2a1b0c9d8e7f';
+
+const oatsEntry = {
+  id: exampleEntryId,
+  kind: 'food' as const,
+  date: '2026-10-20',
+  meal: 'breakfast' as const,
+  time: '07:30',
+  label: 'Porridge oats',
+  foodId: exampleFoodId,
+  recipeId: null,
+  quantity: 1,
+  portion: '1 serving (40 g)',
+  grams: 40,
+  nutrients: {
+    energy_kcal: 151.6,
+    protein: 4.68,
+    carbohydrate: 24.16,
+    fat: 3.04,
+    fibre: 3.64,
+    saturated_fat: 0.52,
+    sugars: 0.44,
+    sodium: 1.6,
+  },
+  createdAt: '2026-10-20T06:31:12.000Z',
+  updatedAt: '2026-10-20T06:31:12.000Z',
+};
 
 export const diaryDayRoute = apiHandler({
+  method: 'GET',
+  path: '/diary/{date}',
+  operationId: 'getDiaryDay',
+  summary: 'Read a day',
+  description:
+    'Every entry of one day, grouped by meal in meal order, with the totals of each meal and of the day. Totals are sums over the entries’ snapshots.',
   scope: 'read',
   params: z.object({ date: dateSchema }),
+  output: diaryDay,
+  example: {
+    params: { date: '2026-10-20' },
+    response: {
+      date: '2026-10-20',
+      meals: [
+        {
+          meal: 'breakfast',
+          entries: [oatsEntry],
+          totals: oatsEntry.nutrients,
+        },
+        { meal: 'lunch', entries: [], totals: {} },
+        { meal: 'dinner', entries: [], totals: {} },
+        { meal: 'snack', entries: [], totals: {} },
+      ],
+      totals: oatsEntry.nutrients,
+    },
+  },
   handle: async ({ context, params }) => {
     const day = await findDiaryDay(context, params.date);
     return {
@@ -101,6 +189,12 @@ export const diaryDayRoute = apiHandler({
 });
 
 export const addEntryRoute = apiHandler({
+  method: 'POST',
+  path: '/diary/entries',
+  operationId: 'addDiaryEntry',
+  summary: 'Log an entry',
+  description:
+    'Log a food by one of its portions, a recipe by servings or grams, or a quick entry from amounts typed in. A food or recipe entry snapshots its nutrients as they are now, so a later change to the food leaves it alone.',
   scope: 'write',
   status: 201,
   input: z.discriminatedUnion('kind', [
@@ -108,13 +202,27 @@ export const addEntryRoute = apiHandler({
     recipeEntrySchema,
     quickEntrySchema,
   ]),
+  output: diaryEntry,
+  errors: [foodNotFound, recipeNotFound, portionNotFound, emptyRecipe],
+  example: {
+    input: {
+      kind: 'food',
+      date: '2026-10-20',
+      meal: 'breakfast',
+      time: '07:30',
+      foodId: exampleFoodId,
+      portion: '1 serving (40 g)',
+      quantity: 1,
+    },
+    response: oatsEntry,
+  },
   handle: async ({ context, input }) => {
     switch (input.kind) {
       case 'food': {
         const { kind, ...food } = input;
         const logged = await addFoodEntry(context, food);
         if (logged.outcome === 'food-not-found') {
-          throw apiError('NOT_FOUND', 'There is no such food.');
+          throw foodNotFound();
         }
         if (logged.outcome === 'portion-not-found') {
           throw portionNotFound();
@@ -131,10 +239,10 @@ export const addEntryRoute = apiHandler({
           amount: servings === undefined ? { grams: grams ?? 0 } : { servings },
         });
         if (logged.outcome === 'recipe-not-found') {
-          throw apiError('NOT_FOUND', 'There is no such recipe.');
+          throw recipeNotFound();
         }
         if (logged.outcome === 'empty-recipe') {
-          throw apiError('INVALID_REQUEST', 'The recipe has no ingredients.');
+          throw emptyRecipe();
         }
         return entryOf(logged.entry);
       }
@@ -147,30 +255,52 @@ export const addEntryRoute = apiHandler({
 });
 
 export const updateEntryRoute = apiHandler({
+  method: 'PATCH',
+  path: '/diary/entries/{id}',
+  operationId: 'updateDiaryEntry',
+  summary: 'Change an entry',
+  description:
+    'Send only the fields to change. A new quantity or portion re-resolves the nutrients from the food or recipe as it is now; a move to another date, meal or time keeps them.',
   scope: 'write',
   params: entryParams,
   input: z.strictObject({
     date: dateSchema.optional(),
     meal: mealSchema.optional(),
-    time: timeSchema.optional(),
+    time: timeSchema.optional().describe('HH:MM, or null to clear it.'),
     quantity: quantitySchema.optional(),
     portion: portionSchema.optional(),
   }),
+  output: diaryEntry,
+  errors: [entryNotFound, noAmount, portionNotFound, foodGone],
+  example: {
+    params: { id: exampleEntryId },
+    input: { quantity: 2 },
+    response: {
+      ...oatsEntry,
+      quantity: 2,
+      grams: 80,
+      nutrients: {
+        energy_kcal: 303.2,
+        protein: 9.36,
+        carbohydrate: 48.32,
+        fat: 6.08,
+        fibre: 7.28,
+        saturated_fat: 1.04,
+        sugars: 0.88,
+        sodium: 3.2,
+      },
+      updatedAt: '2026-10-20T08:02:45.000Z',
+    },
+  },
   handle: async ({ context, params, input }) => {
     const updated = await updateEntry(context, params.id, input);
     switch (updated.outcome) {
       case 'not-found':
         throw entryNotFound();
       case 'no-amount':
-        throw apiError(
-          'INVALID_REQUEST',
-          'A quick entry has no quantity or portion.',
-        );
+        throw noAmount();
       case 'food-gone':
-        throw apiError(
-          'CONFLICT',
-          'The food or recipe this entry was logged from no longer exists.',
-        );
+        throw foodGone();
       case 'portion-not-found':
         throw portionNotFound();
       case 'updated':
@@ -180,8 +310,15 @@ export const updateEntryRoute = apiHandler({
 });
 
 export const removeEntryRoute = apiHandler({
+  method: 'DELETE',
+  path: '/diary/entries/{id}',
+  operationId: 'removeDiaryEntry',
+  summary: 'Remove an entry',
+  description: 'Delete one entry of the caller’s diary. Answers 204.',
   scope: 'write',
   params: entryParams,
+  errors: [entryNotFound],
+  example: { params: { id: exampleEntryId } },
   handle: async ({ context, params }) => {
     if (!(await removeEntry(context, params.id))) {
       throw entryNotFound();
@@ -190,41 +327,128 @@ export const removeEntryRoute = apiHandler({
 });
 
 export const copyMealRoute = apiHandler({
+  method: 'POST',
+  path: '/diary/copy',
+  operationId: 'copyMeal',
+  summary: 'Copy a meal',
+  description:
+    'Copy every entry of one meal on one date into a meal on another date, snapshots as they are. Answers the new entries; none when the meal was empty.',
   scope: 'write',
   input: z.strictObject({
     fromDate: dateSchema,
-    meal: mealSchema,
+    meal: mealSchema.describe('The meal to copy.'),
     toDate: dateSchema,
-    toMeal: mealSchema,
+    toMeal: mealSchema.describe('The meal to copy into.'),
   }),
+  output: z.object({ entries: z.array(diaryEntry) }),
+  example: {
+    input: {
+      fromDate: '2026-10-19',
+      meal: 'breakfast',
+      toDate: '2026-10-20',
+      toMeal: 'breakfast',
+    },
+    response: { entries: [oatsEntry] },
+  },
   handle: async ({ context, input }) => ({
     entries: (await copyMeal(context, input)).map(entryOf),
   }),
 });
 
+const itemFoodGone: ApiError = {
+  code: 'NOT_FOUND',
+  message: "Item N's food or recipe no longer exists.",
+};
+const itemPortionNotFound: ApiError = {
+  code: 'INVALID_REQUEST',
+  message: "Item N's food has no portion with this label.",
+};
+const itemEmptyRecipe: ApiError = {
+  code: 'INVALID_REQUEST',
+  message: "Item N's recipe has no ingredients.",
+};
+
+const itemError = ({ code, message }: ApiError, index: number) =>
+  apiError(code, message.replace('Item N', `Item ${index + 1}`));
+
+const mealItemSchema = mealToLogSchema.shape.items.element;
+
 export const addMealRoute = apiHandler({
+  method: 'POST',
+  path: '/diary/meals',
+  operationId: 'addMeal',
+  summary: 'Log a meal',
+  description:
+    'Log several items into one meal in one request, all or nothing: foods by a portion, recipes by servings or grams, and quick entries from amounts typed in, in the order given. Answers the new entries. When an item fails, the message says which, counting from one, and nothing is logged.',
   scope: 'write',
   status: 201,
-  input: mealToLogSchema.strict(),
+  input: mealToLogSchema
+    .extend({
+      time: mealToLogSchema.shape.time.describe(
+        'The time of day as HH:MM, shared by every entry. Leave out for none.',
+      ),
+      items: z
+        .array(mealItemSchema)
+        .min(1)
+        .max(maxMealItems)
+        .describe(
+          `One to ${maxMealItems} items, each logged as its own entry.`,
+        ),
+    })
+    .strict(),
+  output: z.object({ entries: z.array(diaryEntry) }),
+  errors: [itemFoodGone, itemPortionNotFound, itemEmptyRecipe],
+  example: {
+    input: {
+      date: '2026-10-20',
+      meal: 'dinner',
+      time: '20:00',
+      items: [
+        {
+          kind: 'food',
+          foodId: exampleFoodId,
+          portion: '1 serving (40 g)',
+          quantity: 1,
+        },
+        {
+          kind: 'quick',
+          label: 'Glass of red wine',
+          nutrients: { totals: { energy_kcal: 125, carbohydrate: 4 } },
+        },
+      ],
+    },
+    response: {
+      entries: [
+        { ...oatsEntry, meal: 'dinner', time: '20:00' },
+        {
+          id: '3d5f7a9b-1e2f-4b4c-9d6e-0f1a2b3c4d5e',
+          kind: 'quick',
+          date: '2026-10-20',
+          meal: 'dinner',
+          time: '20:00',
+          label: 'Glass of red wine',
+          foodId: null,
+          recipeId: null,
+          quantity: null,
+          portion: null,
+          grams: null,
+          nutrients: { energy_kcal: 125, carbohydrate: 4 },
+          createdAt: '2026-10-20T19:02:10.000Z',
+          updatedAt: '2026-10-20T19:02:10.000Z',
+        },
+      ],
+    },
+  },
   handle: async ({ context, input }) => {
     const logged = await logMeal(context, input);
     switch (logged.outcome) {
       case 'food-not-found':
       case 'recipe-not-found':
-        throw apiError(
-          'NOT_FOUND',
-          `Item ${logged.index + 1}'s food or recipe no longer exists.`,
-        );
+        throw itemError(itemFoodGone, logged.index);
       case 'portion-not-found':
-        throw apiError(
-          'INVALID_REQUEST',
-          `Item ${logged.index + 1}'s food has no portion with this label.`,
-        );
+        throw itemError(itemPortionNotFound, logged.index);
       case 'empty-recipe':
-        throw apiError(
-          'INVALID_REQUEST',
-          `Item ${logged.index + 1}'s recipe has no ingredients.`,
-        );
+        throw itemError(itemEmptyRecipe, logged.index);
       case 'logged':
         return { entries: logged.entries.map(entryOf) };
     }

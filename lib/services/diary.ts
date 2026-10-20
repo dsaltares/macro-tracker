@@ -12,7 +12,7 @@ import {
   removeDiaryEntry,
   updateDiaryEntry,
 } from '../db/diary.ts';
-import { isDate } from '../domain/dates.ts';
+import { dateSchema } from '../domain/dates.ts';
 import {
   dayTotals,
   type Meal,
@@ -25,7 +25,7 @@ import {
 import { nutrientVectorSchema } from '../domain/foods/source-food.ts';
 import type { ServiceContext } from './context.ts';
 
-export const dateSchema = z.string().refine(isDate, { message: 'Not a date' });
+export { dateSchema };
 export const mealSchema = z.enum(meals);
 export const timeSchema = z
   .string()
