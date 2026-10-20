@@ -21,6 +21,7 @@ order).
 | [0009](0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) | Process the diary as health data on explicit consent, recorded at sign-up | Accepted | 2026-10-20 |
 | [0010](0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md) | Delete an account in one statement that cascades through the schema | Accepted | 2026-10-20 |
 | [0011](0011-derive-goals-live-from-the-profile-and-the-latest-weight.md) | Derive goals live from the profile and the latest weight | Accepted | 2026-10-20 |
+| [0012](0012-manage-sign-in-methods-through-the-account-router.md) | Manage sign-in methods through the account router, keeping at least one in a single statement | Accepted | 2026-10-20 |
 
 ## How to add one
 

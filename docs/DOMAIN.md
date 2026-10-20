@@ -13,6 +13,9 @@ replaced by following a **reset link**, which signs out every session.
 A user may also sign in with **Google**, whose confirmation of the address stands in for the
 mailed link. A Google sign-in on an address that already has a user attaches to that user, so it
 lands in the same diary; an account with only Google has no password until one is set.
+Password and Google are the account's **sign-in methods**. Settings lists them; an account can
+connect Google (on the same address only), set a password if it has none, and disconnect either,
+but never the last one, so it can always sign in.
 
 What a user logs about their food and weight is health data, so signing up records their
 **consent**: agreeing to the terms and acknowledging the privacy policy, with the time they did,

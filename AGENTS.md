@@ -229,6 +229,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   address. Everything else goes by `on delete cascade` on `users.id`, and the caller's own foods
   and portions by the `users_delete_owned_foods` trigger. A new table of user data references
   `users.id` with a cascade; `account.test.ts` checks nothing a user owns survives.
+- Sign-in methods (ADR [0012](docs/adr/0012-manage-sign-in-methods-through-the-account-router.md)):
+  `account.signInMethods`, `account.setPassword` and `account.disconnect` over
+  `lib/db/sign-in-methods.ts`. Setting a password writes the credential row Better Auth's
+  `setPassword` would, only when there is none; disconnecting deletes a method's row only while
+  another exists. Connecting Google is Better Auth's `linkSocial` from the browser, back to
+  `/settings/account`, whose `?error=` the page turns into copy (`googleLinkErrorMessage`).
+  `components/settings/sign-in-methods.tsx` is the section on Settings › Account.
 - `lib/email/` — `sendEmail` (ADR [0007](docs/adr/0007-mail-through-resend-behind-a-send-email-seam.md))
   takes a rendered `EmailMessage` and never throws: Resend with `RESEND_API_KEY` and `EMAIL_FROM`,
   otherwise a pino log of the message, link included. A reserved test address is never handed to

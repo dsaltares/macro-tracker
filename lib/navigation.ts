@@ -60,7 +60,7 @@ export const settingsSections: readonly SettingsSection[] = [
   },
   {
     label: 'Account',
-    description: 'Your address, and deleting your account',
+    description: 'Your address, how you sign in, and deleting your account',
     href: routes.account,
   },
 ];

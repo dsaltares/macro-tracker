@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { EmailMessage, SendEmail } from '@/lib/email/transport';
 import { migratedDatabasePerTest } from '@/test/db';
+import { createCaller } from '../trpc/root.ts';
+import { lastSignInMethod } from '../trpc/routers/account.ts';
 import { createAuth } from './auth.ts';
 import { resolveCaller } from './caller.ts';
 import { termsNotAccepted } from './credentials.ts';
@@ -17,16 +19,16 @@ const password = 'lentils-and-rice-forever';
 
 const googleClientId = 'a-test-google-client-id';
 
-const google = (verified = true): GoogleOptions => ({
+const google = (verified = true, address = email): GoogleOptions => ({
   clientId: googleClientId,
   clientSecret: 'a-test-google-client-secret',
   verifyIdToken: async () => true,
   getUserInfo: async () => ({
-    user: { name: 'Eater', email, emailVerified: verified },
+    user: { name: 'Eater', email: address, emailVerified: verified },
     data: {
       aud: googleClientId,
       azp: googleClientId,
-      email,
+      email: address,
       email_verified: verified,
       exp: 0,
       family_name: '',
@@ -367,4 +369,139 @@ describe('signing in with Google', () => {
       code: 'INVALID_EMAIL_OR_PASSWORD',
     });
   });
+});
+
+const linkGoogle = (auth: ReturnType<typeof createAuth>, headers: Headers) =>
+  auth.api.linkSocialAccount({
+    body: { provider: 'google', idToken: { token: 'a-stub-id-token' } },
+    headers,
+  });
+
+const confirmedSignUp = async (
+  auth: ReturnType<typeof createAuth>,
+  sent: EmailMessage[],
+) => {
+  await signUp(auth);
+  return follow(auth, linkIn(sent[0] as EmailMessage));
+};
+
+const accountAs = async (
+  auth: ReturnType<typeof createAuth>,
+  response: Response,
+) => {
+  const caller = await resolveCaller(cookieOf(response), auth);
+  let ids = 0;
+  return createCaller({
+    db: database(),
+    caller,
+    now: () => new Date().toISOString(),
+    nextId: () => `id-${++ids}`,
+  });
+};
+
+describe('managing sign-in methods', () => {
+  it('connects Google to a password account from its session', async () => {
+    const { auth, sent } = authWithOutbox();
+    const confirmed = await confirmedSignUp(auth, sent);
+
+    await linkGoogle(auth, cookieOf(confirmed));
+
+    const accounts = await accountsOf();
+    expect(accounts.map(({ provider_id }) => provider_id)).toEqual([
+      'credential',
+      'google',
+    ]);
+    expect(new Set(accounts.map(({ id }) => id)).size).toBe(1);
+    expect(
+      await (await accountAs(auth, confirmed)).account.signInMethods(),
+    ).toEqual({ password: true, google: true });
+  });
+
+  it('refuses to connect a Google account on another address', async () => {
+    const { auth, sent } = authWithOutbox(
+      google(true, 'someone-else@example.test'),
+    );
+    const confirmed = await confirmedSignUp(auth, sent);
+
+    await expect(linkGoogle(auth, cookieOf(confirmed))).rejects.toMatchObject({
+      body: { code: 'LINKING_DIFFERENT_EMAILS_NOT_ALLOWED' },
+    });
+    expect((await accountsOf()).map(({ provider_id }) => provider_id)).toEqual([
+      'credential',
+    ]);
+  });
+
+  it('sets a password on a Google account, which then signs in with it', async () => {
+    const { auth } = authWithOutbox();
+    const signedIn = await signInWithGoogle(auth, agreed);
+    const account = await accountAs(auth, signedIn);
+
+    await account.account.setPassword({
+      password,
+      confirmPassword: password,
+    });
+
+    expect(await account.account.signInMethods()).toEqual({
+      password: true,
+      google: true,
+    });
+    const response = await signIn(auth);
+    expect(response.status).toBe(200);
+    expect(await resolveCaller(cookieOf(response), auth)).toEqual(
+      await resolveCaller(cookieOf(signedIn), auth),
+    );
+  });
+
+  it('disconnects Google, and then the password signs in alone', async () => {
+    const { auth, sent } = authWithOutbox();
+    const confirmed = await confirmedSignUp(auth, sent);
+    await linkGoogle(auth, cookieOf(confirmed));
+    const account = await accountAs(auth, confirmed);
+
+    await account.account.disconnect({ method: 'google' });
+
+    expect((await accountsOf()).map(({ provider_id }) => provider_id)).toEqual([
+      'credential',
+    ]);
+    expect((await signIn(auth)).status).toBe(200);
+  });
+
+  it('disconnects the password, and then a password sign-in is told to use Google', async () => {
+    const { auth } = authWithOutbox();
+    const signedIn = await signInWithGoogle(auth, agreed);
+    const account = await accountAs(auth, signedIn);
+    await account.account.setPassword({
+      password,
+      confirmPassword: password,
+    });
+
+    await account.account.disconnect({ method: 'password' });
+
+    expect(await (await signIn(auth)).json()).toMatchObject({
+      code: usesGoogleCode,
+    });
+  });
+
+  it.each([
+    ['the password', 'password'],
+    ['Google', 'google'],
+  ] as const)(
+    'refuses to disconnect %s when it is the only method left',
+    async (_, method) => {
+      const { auth, sent } = authWithOutbox();
+      const signedIn =
+        method === 'google'
+          ? await signInWithGoogle(auth, agreed)
+          : await confirmedSignUp(auth, sent);
+      const before = await accountsOf();
+
+      await expect(
+        (await accountAs(auth, signedIn)).account.disconnect({ method }),
+      ).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: lastSignInMethod,
+      });
+      expect(await accountsOf()).toEqual(before);
+    },
+  );
 });
