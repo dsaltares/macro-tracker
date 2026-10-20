@@ -71,7 +71,7 @@ export const settingsSections: readonly SettingsSection[] = [
   {
     label: 'API keys',
     description: 'Log food from other apps and scripts',
-    href: null,
+    href: routes.apiKeys,
   },
   {
     label: 'Export',

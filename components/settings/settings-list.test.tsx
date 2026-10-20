@@ -5,7 +5,7 @@ import { settingsSections } from '@/lib/navigation';
 import { renderUi } from '@/test/ui';
 
 describe('SettingsList', () => {
-  it('links to the live sections and marks the rest as coming', () => {
+  it('links to every section', () => {
     renderUi(<SettingsList sections={settingsSections} />);
 
     expect(screen.getByRole('link', { name: /^Profile/ })).toHaveAttribute(
@@ -20,6 +20,10 @@ describe('SettingsList', () => {
       'href',
       '/settings/food-sources',
     );
+    expect(screen.getByRole('link', { name: /^API keys/ })).toHaveAttribute(
+      'href',
+      '/settings/api-keys',
+    );
     expect(screen.getByRole('link', { name: /^Export/ })).toHaveAttribute(
       'href',
       '/settings/export',
@@ -28,7 +32,7 @@ describe('SettingsList', () => {
       'href',
       '/settings/account',
     );
-    expect(screen.getAllByRole('link')).toHaveLength(5);
-    expect(screen.getAllByText('Coming soon')).toHaveLength(1);
+    expect(screen.getAllByRole('link')).toHaveLength(6);
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
   });
 });

@@ -12,12 +12,12 @@ describe('legalDocuments', () => {
 });
 
 describe('settingsSections', () => {
-  it('lists every section in order, with every one but API keys live', () => {
+  it('lists every section in order, every one live', () => {
     expect(settingsSections.map(({ label, href }) => [label, href])).toEqual([
       ['Profile', '/settings/profile'],
       ['Goals', '/settings/goals'],
       ['Food sources', '/settings/food-sources'],
-      ['API keys', null],
+      ['API keys', '/settings/api-keys'],
       ['Export', '/settings/export'],
       ['Account', '/settings/account'],
     ]);

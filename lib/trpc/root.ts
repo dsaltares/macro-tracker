@@ -1,4 +1,5 @@
 import { accountRouter } from './routers/account.ts';
+import { apiKeysRouter } from './routers/api-keys.ts';
 import { bodyRouter } from './routers/body.ts';
 import { diaryRouter } from './routers/diary.ts';
 import { foodRouter } from './routers/food.ts';
@@ -11,6 +12,7 @@ import { createCallerFactory, router } from './trpc.ts';
 
 export const appRouter = router({
   account: accountRouter,
+  apiKeys: apiKeysRouter,
   body: bodyRouter,
   diary: diaryRouter,
   food: foodRouter,

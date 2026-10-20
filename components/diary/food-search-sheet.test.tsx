@@ -8,7 +8,7 @@ import {
   searchPrompt,
 } from '@/components/diary/food-search-results';
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
-import { addFailed } from '@/components/diary/food-step';
+import { addFailed, foodLoadFailed } from '@/components/diary/food-step';
 import { enterAnAmount } from '@/components/diary/quick-add-step';
 import { lookupFailed, notFound } from '@/components/diary/scan-step';
 import {
@@ -481,10 +481,60 @@ describe('FoodSearchSheet', () => {
       await within(sheet()).findByText(noMatches('xyzzy')),
     ).toBeInTheDocument();
     expect(
-      within(sheet()).getByRole('button', { name: 'Create food' }),
-    ).toBeInTheDocument();
+      within(sheet()).getByRole('link', { name: 'Create food' }),
+    ).toHaveAttribute('href', `/foods/new?date=${day}&meal=lunch`);
     expect(
       within(sheet()).getByRole('button', { name: 'Quick add' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens straight on a food just created for the meal, and logs it', async () => {
+    const { oats } = await seedFoods();
+    const onClose = vi.fn();
+    const { user } = renderUi(
+      <FoodSearchSheet
+        date={day}
+        meal="lunch"
+        createdFoodId={oats}
+        onClose={onClose}
+      />,
+      { wrap: api.wrap },
+    );
+
+    const food = await within(
+      await screen.findByRole('dialog', { name: 'Add to lunch' }),
+    ).findByRole('region', { name: 'Rolled oats' });
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await lunch()).toEqual([
+      { label: 'Rolled oats', quantity: 1, portionLabel: '100 g' },
+    ]);
+  });
+
+  it('goes back to search from a food just created, or one that cannot be loaded', async () => {
+    const { user } = renderUi(
+      <FoodSearchSheet
+        date={day}
+        meal="lunch"
+        createdFoodId="missing"
+        onClose={() => {}}
+      />,
+      { wrap: api.wrap },
+    );
+
+    expect(
+      await within(
+        await screen.findByRole('dialog', { name: 'Add to lunch' }),
+      ).findByText(foodLoadFailed),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(sheet()).getByRole('button', { name: 'Back to search' }),
+    );
+
+    expect(
+      within(sheet()).getByRole('searchbox', { name: 'Search foods' }),
     ).toBeInTheDocument();
   });
 
@@ -799,10 +849,16 @@ describe('FoodSearchSheet', () => {
       expect(camera.track.stop).toHaveBeenCalled();
       expect(
         within(region).getByRole('link', { name: 'Create food' }),
-      ).toHaveAttribute('href', '/foods/new?barcode=8412345678905');
+      ).toHaveAttribute(
+        'href',
+        `/foods/new?barcode=8412345678905&date=${day}&meal=lunch`,
+      );
       expect(
         within(region).getByRole('link', { name: 'Scan the label' }),
-      ).toHaveAttribute('href', '/foods/new?barcode=8412345678905&scan=label');
+      ).toHaveAttribute(
+        'href',
+        `/foods/new?barcode=8412345678905&scan=label&date=${day}&meal=lunch`,
+      );
 
       await user.click(
         within(region).getByRole('button', { name: 'Search by name' }),

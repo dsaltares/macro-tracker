@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   loadFailed,
   NutrientPanel,
-  noData,
 } from '@/components/nutrients/nutrient-panel';
+import { noData } from '@/components/nutrients/nutrient-rows';
 import { insertDiaryEntry } from '@/lib/db/diary';
 import { serveApi } from '@/test/api';
 import { seedDiaryDay, seedManualGoal } from '@/test/diary';

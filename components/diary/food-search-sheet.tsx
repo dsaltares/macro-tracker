@@ -1,7 +1,10 @@
 'use client';
 
-import { IconBarcode, IconSearch } from '@tabler/icons-react';
+import { IconArrowLeft, IconBarcode, IconSearch } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState } from 'react';
+import { FormError } from '@/components/auth/fields';
 import { mealNames } from '@/components/diary/amounts';
 import {
   FavouriteFoods,
@@ -9,10 +12,14 @@ import {
   RecentFoods,
 } from '@/components/diary/food-lists';
 import { FoodSearchResults } from '@/components/diary/food-search-results';
-import { type FoodHeader, FoodStep } from '@/components/diary/food-step';
+import {
+  type FoodHeader,
+  FoodStep,
+  foodLoadFailed,
+} from '@/components/diary/food-step';
 import { QuickAddStep } from '@/components/diary/quick-add-step';
 import { ScanStep } from '@/components/diary/scan-step';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Sheet,
@@ -20,10 +27,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import type { Food, FoodSummary } from '@/lib/db/food-search';
 import type { Meal } from '@/lib/domain/diary/entries';
+import { newFoodHref } from '@/lib/routes';
+import { useTRPC } from '@/lib/trpc/client';
+import { cn } from '@/lib/utils';
 
 export const searchDebounceMs = 300;
 
@@ -156,20 +167,84 @@ const headerOf = ({
   energyKcal: nutrients.energy_kcal ?? null,
 });
 
+function CreatedFoodStep({
+  foodId,
+  date,
+  meal,
+  onBack,
+  onAdded,
+}: {
+  foodId: string;
+  date: string;
+  meal: Meal;
+  onBack: () => void;
+  onAdded: () => void;
+}) {
+  const trpc = useTRPC();
+  const food = useQuery(trpc.food.get.queryOptions(foodId, { retry: false }));
+
+  if (food.isSuccess) {
+    return (
+      <FoodStep
+        food={headerOf(food.data)}
+        date={date}
+        meal={meal}
+        onBack={onBack}
+        onAdded={onAdded}
+      />
+    );
+  }
+  return (
+    <section className="flex flex-col gap-3 px-4">
+      <Button
+        variant="ghost"
+        className="-ml-2 h-11 self-start"
+        onClick={onBack}
+      >
+        <IconArrowLeft className="size-5" />
+        Back to search
+      </Button>
+      {food.isError ? (
+        <FormError>{foodLoadFailed}</FormError>
+      ) : (
+        <div role="status" aria-label="Loading" className="flex flex-col gap-4">
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-36 w-full" />
+        </div>
+      )}
+    </section>
+  );
+}
+
 function FoodSearch({
   date,
   meal,
+  createdFoodId,
   onAdded,
 }: {
   date: string;
   meal: Meal;
+  createdFoodId: string | null;
   onAdded: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [list, setList] = useState<FoodList>('recent');
   const [scanning, setScanning] = useState(false);
   const [chosen, setChosen] = useState<FoodHeader | null>(null);
+  const [created, setCreated] = useState(createdFoodId);
   const [quickAdding, setQuickAdding] = useState(false);
+
+  if (created !== null) {
+    return (
+      <CreatedFoodStep
+        foodId={created}
+        date={date}
+        meal={meal}
+        onBack={() => setCreated(null)}
+        onAdded={onAdded}
+      />
+    );
+  }
 
   if (quickAdding) {
     return (
@@ -200,6 +275,7 @@ function FoodSearch({
   if (scanning) {
     return (
       <ScanStep
+        diary={{ date, meal }}
         onBack={() => setScanning(false)}
         onFound={(food) => setChosen(headerOf(food))}
       />
@@ -219,9 +295,15 @@ function FoodSearch({
         onScan={() => setScanning(true)}
       />
       <div className="grid grid-cols-2 gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <Button variant="outline" size="lg" className="h-11" disabled>
+        <Link
+          href={newFoodHref({ diary: { date, meal } })}
+          className={cn(
+            buttonVariants({ variant: 'outline', size: 'lg' }),
+            'h-11',
+          )}
+        >
           Create food
-        </Button>
+        </Link>
         <Button
           variant="outline"
           size="lg"
@@ -238,10 +320,12 @@ function FoodSearch({
 export function FoodSearchSheet({
   date,
   meal,
+  createdFoodId = null,
   onClose,
 }: {
   date: string;
   meal: Meal | null;
+  createdFoodId?: string | null;
   onClose: () => void;
 }) {
   return (
@@ -263,7 +347,12 @@ export function FoodSearchSheet({
               Add to {mealNames[meal].toLowerCase()}
             </SheetTitle>
           </SheetHeader>
-          <FoodSearch date={date} meal={meal} onAdded={onClose} />
+          <FoodSearch
+            date={date}
+            meal={meal}
+            createdFoodId={createdFoodId}
+            onAdded={onClose}
+          />
         </SheetContent>
       )}
     </Sheet>

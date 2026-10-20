@@ -275,6 +275,13 @@ function Summary({
           {rate === null ? none : formatWeeklyRate(rate)}
         </SummaryItem>
       </dl>
+      <Link
+        href={routes.nutrientReport}
+        className="flex min-h-11 items-center gap-1 self-end text-muted-foreground text-sm hover:text-foreground"
+      >
+        Nutrient report
+        <IconChevronRight className="size-4" />
+      </Link>
     </section>
   );
 }

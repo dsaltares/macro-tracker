@@ -12,12 +12,14 @@ import { cn } from '@/lib/utils';
 export type FieldProps = ComponentProps<'input'> & {
   label: string;
   error?: string | undefined;
+  warning?: string | undefined;
   hint?: string | undefined;
 };
 
 export function TextField({
   label,
   error,
+  warning,
   hint,
   trailing,
   className,
@@ -32,9 +34,14 @@ export function TextField({
       <div className="relative">
         <Input
           id={id}
-          className={cn('h-11 text-base', trailing && 'pr-12', className)}
+          className={cn(
+            'h-11 text-base',
+            trailing && 'pr-12',
+            warning && !error && 'border-amber-500 bg-amber-500/5',
+            className,
+          )}
           aria-invalid={!!error}
-          aria-describedby={error || hint ? messageId : undefined}
+          aria-describedby={error || warning || hint ? messageId : undefined}
           {...input}
         />
         {trailing}
@@ -43,6 +50,13 @@ export function TextField({
         {error ? (
           <p id={messageId} className="text-destructive text-xs">
             {error}
+          </p>
+        ) : warning ? (
+          <p
+            id={messageId}
+            className="text-amber-700 text-xs dark:text-amber-400"
+          >
+            {warning}
           </p>
         ) : hint ? (
           <p id={messageId} className="text-muted-foreground text-xs">

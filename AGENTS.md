@@ -53,6 +53,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   container's paths and mode dropped. What each replaces is kept as `<file>.before-copy-down`;
   stop `yarn dev` first. The copy holds real diaries and the reference food tables. It refuses to
   run under `NODE_ENV=production`
+- `yarn env:copy-down` — the `.env` half of `yarn db:copy-down`: production's environment over
+  the same SSH connection, turned into the `.env` by `scripts/local-env.ts` with this machine's
+  `DATABASE_URL`, leaving the database alone. The old `.env` is kept as `.env.before-copy-down`.
+  Both share `scripts/production.ts`. It refuses to run under `NODE_ENV=production`
 
 ## Modules
 
@@ -104,7 +108,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/domain/goals/goal.ts`) is the goal on each date of a range from one read of the weights.
   `lib/db/trends.ts` puts them over `diaryEntries` (`lib/db/diary.ts`) and `findGoalsOver`
   (`lib/db/goals.ts`); the `trends` router is `range` and `nutrients` (`{ from, to }`, at most
-  `maxTrendRangeDays`) over the caller. Coverage on it is gated at 100%.
+  `maxTrendRangeDays`) over the caller; `nutrients` also counts each nutrient's `daysWithData`.
+  Coverage on it is gated at 100%. `/trends/nutrients`, linked from the Trends summary, is `NutrientReport`
+  (`components/nutrients/`): `trends.nutrients` over the last 7, 30 or 90 days or the last year,
+  through `nutrientProgress`, by group or sorted by `byShare` (`lib/domain/goals/progress.ts`).
+  It shares its rows with the nutrient panel (`nutrient-rows.tsx`), adding a note of the days with data.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -251,6 +259,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/trpc/routers/recipe.ts`) is these over the caller. `logRecipe` (`diary.addRecipe`, servings
   or grams) snapshots `recipeAsFood` at `1 serving` or `100 g`, and `updateDiaryEntry`
   re-resolves a recipe entry from the current recipe the way it does a food entry.
+- `lib/db/api-keys.ts` — API keys (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
+  `createApiKey` makes a key with `generateApiKey` (`lib/api/keys.ts`: `mt_` and 32 random bytes
+  in base 62) and stores its `prefixOf` and SHA-256 `hashApiKey`, never the key, which it returns
+  once; `listApiKeys` is the caller's live keys, newest first; `revokeApiKey` sets `revoked_at`
+  on the caller's live key, keeping the row. `key_hash` is unique for the lookup `/api/v1` will
+  make. The scopes are `apiKeyScopes` and a new key's schema `newApiKeySchema`
+  (`lib/domain/api-keys.ts`), stored as a JSON array. The `apiKeys` router (`create`, `list`,
+  `revoke`) is these over the caller. `ApiKeysSettings` (`components/settings/`) is Settings › API
+  keys: a name and scopes, the new key in a dialog to copy, and the list with each key's prefix,
+  scopes, creation and last use, revoked once confirmed.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -352,7 +370,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
-  per 100 g winning over those per serving, the first of a nutrient read twice winning.
+  per 100 g winning over those per serving, the first of a nutrient read twice winning. It keeps
+  the printed entry behind each nutrient (`printed`, `perServing`) for the form to show beside a
+  value; `isUnsure` is a confidence below `unsureBelow` (0.8).
 - `lib/label-scan/route.ts` — `POST /api/label-scan`, a route handler, not tRPC, since the body is
   bytes. `labelScanRoute({ readLabel, resolveCaller, logger })` answers `401` without a session,
   `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
@@ -415,7 +435,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
   *Scan the label* on a miss, the last two linking to `/foods/new` with the barcode
-  (`newFoodHref`), the last starting it with the camera.
+  (`newFoodHref`), the last starting it with the camera. Those links and the sheet's own *Create
+  food* carry the sheet's `date` and `meal`; saving the new food comes back to
+  `/diary?date=&meal=&food=` (`addToDiaryHref`), which opens the sheet on `FoodStep` for that food
+  and drops `meal` and `food` from the address once the sheet closes.
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
@@ -434,7 +457,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `app/(app)/trends/` — `TrendsOverview` (`components/trends/`): range chips (7, 30 or 90 days
   ending today, 30 by default) over `trends.range`, kept on screen while the next range loads. A
   summary (the averages of energy and the macros over the logged days, adherence and the weekly
-  rate of the trend weight in the range), then, with a logged day in the range, the Energy chart
+  rate of the trend weight in the range, and a link to the nutrient report), then, with a logged day in the range, the Energy chart
   (daily kcal bars, the goal as a dashed step line, the rolling average) and the Macros chart
   (protein, carbohydrate and fat stacked, coloured per theme through `ChartConfig`'s `theme`), and
   the Weight section: `WeightTrendFigure` (`components/body/weight-chart.tsx`) over the range and a
@@ -447,7 +470,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
   it did not touch. Editing also archives, once confirmed. While label scanning is on, a new food
   offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, whose reading
-  fills the form through `labelReadingToFood`, keeping the barcode.
+  fills the form through `labelReadingToFood`, keeping the barcode. Each field the reading is
+  unsure of is highlighted (`TextField`'s `warning`), a nutrient with what the label printed,
+  until it is edited, under a notice listing the reading's notes.
 - `app/(app)/foods/recipes/` — recipes, under the Foods tab: `FoodsNav` (`components/foods/`)
   switches between *Your foods* and *Recipes*. `Recipes` (`components/recipes/`) is
   `recipe.list`, each linking to `/foods/recipes/[id]`. `NewRecipe` takes the name, servings and

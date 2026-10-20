@@ -159,8 +159,15 @@ export type LabelFood = {
   nutrients: NutrientVector;
   portions: UserFoodPortion[];
   confidence: LabelConfidence;
+  printed: Partial<Record<NutrientKey, PrintedNutrient>>;
+  perServing: boolean;
   notes: string[];
 };
+
+export const unsureBelow = 0.8;
+
+export const isUnsure = (confidence: number | null | undefined) =>
+  confidence !== null && confidence !== undefined && confidence < unsureBelow;
 
 const energyMacros = Object.keys(kcalPerGram) as NutrientKey[];
 
@@ -188,20 +195,27 @@ const declaredOf = (printed: readonly PrintedNutrient[]): DeclaredNutrients =>
 const isDerived = ({ nutrient }: PrintedNutrient) =>
   canonicalKeyOf(nutrient) !== nutrient;
 
-const nutrientConfidence = (
-  printed: readonly PrintedNutrient[],
-  nutrients: NutrientVector,
-) => {
+const printedByKey = (printed: readonly PrintedNutrient[]) => {
   const readable = printed.filter(
     (entry) => parseAmount(entry.printed) !== undefined,
   );
-  const confidence: Partial<Record<NutrientKey, number>> = {};
+  const byKey: Partial<Record<NutrientKey, PrintedNutrient>> = {};
   for (const entry of [
     ...readable.filter((entry) => !isDerived(entry)),
     ...readable.filter(isDerived),
   ]) {
-    confidence[canonicalKeyOf(entry.nutrient)] ??= entry.confidence;
+    byKey[canonicalKeyOf(entry.nutrient)] ??= entry;
   }
+  return byKey;
+};
+
+const nutrientConfidence = (
+  printed: Partial<Record<NutrientKey, PrintedNutrient>>,
+  nutrients: NutrientVector,
+) => {
+  const confidence: Partial<Record<NutrientKey, number>> = Object.fromEntries(
+    Object.entries(printed).map(([key, entry]) => [key, entry.confidence]),
+  );
   if (
     confidence.energy_kcal === undefined &&
     nutrients.energy_kcal !== undefined
@@ -245,6 +259,7 @@ export const labelReadingToFood = (reading: LabelReading): LabelFood => {
     : { per: '100g' };
   const { nutrients } = normaliseNutrients(declaredOf(printed), basis);
   const serving = servingOf(servingSize);
+  const printedNutrients = printedByKey(printed);
   return {
     name: productName?.value ?? null,
     brand: brand?.value ?? null,
@@ -256,8 +271,10 @@ export const labelReadingToFood = (reading: LabelReading): LabelFood => {
       brand: brand?.confidence ?? null,
       quantityLabel: netQuantity?.confidence ?? null,
       portions: serving.confidence,
-      nutrients: nutrientConfidence(printed, nutrients),
+      nutrients: nutrientConfidence(printedNutrients, nutrients),
     },
+    printed: printedNutrients,
+    perServing: perServingOnly,
     notes: reading.notes,
   };
 };

@@ -223,6 +223,12 @@ a date with no logged day in its seven has none.
 way. A logged day without a goal (a derived goal before the first weight) is not counted, and a
 range without one such day has no adherence.
 
+A nutrient's **days with data** are the logged days whose totals declare it; with none it has no
+data over the range. The **nutrient report** is the nutrient panel over the last 7, 30 or 90 days
+or the last year: each nutrient's average against the average goal, its percentage and its days
+with data, by group or by percentage. By percentage, the targets least reached come first, then
+the upper limits most used, then the nutrients with no percentage, so deficiencies float up.
+
 ## Recipes
 
 A **recipe** has a name, a number of **servings**, an optional **cooked weight** in grams and
@@ -239,4 +245,7 @@ servings) and `100 g`; logging it snapshots the result.
 
 The **app** talks tRPC with a session. **API clients** talk REST under `/api/v1` with a bearer
 **API key**: several per user, named, scoped `read` or `write`, stored hashed, shown once,
-revocable. Both go through the same service functions, so a behaviour exists in both or neither.
+revocable. A key is `mt_` and 32 random bytes in base 62; its **prefix**, the first eight
+characters, is all the app shows of it afterwards. A **revoked** key keeps its row and stops
+working at once; it is never listed again. Both go through the same service functions, so a
+behaviour exists in both or neither.

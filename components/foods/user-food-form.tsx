@@ -1,7 +1,12 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { IconChevronDown, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconChevronDown,
+  IconEye,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import { type ReactNode, useEffect, useId, useState } from 'react';
 import {
   Controller,
@@ -18,10 +23,15 @@ import {
   nutrientNames,
 } from '@/components/foods/nutrient-names';
 import { type Choice, ChoiceField } from '@/components/profile/choice-field';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { Food } from '@/lib/db/food-search';
 import { normaliseBarcode } from '@/lib/domain/foods/barcode';
-import type { LabelFood } from '@/lib/domain/foods/label-reading';
+import {
+  isUnsure,
+  type LabelFood,
+  type PrintedNutrient,
+} from '@/lib/domain/foods/label-reading';
 import {
   aboveMaxPer100g,
   invalidBarcode,
@@ -55,6 +65,15 @@ import { cn } from '@/lib/utils';
 export const barcodeTaken = 'You already have a food with this barcode.';
 
 export const saveFailed = 'The food could not be saved. Try again.';
+
+export const compareWithLabel = 'Compare with the label';
+
+export const hardToRead = 'The highlighted fields were hard to read.';
+
+export const unsureReading = 'Unsure of this reading';
+
+export const unsurePrinted = (printed: string) =>
+  `Unsure: the label reads ${printed}`;
 
 const labelFields = [
   'energy_kcal',
@@ -278,6 +297,62 @@ const defaultValuesOf = (
   return label === null ? emptyValues(barcode) : valuesOfLabel(label, barcode);
 };
 
+const printedText = (
+  { nutrient, printed, unit }: PrintedNutrient,
+  perServing: boolean,
+) =>
+  [
+    printed,
+    unit,
+    ...(nutrient === 'sodium' ? ['sodium'] : []),
+    ...(perServing ? ['per serving'] : []),
+  ].join(' ');
+
+const textWarning = (confidence: number | null | undefined) =>
+  isUnsure(confidence) ? unsureReading : undefined;
+
+const nutrientWarning = (label: LabelFood | null, key: NutrientKey) => {
+  if (label === null || !isUnsure(label.confidence.nutrients[key])) {
+    return undefined;
+  }
+  const printed = label.printed[key];
+  return printed === undefined
+    ? unsureReading
+    : unsurePrinted(printedText(printed, label.perServing));
+};
+
+const hasUnsureReading = ({ confidence }: LabelFood) =>
+  [
+    confidence.name,
+    confidence.brand,
+    confidence.quantityLabel,
+    confidence.portions,
+    ...Object.values(confidence.nutrients),
+  ].some(isUnsure);
+
+function LabelNotice({ label }: { label: LabelFood }) {
+  const unsure = hasUnsureReading(label);
+  if (!unsure && label.notes.length === 0) {
+    return null;
+  }
+  return (
+    <Alert>
+      <IconEye />
+      <AlertTitle>{compareWithLabel}</AlertTitle>
+      <AlertDescription>
+        {unsure ? <p>{hardToRead}</p> : null}
+        {label.notes.length === 0 ? null : (
+          <ul className="list-disc pl-4">
+            {label.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 const hasOtherNutrients = (nutrients: NutrientVector | undefined) =>
   nutrients !== undefined &&
   otherNutrients.some(({ key }) => nutrients[key] !== undefined);
@@ -336,6 +411,9 @@ export function UserFoodForm({
   });
   const portions = useFieldArray({ control, name: 'portions' });
   const basis = useWatch({ control, name: 'basis' });
+  const [unsurePortionId] = useState(() =>
+    isUnsure(label?.confidence.portions) ? portions.fields[0]?.id : undefined,
+  );
 
   useEffect(() => {
     setInteractive(true);
@@ -355,6 +433,9 @@ export function UserFoodForm({
         label={labelOf(key)}
         {...amountProps}
         error={errors.nutrients?.[key]?.message}
+        warning={
+          dirtyFields.nutrients?.[key] ? undefined : nutrientWarning(label, key)
+        }
         {...register(name, { setValueAs: optionalNumber })}
       />
     );
@@ -382,12 +463,16 @@ export function UserFoodForm({
       noValidate
     >
       {failed ? <FormError>{saveFailed}</FormError> : null}
+      {label === null ? null : <LabelNotice label={label} />}
       <fieldset className="flex flex-col gap-1">
         <legend className="sr-only">Details</legend>
         <TextField
           label="Name"
           autoComplete="off"
           error={errors.name?.message}
+          warning={
+            dirtyFields.name ? undefined : textWarning(label?.confidence.name)
+          }
           {...register('name')}
         />
         <TextField
@@ -395,6 +480,9 @@ export function UserFoodForm({
           autoComplete="off"
           hint="Optional"
           error={errors.brand?.message}
+          warning={
+            dirtyFields.brand ? undefined : textWarning(label?.confidence.brand)
+          }
           {...register('brand')}
         />
         <div className="grid grid-cols-2 gap-3">
@@ -410,6 +498,11 @@ export function UserFoodForm({
             placeholder="400 g"
             autoComplete="off"
             error={errors.quantityLabel?.message}
+            warning={
+              dirtyFields.quantityLabel
+                ? undefined
+                : textWarning(label?.confidence.quantityLabel)
+            }
             {...register('quantityLabel')}
           />
         </div>
@@ -445,6 +538,9 @@ export function UserFoodForm({
             label="Salt (g)"
             {...amountProps}
             error={errors.salt?.message}
+            warning={
+              dirtyFields.salt ? undefined : nutrientWarning(label, 'sodium')
+            }
             {...register('salt', { setValueAs: optionalNumber })}
           />
         </div>
@@ -495,12 +591,24 @@ export function UserFoodForm({
                 placeholder="1 slice"
                 autoComplete="off"
                 error={errors.portions?.[index]?.label?.message}
+                warning={
+                  portion.id === unsurePortionId &&
+                  !dirtyFields.portions?.[index]?.label
+                    ? unsureReading
+                    : undefined
+                }
                 {...register(`portions.${index}.label`)}
               />
               <TextField
                 label={`Portion ${index + 1} grams`}
                 {...amountProps}
                 error={errors.portions?.[index]?.grams?.message}
+                warning={
+                  portion.id === unsurePortionId &&
+                  !dirtyFields.portions?.[index]?.grams
+                    ? unsureReading
+                    : undefined
+                }
                 {...register(`portions.${index}.grams`, {
                   setValueAs: optionalNumber,
                 })}

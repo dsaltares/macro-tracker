@@ -50,3 +50,17 @@ export const nutrientProgress = (
       progress: known ? progressOf(amount, target, kind) : undefined,
     };
   });
+
+const unsharedRank = 2;
+
+const shareRank = ({ kind, share }: NutrientProgress): [number, number] => {
+  if (share === undefined) return [unsharedRank, 0];
+  return kind === 'target' ? [0, share] : [1, -share];
+};
+
+export const byShare = (rows: readonly NutrientProgress[]) =>
+  rows.toSorted((a, b) => {
+    const [groupA, orderA] = shareRank(a);
+    const [groupB, orderB] = shareRank(b);
+    return groupA - groupB || orderA - orderB;
+  });

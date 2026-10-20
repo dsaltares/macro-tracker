@@ -1,3 +1,5 @@
+import type { Meal } from './domain/diary/entries.ts';
+
 export const routes = {
   home: '/',
   diary: '/diary',
@@ -8,12 +10,14 @@ export const routes = {
   newRecipe: '/foods/recipes/new',
   trends: '/trends',
   body: '/body',
+  nutrientReport: '/trends/nutrients',
   onboarding: '/onboarding',
   onboardingGoals: '/onboarding/goals',
   settings: '/settings',
   profile: '/settings/profile',
   goals: '/settings/goals',
   foodSources: '/settings/food-sources',
+  apiKeys: '/settings/api-keys',
   account: '/settings/account',
   export: '/settings/export',
   exportDiary: '/api/export/diary.csv',
@@ -33,19 +37,36 @@ export const routes = {
 export const diaryHref = (date: string | null) =>
   date === null ? routes.diary : `${routes.diary}?date=${date}`;
 
+export type DiaryMeal = { date: string; meal: Meal };
+
+export const addToDiaryHref = ({
+  date,
+  meal,
+  foodId,
+}: DiaryMeal & { foodId: string }) =>
+  `${routes.diary}?${new URLSearchParams({ date, meal, food: foodId })}`;
+
 export const nutrientsHref = (date: string) =>
   `${routes.nutrients}?date=${date}`;
 
 export const newFoodHref = ({
   barcode,
   scanLabel = false,
+  diary,
 }: {
   barcode?: string;
   scanLabel?: boolean;
+  diary?: DiaryMeal;
 }) => {
   const params = new URLSearchParams([
     ...(barcode === undefined ? [] : [['barcode', barcode]]),
     ...(scanLabel ? [['scan', 'label']] : []),
+    ...(diary === undefined
+      ? []
+      : [
+          ['date', diary.date],
+          ['meal', diary.meal],
+        ]),
   ]);
   return params.size === 0 ? routes.newFood : `${routes.newFood}?${params}`;
 };

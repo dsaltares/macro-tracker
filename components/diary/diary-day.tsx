@@ -1,7 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useQueryState } from 'nuqs';
+import {
+  parseAsString,
+  parseAsStringLiteral,
+  useQueryState,
+  useQueryStates,
+} from 'nuqs';
 import { useState } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
 import { FormError } from '@/components/auth/fields';
@@ -15,7 +20,7 @@ import { MealSection } from '@/components/diary/meal-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToday } from '@/components/use-today';
 import type { DiaryEntry } from '@/lib/db/diary';
-import type { Meal } from '@/lib/domain/diary/entries';
+import { type Meal, meals } from '@/lib/domain/diary/entries';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'This day could not be loaded.';
@@ -32,12 +37,27 @@ function DaySkeleton() {
   );
 }
 
-function Day({ date }: { date: string }) {
+const addingParsers = {
+  meal: parseAsStringLiteral(meals),
+  food: parseAsString,
+};
+
+type CreatedFood = { meal: Meal; foodId: string };
+
+function Day({
+  date,
+  created,
+  onCreatedDone,
+}: {
+  date: string;
+  created: CreatedFood | null;
+  onCreatedDone: () => void;
+}) {
   const trpc = useTRPC();
   const day = useQuery(trpc.diary.day.queryOptions(date));
   const goal = useQuery(trpc.goals.forDate.queryOptions(date));
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
-  const [adding, setAdding] = useState<Meal | null>(null);
+  const [adding, setAdding] = useState<Meal | null>(created?.meal ?? null);
 
   if (day.isPending || goal.isPending) {
     return <DaySkeleton />;
@@ -68,7 +88,13 @@ function Day({ date }: { date: string }) {
       <FoodSearchSheet
         date={date}
         meal={adding}
-        onClose={() => setAdding(null)}
+        createdFoodId={created?.foodId ?? null}
+        onClose={() => {
+          setAdding(null);
+          if (created !== null) {
+            onCreatedDone();
+          }
+        }}
       />
     </>
   );
@@ -77,7 +103,10 @@ function Day({ date }: { date: string }) {
 export function DiaryDay() {
   const today = useToday();
   const [chosenDate, setChosenDate] = useQueryState('date', dateParser);
+  const [{ meal, food }, setAdding] = useQueryStates(addingParsers);
   const date = chosenDate ?? today;
+  const created =
+    meal !== null && food !== null ? { meal, foodId: food } : null;
 
   return (
     <AppPage
@@ -95,7 +124,16 @@ export function DiaryDay() {
       {today !== null && date === today ? (
         <LogWeightCard today={today} />
       ) : null}
-      {date === null ? <DaySkeleton /> : <Day key={date} date={date} />}
+      {date === null ? (
+        <DaySkeleton />
+      ) : (
+        <Day
+          key={date}
+          date={date}
+          created={created}
+          onCreatedDone={() => setAdding({ meal: null, food: null })}
+        />
+      )}
     </AppPage>
   );
 }

@@ -230,6 +230,7 @@ describe('trends.nutrients', () => {
       to,
       days: fixtureDays,
       loggedDays: 24,
+      daysWithData: { energy_kcal: 24, protein: 24 },
       average: { energy_kcal: expect.closeTo(1891.67, 2), protein: 100 },
       goal: { energy_kcal: 2000, protein: 120 },
     });
@@ -246,6 +247,7 @@ describe('trends.nutrients', () => {
       to: '2026-01-31',
       days: 31,
       loggedDays: 0,
+      daysWithData: {},
       average: null,
       goal: null,
     });

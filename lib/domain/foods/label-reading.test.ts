@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isUnsure,
   type LabelReading,
   labelReadingSchema,
   labelReadingToFood,
@@ -128,6 +129,17 @@ describe('labelReadingToFood', () => {
     });
   });
 
+  it('keeps what was printed for each value it read', () => {
+    const food = labelReadingToFood(reading);
+
+    expect(food.perServing).toBe(false);
+    expect(food.printed).toMatchObject({
+      energy_kcal: value('energy_kcal', '468', 'kcal'),
+      saturated_fat: value('saturated_fat', '8,4', 'g'),
+      sodium: value('salt', '0.75', 'g'),
+    });
+  });
+
   it('converts a label that prints only kJ', () => {
     const food = labelReadingToFood({
       ...reading,
@@ -174,6 +186,8 @@ describe('labelReadingToFood', () => {
       sodium: 400,
     });
     expect(food.portions).toEqual([{ label: '30 g', grams: 30 }]);
+    expect(food.perServing).toBe(true);
+    expect(food.printed.protein).toEqual(value('protein', '3', 'g'));
   });
 
   it('weighs a serving in millilitres as grams', () => {
@@ -253,6 +267,7 @@ describe('labelReadingToFood', () => {
 
     expect(food.nutrients.energy_kcal).toBe(165);
     expect(food.confidence.nutrients.energy_kcal).toBe(0.6);
+    expect(food.printed).not.toHaveProperty('energy_kcal');
   });
 
   it('rounds each amount to two decimals', () => {
@@ -300,5 +315,16 @@ describe('labelReadingToFood', () => {
       quantityLabel: null,
       portions: null,
     });
+  });
+});
+
+describe('isUnsure', () => {
+  it('is unsure of a reading below 0.8, and of nothing it did not read', () => {
+    expect(isUnsure(0.79)).toBe(true);
+    expect(isUnsure(0)).toBe(true);
+    expect(isUnsure(0.8)).toBe(false);
+    expect(isUnsure(1)).toBe(false);
+    expect(isUnsure(null)).toBe(false);
+    expect(isUnsure(undefined)).toBe(false);
   });
 });
