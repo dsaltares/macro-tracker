@@ -207,6 +207,22 @@ warns when its kcal target is under 1,200 for a woman or 1,500 for a man, when i
 over 1 kg either way, and when protein and fat leave no energy for carbohydrate, which is then
 zero.
 
+## Trends
+
+Trends read the diary over a range of dates, at most 366 of them. Each date's **daily totals** are
+its day totals; a date with at least one entry is a **logged day**, and a date with none is shown
+as one but left out of every average, so a day not logged never reads as a day of fasting.
+
+A nutrient's **average** over a range is the sum of its daily totals over the logged days divided
+by their number, a logged day without that nutrient counting as zero. It is read against the
+average of the goal vectors of those logged days that have one. The **rolling average** of a date
+is the average over the logged days of the seven ending on it, reaching back before the range;
+a date with no logged day in its seven has none.
+
+**Adherence** is the share of logged days with a kcal goal whose energy is within 10% of it either
+way. A logged day without a goal (a derived goal before the first weight) is not counted, and a
+range without one such day has no adherence.
+
 ## Recipes
 
 A **recipe** has a name, a number of **servings**, an optional **cooked weight** in grams and

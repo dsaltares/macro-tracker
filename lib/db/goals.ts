@@ -1,11 +1,20 @@
 import type { Kysely } from 'kysely';
-import { type Goal, goalOn } from '../domain/goals/goal.ts';
+import { addDays } from '../domain/dates.ts';
+import {
+  type DatedGoal,
+  type Goal,
+  goalOn,
+  goalsOn,
+} from '../domain/goals/goal.ts';
 import {
   defaultGoalSettings,
   type GoalSettings,
 } from '../domain/goals/settings.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
-import { findLatestMeasurement } from './body-measurements.ts';
+import {
+  findLatestMeasurement,
+  listMeasurements,
+} from './body-measurements.ts';
 import { findProfile } from './profiles.ts';
 import type { Database } from './schema.ts';
 
@@ -66,4 +75,25 @@ export const findGoalOn = async (
     findGoalSettings(db, userId),
   ]);
   return profile && goalOn(profile, weight?.value ?? null, date, settings);
+};
+
+export const findGoalsOver = async (
+  db: Kysely<Database>,
+  userId: string,
+  dates: readonly string[],
+): Promise<DatedGoal[]> => {
+  const from = dates.at(0);
+  const to = dates.at(-1);
+  if (from === undefined || to === undefined) {
+    return [];
+  }
+  const [profile, before, weights, settings] = await Promise.all([
+    findProfile(db, userId),
+    findLatestMeasurement(db, userId, 'weight_kg', addDays(from, -1)),
+    listMeasurements(db, userId, { metric: 'weight_kg', from, to }),
+    findGoalSettings(db, userId),
+  ]);
+  return profile
+    ? goalsOn(profile, before ? [before, ...weights] : weights, dates, settings)
+    : dates.map((date) => ({ date, goal: null }));
 };
