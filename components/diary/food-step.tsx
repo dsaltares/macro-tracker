@@ -85,6 +85,11 @@ function AddEntry({
   );
 }
 
+export type FoodHeader = Pick<
+  FoodSummary,
+  'id' | 'name' | 'brand' | 'source' | 'energyKcal'
+>;
+
 export function FoodStep({
   food,
   date,
@@ -92,7 +97,7 @@ export function FoodStep({
   onBack,
   onAdded,
 }: {
-  food: FoodSummary;
+  food: FoodHeader;
   date: string;
   meal: Meal;
   onBack: () => void;
