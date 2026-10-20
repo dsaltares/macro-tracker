@@ -46,6 +46,7 @@ export default defineConfig({
         'lib/domain/foods/**': { 100: true },
         'lib/domain/diary/**': { 100: true },
         'lib/domain/goals/**': { 100: true },
+        'lib/domain/body/**': { 100: true },
       },
     },
   },

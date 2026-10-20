@@ -137,7 +137,10 @@ birth. A new account goes through **onboarding**, which asks for the profile, be
 else, and is sent back to it until a profile exists; after that the profile is edited in settings.
 
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
-The **trend weight** is an exponential moving average over the log.
+The **trend weight** is an exponential moving average over the log: it starts at the first weight
+and moves a tenth of the way toward each next one, carried unchanged over the days without a
+weight. The **weekly rate** is how much the trend weight changed over a range, per week; a range
+that spans less than a week has none.
 
 **BMR** is Mifflin-St Jeor over profile and latest weight, with the age on the date. **TDEE** is
 BMR times the activity multiplier. A **goal** is either *derived* — a weekly rate target in kg

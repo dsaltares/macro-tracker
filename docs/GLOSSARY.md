@@ -65,6 +65,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | target | A goal to reach. Every goal is a target unless it is an upper limit. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trace | A nutrient a source declares as below a limit or as "traces": stored as zero and listed among the food's traces. | [Foods](DOMAIN.md#foods) |
 | TDEE | Total daily energy expenditure: BMR times the activity multiplier. | [Body and goals](DOMAIN.md#body-and-goals) |
-| trend weight | An exponential moving average over the weight log. | [Body and goals](DOMAIN.md#body-and-goals) |
+| trend weight | An exponential moving average over the weight log, a tenth of the way toward each weight, carried over the days without one. | [Body and goals](DOMAIN.md#body-and-goals) |
 | upper limit | A goal to stay under: saturated fat, sugars, sodium and chloride. | [Body and goals](DOMAIN.md#body-and-goals) |
 | user food | A food with `source` `user`: owned by one user, visible only to them, may carry a barcode. | [Foods](DOMAIN.md#foods) |
+| weekly rate | How much the trend weight changed over a range, per week. A range under a week has none. | [Body and goals](DOMAIN.md#body-and-goals) |

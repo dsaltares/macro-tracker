@@ -8,7 +8,11 @@ import { z } from 'zod';
 import { submitButtonClass } from '@/components/auth/auth-form';
 import { FormError, TextField } from '@/components/auth/fields';
 import { Button } from '@/components/ui/button';
-import { maxWeightKg, minWeightKg, weightKgSchema } from '@/lib/domain/body';
+import {
+  maxWeightKg,
+  minWeightKg,
+  weightKgSchema,
+} from '@/lib/domain/body/measurements';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const saveFailed = 'Your weight could not be saved. Try again.';

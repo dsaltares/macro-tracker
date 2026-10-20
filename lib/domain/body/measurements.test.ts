@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatWeight, weightKgSchema } from './body.ts';
+import { formatWeight, weightKgSchema } from './measurements.ts';
 
 describe('weightKgSchema', () => {
   it.each([20, 72.4, 400])('accepts %s kg', (kg) => {
