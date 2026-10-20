@@ -1,13 +1,12 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 export type Account = {
   email: string;
-  image?: string | null | undefined;
 };
 
 export function AccountAvatar({
-  account: { email, image },
+  account: { email },
   className,
 }: {
   account: Account;
@@ -15,7 +14,6 @@ export function AccountAvatar({
 }) {
   return (
     <Avatar className={cn('size-8', className)}>
-      {image ? <AvatarImage src={image} alt="" /> : null}
       <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
     </Avatar>
   );

@@ -74,6 +74,7 @@ export const tab = (page: Page, name: string) =>
 
 export const signedInAs = async (page: Page, email: string) => {
   await tab(page, 'Settings').click();
+  await expect(page).toHaveURL('/settings');
   await expect(
     page.getByText(email, { exact: true }).filter({ visible: true }),
   ).toBeVisible();

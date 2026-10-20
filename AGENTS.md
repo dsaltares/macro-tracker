@@ -255,24 +255,27 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   caller and hands the procedure a non-null one.
 - `app/(app)/` — the app shell (`components/app-shell/`), behind `requireProfile`: the tabs of
   `appTabs` in `lib/navigation.ts` (Diary, Foods, Trends, Settings, the current one marked
-  `aria-current="page"`), the footer, and safe-area padding. Below `md` the tabs are the bottom
-  navigation (`BottomNav`) and the content is `max-w-md`; from `md` they are a `Sidebar` that also
-  shows the account and Sign out, and the content widens to `max-w-2xl`. Both are labelled
-  `Main`, and only one is ever displayed. Each page renders `AppPage`, whose `TopBar` takes the
-  page's `title` (the `h1`) and optional `start` and `end` contents. `loading.tsx` is a skeleton
-  of a page; `error.tsx` renders `PageError` with a retry. `/` redirects to `/diary`.
+  `aria-current="page"`) and safe-area padding. Below `md` the tabs are the bottom navigation
+  (`BottomNav`) and the content is `max-w-md`; from `md` they are a `Sidebar` with the logo and
+  the `AccountMenu` (`components/account/`: avatar, address, `accountLinks`, Sign out), and the
+  content widens to `max-w-2xl`. Both navigations are labelled `Main`, and only one is ever
+  displayed. Each page renders `AppPage`, whose `TopBar` takes the page's `title` (the `h1`) and
+  optional `start` and `end` contents; without `start` it shows the logo below `md`.
+  `loading.tsx` is a skeleton of a page; `error.tsx` renders `PageError` with a retry. `/`
+  redirects to `/diary`. The app has no footer: `accountLinks` (the legal documents, Data sources
+  and GitHub) are in the account menu, and below `md` in `AccountSummary` on the settings page.
 - `app/(app)/settings/` — `/settings` lists `settingsSections` (`lib/navigation.ts`), each a live page
   or *Coming soon* until its milestone fills it; every section page renders in `SettingsPage`
   (`components/settings/`), whose top bar links back. The settings page also holds the theme
-  (`ThemeSetting`), and below `md` the account and Sign out. Food sources edits the source preferences through
+  (`ThemeSetting`), and below `md` the `AccountSummary`. Food sources edits the source preferences through
   `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
   collects, keeps, sets in the browser or shares with someone changes the privacy or cookie policy
   in the same change and bumps `lastUpdated`. `legalDocuments` in `lib/navigation.ts` is the one
-  list the footer (`components/site-footer.tsx`, rendered by every layout and onboarding) links
-  from.
+  list the footer (`components/site-footer.tsx`, rendered by the auth and legal layouts and
+  onboarding) and `accountLinks` link from.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids; `serveApi({ signedInAs: 'user-1' })` creates that
