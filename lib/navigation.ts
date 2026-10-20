@@ -26,6 +26,26 @@ export const legalDocuments: readonly LegalDocument[] = [
   cookiePolicy,
 ];
 
+export const dataSourcesUrl =
+  'https://github.com/dsaltares/macro-tracker/blob/main/docs/DATA-SOURCES.md';
+
+export const sourceCodeUrl = 'https://github.com/dsaltares/macro-tracker';
+
+export type AppTab = {
+  href: string;
+  label: string;
+};
+
+export const appTabs: readonly AppTab[] = [
+  { href: routes.diary, label: 'Diary' },
+  { href: routes.foods, label: 'Foods' },
+  { href: routes.trends, label: 'Trends' },
+  { href: routes.settings, label: 'Settings' },
+];
+
+export const isActiveTab = (pathname: string, { href }: AppTab) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
 export type SettingsSection = {
   label: string;
   description: string;

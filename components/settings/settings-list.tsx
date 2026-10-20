@@ -1,12 +1,33 @@
-import { IconChevronRight } from '@tabler/icons-react';
+import {
+  IconChevronRight,
+  IconDatabase,
+  IconDownload,
+  IconKey,
+  IconTarget,
+  IconUser,
+  IconUserCircle,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import type { SettingsSection } from '@/lib/navigation';
 
+const sectionIcons: Record<string, typeof IconUser> = {
+  Profile: IconUser,
+  Goals: IconTarget,
+  'Food sources': IconDatabase,
+  'API keys': IconKey,
+  Export: IconDownload,
+  Account: IconUserCircle,
+};
+
 function SectionText({ label, description }: SettingsSection) {
+  const Icon = sectionIcons[label] ?? IconUser;
   return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-medium">{label}</span>
-      <span className="text-muted-foreground text-sm">{description}</span>
+    <span className="flex items-center gap-4">
+      <Icon className="size-5 shrink-0 text-muted-foreground" />
+      <span className="flex flex-col gap-0.5">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted-foreground text-sm">{description}</span>
+      </span>
     </span>
   );
 }

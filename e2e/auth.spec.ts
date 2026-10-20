@@ -25,21 +25,21 @@ test('someone signs up, confirms from the mailed link, signs out and back in', a
 
   await page.goto(await linkMailedTo(email, confirmation));
 
-  await expect(page).toHaveURL('/onboarding?next=%2F');
+  await expect(page).toHaveURL('/onboarding?next=%2Fdiary');
   await completeOnboarding(page);
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/diary');
   await signedInAs(page, email);
 
   await signOut(page);
   await signInAs(page, email);
 
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/diary');
   await signedInAs(page, email);
 
   await signOut(page);
   await page.goto('/');
 
-  await expect(page).toHaveURL('/sign-in?next=%2F');
+  await expect(page).toHaveURL('/sign-in?next=%2Fdiary');
 });
 
 test('an unconfirmed address cannot sign in, and is offered the link again', async ({

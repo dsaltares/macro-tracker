@@ -9,9 +9,6 @@ import {
   requireProfile,
   type SearchParams,
 } from '@/lib/auth/session';
-import { routes } from '@/lib/routes';
-
-export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = { title: 'Account' };
 
@@ -20,10 +17,10 @@ export default async function AccountPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { user } = await requireProfile(routes.account);
+  const { user } = await requireProfile();
   const linkError = onlyParam((await searchParams)[errorParam]);
   return (
-    <SettingsPage email={user.email} title="Account">
+    <SettingsPage title="Account">
       <p className="text-sm">
         Signed in as <span className="font-medium">{user.email}</span>
       </p>

@@ -215,9 +215,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   limit is on in production unless `DISABLE_AUTH_RATE_LIMIT=1`. Password rules and every form
   schema are in `credentials.ts`, shared by the forms and the server's limits. `resolveCaller`
   turns a confirmed session into the tRPC caller; `session.ts` reads it in a server component and
-  `requireSession(here)` sends someone signed out to sign in and back;
-  `requireProfile(here)` also sends an account without a profile to `/onboarding` and back. Every
-  page of the app but onboarding itself calls `requireProfile`. `redirect.ts` keeps `next`
+  `requireSession()` sends someone signed out to sign in and back;
+  `requireProfile()` also sends an account without a profile to `/onboarding` and back. Both
+  read the path to come back to from the `x-request-path` header `proxy.ts` sets on every page
+  request, and are cached per request. The `app/(app)/` layout calls `requireProfile`, so every
+  page in the group is behind it; a page calls it again only for the user or profile. `redirect.ts` keeps `next`
   inside the app and off the auth pages. `client.ts` is the browser client; component tests mock it
   with `test/auth-client.ts` and `next/navigation` with `test/next-navigation.ts`. The pages are in
   `app/(auth)/`, the forms in `components/auth/`. Sign-up requires consent (ADR
@@ -251,17 +253,29 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   mounted in `root.ts`. Components call them through `useTRPC()` and TanStack Query;
   `TRPCReactProvider` sits in the root layout. `accountProcedure` answers `UNAUTHORIZED` without a
   caller and hands the procedure a non-null one.
-- `app/settings/` — `/settings` lists `settingsSections` (`lib/navigation.ts`), each a live page
+- `app/(app)/` — the app shell (`components/app-shell/`), behind `requireProfile`: the tabs of
+  `appTabs` in `lib/navigation.ts` (Diary, Foods, Trends, Settings, the current one marked
+  `aria-current="page"`) and safe-area padding. Below `md` the tabs are the bottom navigation
+  (`BottomNav`) and the content is `max-w-md`; from `md` they are a `Sidebar` with the logo and
+  the `AccountMenu` (`components/account/`: avatar, address, `accountLinks`, Sign out), and the
+  content widens to `max-w-2xl`. Both navigations are labelled `Main`, and only one is ever
+  displayed. Each page renders `AppPage`, whose `TopBar` takes the page's `title` (the `h1`) and
+  optional `start` and `end` contents; without `start` it shows the logo below `md`.
+  `loading.tsx` is a skeleton of a page; `error.tsx` renders `PageError` with a retry. `/`
+  redirects to `/diary`. The app has no footer: `accountLinks` (the legal documents, Data sources
+  and GitHub) are in the account menu, and below `md` in `AccountSummary` on the settings page.
+- `app/(app)/settings/` — `/settings` lists `settingsSections` (`lib/navigation.ts`), each a live page
   or *Coming soon* until its milestone fills it; every section page renders in `SettingsPage`
-  (`components/settings/`), which links back. Food sources edits the source preferences through
+  (`components/settings/`), whose top bar links back. The settings page also holds the theme
+  (`ThemeSetting`), and below `md` the `AccountSummary`. Food sources edits the source preferences through
   `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
   collects, keeps, sets in the browser or shares with someone changes the privacy or cookie policy
   in the same change and bumps `lastUpdated`. `legalDocuments` in `lib/navigation.ts` is the one
-  list the footer (`components/site-footer.tsx`, on every page) links from; the account menu links
-  the first two.
+  list the footer (`components/site-footer.tsx`, rendered by the auth and legal layouts and
+  onboarding) and `accountLinks` link from.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids; `serveApi({ signedInAs: 'user-1' })` creates that

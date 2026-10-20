@@ -1,5 +1,8 @@
 export const routes = {
   home: '/',
+  diary: '/diary',
+  foods: '/foods',
+  trends: '/trends',
   onboarding: '/onboarding',
   settings: '/settings',
   profile: '/settings/profile',
