@@ -12,7 +12,7 @@ vi.mock('@/lib/auth/client', () => import('@/test/auth-client'));
 const account = { email: 'eater@example.test' };
 
 describe('AccountMenu', () => {
-  it('shows the first letter of the address, () => {
+  it('shows the first letter of the address', () => {
     renderUi(<AccountMenu account={account} />);
 
     expect(screen.getByText('E')).toBeInTheDocument();
