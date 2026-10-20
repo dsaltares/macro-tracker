@@ -53,6 +53,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   container's paths and mode dropped. What each replaces is kept as `<file>.before-copy-down`;
   stop `yarn dev` first. The copy holds real diaries and the reference food tables. It refuses to
   run under `NODE_ENV=production`
+- `yarn env:copy-down` — the `.env` half of `yarn db:copy-down`: production's environment over
+  the same SSH connection, turned into the `.env` by `scripts/local-env.ts` with this machine's
+  `DATABASE_URL`, leaving the database alone. The old `.env` is kept as `.env.before-copy-down`.
+  Both share `scripts/production.ts`. It refuses to run under `NODE_ENV=production`
 
 ## Modules
 
