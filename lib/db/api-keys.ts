@@ -106,3 +106,61 @@ export const revokeApiKey = async (
   ).executeTakeFirst();
   return numUpdatedRows > 0n;
 };
+
+export type StoredApiKey = {
+  id: string;
+  userId: string;
+  name: string;
+  prefix: string;
+  scopes: ApiKeyScope[];
+  revokedAt: string | null;
+};
+
+export const apiKeyByHashQuery = (db: Kysely<Database>, keyHash: string) =>
+  db
+    .selectFrom('api_keys')
+    .select(['id', 'user_id', 'name', 'prefix', 'scopes', 'revoked_at'])
+    .where('key_hash', '=', keyHash);
+
+export const findApiKeyByHash = async (
+  db: Kysely<Database>,
+  keyHash: string,
+): Promise<StoredApiKey | null> => {
+  const row = await apiKeyByHashQuery(db, keyHash).executeTakeFirst();
+  return row
+    ? {
+        id: row.id,
+        userId: row.user_id,
+        name: row.name,
+        prefix: row.prefix,
+        scopes: JSON.parse(row.scopes) as ApiKeyScope[],
+        revokedAt: row.revoked_at,
+      }
+    : null;
+};
+
+export const apiKeyUse = (
+  db: Kysely<Database>,
+  apiKeyId: string,
+  usedAt: string,
+  unlessUsedSince: string,
+) =>
+  db
+    .updateTable('api_keys')
+    .set({ last_used_at: usedAt })
+    .where('id', '=', apiKeyId)
+    .where((eb) =>
+      eb.or([
+        eb('last_used_at', 'is', null),
+        eb('last_used_at', '<', unlessUsedSince),
+      ]),
+    );
+
+export const recordApiKeyUse = async (
+  db: Kysely<Database>,
+  apiKeyId: string,
+  usedAt: string,
+  unlessUsedSince: string,
+) => {
+  await apiKeyUse(db, apiKeyId, usedAt, unlessUsedSince).execute();
+};

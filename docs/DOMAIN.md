@@ -247,5 +247,6 @@ The **app** talks tRPC with a session. **API clients** talk REST under `/api/v1`
 **API key**: several per user, named, scoped `read` or `write`, stored hashed, shown once,
 revocable. A key is `mt_` and 32 random bytes in base 62; its **prefix**, the first eight
 characters, is all the app shows of it afterwards. A **revoked** key keeps its row and stops
-working at once; it is never listed again. Both go through the same service functions, so a
-behaviour exists in both or neither.
+working at once; it is never listed again. A key may do what its scopes name and nothing else:
+`write` does not imply `read`. Its **last use** is when it last authenticated a request, to the
+minute. Both go through the same service functions, so a behaviour exists in both or neither.

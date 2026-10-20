@@ -47,3 +47,9 @@ export const insertConfirmedUser = (
       })
       .execute();
   });
+
+export const accountQuery = (db: Kysely<Database>, userId: string) =>
+  db
+    .selectFrom('users')
+    .select(['id', 'email', 'name'])
+    .where('id', '=', userId);
