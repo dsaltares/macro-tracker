@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { e2eGoogleClientId } from '../playwright.config.ts';
 import {
+  completeOnboarding,
   freshEmail,
   linkMailedTo,
   ready,
@@ -24,6 +25,8 @@ test('someone signs up, confirms from the mailed link, signs out and back in', a
 
   await page.goto(await linkMailedTo(email, confirmation));
 
+  await expect(page).toHaveURL('/onboarding?next=%2F');
+  await completeOnboarding(page);
   await expect(page).toHaveURL('/');
   await signedInAs(page, email);
 
@@ -76,6 +79,7 @@ test('someone who forgot their password chooses a new one from the mailed link',
   const newPassword = 'beans-on-toast-every-day';
   await signUp(page, email);
   await page.goto(await linkMailedTo(email, confirmation));
+  await completeOnboarding(page);
   await signOut(page);
 
   await page.getByRole('link', { name: 'Forgot your password?' }).click();

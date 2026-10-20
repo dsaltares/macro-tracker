@@ -5,6 +5,7 @@ import type {
   Source,
 } from '../domain/foods/sources.ts';
 import type { NutrientKey } from '../domain/nutrition/nutrients.ts';
+import type { ActivityLevel, Sex } from '../domain/profile.ts';
 
 export type MetaTable = {
   key: string;
@@ -127,6 +128,16 @@ export type VerificationsTable = {
   updated_at: Timestamp;
 };
 
+export type ProfilesTable = {
+  user_id: string;
+  sex: Sex;
+  birth_date: string;
+  height_cm: number;
+  activity_level: ActivityLevel;
+  created_at: ColumnType<string, string, never>;
+  updated_at: string;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -139,4 +150,5 @@ export type Database = {
   sessions: SessionsTable;
   accounts: AccountsTable;
   verifications: VerificationsTable;
+  profiles: ProfilesTable;
 };

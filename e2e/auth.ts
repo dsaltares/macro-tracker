@@ -51,6 +51,17 @@ export const signInAs = async (
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 };
 
+export const completeOnboarding = async (page: Page) => {
+  await expect(page).toHaveURL(/^[^?]*\/onboarding/);
+  await ready(page, 'Continue');
+  await page.getByRole('radio', { name: 'Female' }).click();
+  await page.getByLabel('Date of birth').fill('1990-06-15');
+  await page.getByLabel('Height (cm)').fill('168');
+  await page.getByRole('radio', { name: /^Moderate/ }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page).not.toHaveURL(/\/onboarding/);
+};
+
 export const signedInAs = (page: Page, email: string) =>
   expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
 
