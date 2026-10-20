@@ -29,9 +29,11 @@ export type StartFoodImport = (
 // Next doesn't bundle a worker thread's entry, so the image bundles it on its own
 // (`yarn build:import-worker`) and names it in `FOOD_IMPORT_WORKER`; anywhere else Node runs the
 // source, stripping its types as it does for `scripts/`.
+// The source path is in parts: Turbopack follows a whole one into `new Worker` and panics.
+const importWorkerSource = ['lib', 'data', 'import-worker.ts'];
+
 const importWorkerPath = () =>
-  process.env.FOOD_IMPORT_WORKER ||
-  join(process.cwd(), 'lib/data/import-worker.ts');
+  process.env.FOOD_IMPORT_WORKER || join(process.cwd(), ...importWorkerSource);
 
 // Answers once the worker has its `food_imports` row; the import runs on after that.
 export const serverFoodImport: StartFoodImport = (sources) =>
