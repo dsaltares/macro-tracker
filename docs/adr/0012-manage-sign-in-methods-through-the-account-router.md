@@ -1,4 +1,4 @@
-# 0011 — Manage sign-in methods through the account router, keeping at least one in a single statement
+# 0012 — Manage sign-in methods through the account router, keeping at least one in a single statement
 
 - **Status:** Accepted
 - **Date:** 2026-10-20

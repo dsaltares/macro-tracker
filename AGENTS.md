@@ -72,6 +72,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
+  `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
+  per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
+  energy, carbohydrate as the remainder floored at zero, fibre at 14 g per 1,000 kcal.
+  `derivedGoal` (`derived.ts`) puts them together into a goal vector with its warnings, codes the
+  UI words. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -178,7 +184,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   enforce the shape of each kind: only a food entry links a food, only a recipe entry a recipe,
   and only a quick entry has no quantity, portion or grams. Deleting a food clears `food_id` and
   keeps the entry; `recipe_id` has no foreign key until recipes have a table. `diaryDay` reads a
-  user's date on `(user_id, date)` and orders it by meal, then logging time. Adding a favourite
+  user's date on `(user_id, date)` and orders it by meal, then logging time. `logFood` reads the
+  food through the same visibility as `food.get` and resolves the portion by label among the ones
+  it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
+  a quantity or portion change, keeping the logged weight of a portion the food no longer has;
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
+  (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
   reads the food through the same visibility as `food.get`. Meals and entry kinds are in
   `lib/domain/diary/entries.ts`.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
@@ -218,7 +229,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   address. Everything else goes by `on delete cascade` on `users.id`, and the caller's own foods
   and portions by the `users_delete_owned_foods` trigger. A new table of user data references
   `users.id` with a cascade; `account.test.ts` checks nothing a user owns survives.
-- Sign-in methods (ADR [0011](docs/adr/0011-manage-sign-in-methods-through-the-account-router.md)):
+- Sign-in methods (ADR [0012](docs/adr/0012-manage-sign-in-methods-through-the-account-router.md)):
   `account.signInMethods`, `account.setPassword` and `account.disconnect` over
   `lib/db/sign-in-methods.ts`. Setting a password writes the credential row Better Auth's
   `setPassword` would, only when there is none; disconnecting deletes a method's row only while

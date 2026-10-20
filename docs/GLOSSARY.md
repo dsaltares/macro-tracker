@@ -14,7 +14,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | app | The installable PWA, which talks tRPC with a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | archived | A reference food that a later full import no longer saw: hidden from search, still resolvable from the diary. Never deleted. | [Foods](DOMAIN.md#foods) |
 | barcode | An EAN-8 or EAN-13; a UPC-A is normalised to EAN-13 with a leading zero. | [Foods](DOMAIN.md#foods) |
-| BMR | Basal metabolic rate: Mifflin-St Jeor over the profile and the latest weight. | [Body and goals](DOMAIN.md#body-and-goals) |
+| BMR | Basal metabolic rate: Mifflin-St Jeor over the profile, the latest weight and the age on the date. | [Body and goals](DOMAIN.md#body-and-goals) |
 | body measurement | A user, a date, a metric and a value. Only `weight_kg` in v1. | [Body and goals](DOMAIN.md#body-and-goals) |
 | consent | Agreeing to the terms and acknowledging the privacy policy at sign-up, stored as `terms_accepted_at`. Required for an account, because the diary is health data. | [Accounts](DOMAIN.md#accounts), [ADR 0009](adr/0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) |
 | confirmed address | An email address whose owner followed the link mailed to it. Required before a session. | [Accounts](DOMAIN.md#accounts) |
@@ -23,7 +23,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | day totals | The sum of a day's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
 | default portion | A food's first own portion, or `100 g` when it has none. What search shows beside a food. | [Foods](DOMAIN.md#foods) |
 | delta | A source adapter that reads only what changed upstream since its last succeeded run. Upserts, never archives. | [Foods](DOMAIN.md#foods) |
-| derived goal | A goal computed from a weekly rate target, protein in g per kg, a fat share of energy and carbohydrate as the remainder. | [Body and goals](DOMAIN.md#body-and-goals) |
+| derived goal | A goal computed from a weekly rate target at 7,700 kcal per kg, protein in g per kg, a fat share of energy, carbohydrate as the remainder and fibre at 14 g per 1,000 kcal. | [Body and goals](DOMAIN.md#body-and-goals) |
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
 | favourite | A food a user marked to find again quickly. Theirs alone; goes with the food. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
@@ -31,7 +31,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | food entry | A diary entry for a food: the food, a quantity, a portion and the grams they resolved to. | [Diary](DOMAIN.md#diary) |
 | generic source | `ciqual`, `cofid` or `usda`. A user chooses which of them appear in their search. | [Foods](DOMAIN.md#foods) |
 | goal | Derived or manual; either way it yields a goal vector. Goals warn, never block. | [Body and goals](DOMAIN.md#body-and-goals) |
-| goal vector | A target per nutrient for a date, from what the user weighed and had set then. | [Body and goals](DOMAIN.md#body-and-goals) |
+| goal vector | A target per nutrient for a date, computed live from the latest weight on or before it. Never stored. | [Body and goals](DOMAIN.md#body-and-goals), [ADR 0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md) |
 | Google | A way to sign in whose confirmation of the address stands in for the mailed link. Attaches to the user with the same address. | [Accounts](DOMAIN.md#accounts), [ADR 0008](adr/0008-link-google-to-the-account-on-the-same-confirmed-address.md) |
 | importer | The in-server job that upserts what source adapters stream and archives what a run no longer sees. | [Foods](DOMAIN.md#foods) |
 | ingredient | A food or a recipe, with grams, in a recipe's ordered list. | [Recipes](DOMAIN.md#recipes) |
@@ -54,7 +54,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |
 | session | What the app holds once a confirmed user signs in. The caller of every tRPC procedure that needs an account. | [Accounts](DOMAIN.md#accounts) |
 | settings | Where an account changes its profile, goals, source preferences, API keys, export and the account itself. | [Accounts](DOMAIN.md#accounts) |
-| sign-in method | Password or Google: a way an account signs in. Connected or not, shown in settings; the last one can never be disconnected. | [Accounts](DOMAIN.md#accounts), [ADR 0011](adr/0011-manage-sign-in-methods-through-the-account-router.md) |
+| sign-in method | Password or Google: a way an account signs in. Connected or not, shown in settings; the last one can never be disconnected. | [Accounts](DOMAIN.md#accounts), [ADR 0012](adr/0012-manage-sign-in-methods-through-the-account-router.md) |
 | snapshot | The nutrient vector a diary entry resolved to when logged. Editing the food or recipe changes future entries only. | [Diary](DOMAIN.md#diary), [ADR 0003](adr/0003-diary-entries-snapshot-their-nutrients.md) |
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |

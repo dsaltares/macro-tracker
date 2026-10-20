@@ -139,14 +139,20 @@ else, and is sent back to it until a profile exists; after that the profile is e
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
 The **trend weight** is an exponential moving average over the log.
 
-**BMR** is Mifflin-St Jeor over profile and latest weight. **TDEE** is BMR times the activity
-multiplier. A **goal** is either *derived* — a weekly rate target in kg (negative to lose), a
-protein target in g per kg of body weight, a fat share of energy, carbohydrate as the remainder —
-or *manual*, with explicit targets. Either way the result is a **goal vector**: a target per
-nutrient, computed for a date from what the user weighed and had set then. Micro targets default to
-EFSA dietary reference values by sex and age, each overridable.
+**BMR** is Mifflin-St Jeor over profile and latest weight, with the age on the date. **TDEE** is
+BMR times the activity multiplier. A **goal** is either *derived* — a weekly rate target in kg
+(negative to lose), a protein target in g per kg of body weight, a fat share of energy,
+carbohydrate as the remainder — or *manual*, with explicit targets. A derived goal's kcal target is
+TDEE plus the weekly rate at 7,700 kcal per kg, spread over seven days; its fibre is 14 g per
+1,000 kcal. Either way the result is a **goal vector**: a target per nutrient, computed live for a
+date from the latest weight on or before it, never stored (ADR
+[0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)). Micro targets default
+to EFSA dietary reference values by sex and age, each overridable.
 
-Goals **warn, never block**: an aggressive deficit shows a warning, and still saves.
+Goals **warn, never block**: an aggressive goal shows a warning, and still saves. A derived goal
+warns when its kcal target is under 1,200 for a woman or 1,500 for a man, when its weekly rate is
+over 1 kg either way, and when protein and fat leave no energy for carbohydrate, which is then
+zero.
 
 ## Recipes
 
