@@ -48,6 +48,7 @@ export default defineConfig({
         'lib/domain/goals/**': { 100: true },
         'lib/domain/body/**': { 100: true },
         'lib/domain/trends/**': { 100: true },
+        'lib/domain/recipes/**': { 100: true },
       },
     },
   },

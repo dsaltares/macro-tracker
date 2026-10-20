@@ -5,7 +5,7 @@ export type Portion = {
 
 export const maxPortionLabelLength = 60;
 
-const hundredGrams: Portion = { label: '100 g', grams: 100 };
+export const hundredGrams: Portion = { label: '100 g', grams: 100 };
 
 export const gramsPerMillilitreWithoutDensity = 1;
 
