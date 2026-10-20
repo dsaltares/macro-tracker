@@ -8,7 +8,7 @@
 
 Deleting an account is how someone exercises erasure and withdraws consent, so it has to reach
 every row the user owns, at once, and keep reaching new ones as later milestones add tables
-(diary, recipes, weights, API keys). Better Auth's own `deleteUser` deletes sessions, accounts and
+(recipes, weights, API keys). Better Auth's own `deleteUser` deletes sessions, accounts and
 the user in separate calls and knows nothing of the app's tables. SQLite cannot add a foreign key
 to an existing column: it takes a table rebuild, and `foods` holds every reference food, with
 `foods_fts` keyed on its `rowid`.
@@ -18,10 +18,10 @@ to an existing column: it takes a table rebuild, and `foods` holds every referen
 `account.delete` runs one `delete from users where id = ? and email = ?` for the caller, the
 typed address as the confirmation on the same statement, and the schema does the rest. Every
 table a user owns references `users.id` with `on delete cascade`: `sessions`, `accounts`,
-`profiles`, and `food_source_preferences`, rebuilt with the key in migration `0010`. A user's own
-foods (`foods.owner_user_id`) and their portions on any food (`food_portions.user_id`) go through
-the `users_delete_owned_foods` trigger, because those columns predate the users table and
-rebuilding `foods` is not worth it. A single statement is one transaction, triggers and cascades
+`profiles`, `diary_entries`, `favourites`, and `food_source_preferences`, rebuilt with the key in
+migration `0011`. A user's own foods (`foods.owner_user_id`) and their portions on any food
+(`food_portions.user_id`) go through the `users_delete_owned_foods` trigger, because those columns
+predate the users table and rebuilding `foods` is not worth it. A single statement is one transaction, triggers and cascades
 included. The client then signs out, which only clears the cookie, since the session row is gone.
 
 ## Alternatives considered

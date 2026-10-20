@@ -35,11 +35,14 @@ const everyMigration = [
   '0007-food-import-history',
   '0008-terms-accepted',
   '0009-profiles',
-  '0010-account-deletion',
+  '0010-diary',
+  '0011-account-deletion',
 ];
 
 const everyTable = [
   'accounts',
+  'diary_entries',
+  'favourites',
   'food_imports',
   'food_nutrients',
   'food_portions',
@@ -58,6 +61,8 @@ const everyTable = [
 ];
 
 const accountTables = ['accounts', 'sessions', 'users', 'verifications'];
+
+const diaryTables = ['diary_entries', 'favourites'];
 
 const targets = [
   ['in memory', () => inMemory],
@@ -141,10 +146,16 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
-    const beforeProfiles = everyTable.filter((table) => table !== 'profiles');
-
-    expect(await migrateDown(db)).toEqual(['0010-account-deletion']);
+    expect(await migrateDown(db)).toEqual(['0011-account-deletion']);
     expect(await tableNames(db)).toEqual(everyTable);
+
+    expect(await migrateDown(db)).toEqual(['0010-diary']);
+    const withoutDiary = everyTable.filter(
+      (table) => !diaryTables.includes(table),
+    );
+    expect(await tableNames(db)).toEqual(withoutDiary);
+
+    const beforeProfiles = withoutDiary.filter((table) => table !== 'profiles');
 
     expect(await migrateDown(db)).toEqual(['0009-profiles']);
     expect(await tableNames(db)).toEqual(beforeProfiles);
@@ -165,7 +176,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0010-account-deletion']);
+    expect(await migrateToLatest(db)).toEqual(['0011-account-deletion']);
   });
 
   it('reads back what is written to meta', async () => {

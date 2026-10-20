@@ -25,6 +25,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | delta | A source adapter that reads only what changed upstream since its last succeeded run. Upserts, never archives. | [Foods](DOMAIN.md#foods) |
 | derived goal | A goal computed from a weekly rate target, protein in g per kg, a fat share of energy and carbohydrate as the remainder. | [Body and goals](DOMAIN.md#body-and-goals) |
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
+| favourite | A food a user marked to find again quickly. Theirs alone; goes with the food. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
 | food import | One run of the importer over some sources: queued, running, succeeded or failed, with its counts. One runs at a time. | [Foods](DOMAIN.md#foods) |
 | food entry | A diary entry for a food: the food, a quantity, a portion and the grams they resolved to. | [Diary](DOMAIN.md#diary) |

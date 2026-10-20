@@ -21,8 +21,8 @@ before an account exists. A later change to those documents does not ask again.
 **Settings** is where an account changes what it told the app: its profile, its goals, its source
 preferences, its API keys, an export, and the account itself. **Deleting the account** is
 confirmed by typing its address, and removes the user and everything they own (sessions, sign-in
-credentials, profile, source preferences, their own foods and portions) in one statement, then
-signs them out. Withdrawing consent is deleting the account.
+credentials, profile, diary, favourites, source preferences, their own foods and portions) in one
+statement, then signs them out. Withdrawing consent is deleting the account.
 
 ## Nutrients
 
@@ -120,6 +120,9 @@ Every entry **snapshots** the nutrient vector it resolved to. Editing a food, a 
 re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
+
+A **favourite** is a food a user has marked to find again quickly. It is theirs alone, and goes
+when the food does.
 
 ## Body and goals
 

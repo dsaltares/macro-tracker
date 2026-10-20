@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
+import { addFavourite, insertDiaryEntry } from '../../db/diary.ts';
 import { insertFood } from '../../db/foods.ts';
 import type { Profile } from '../../domain/profile.ts';
 import { createCaller } from '../root.ts';
@@ -77,6 +78,24 @@ const giveEverything = async (userId: string) => {
     },
     { now, nextId },
   );
+  await insertDiaryEntry(
+    db,
+    userId,
+    {
+      kind: 'food',
+      foodId: referenceFoodId,
+      date: '2026-10-20',
+      meal: 'breakfast',
+      time: '08:00',
+      label: 'Nutella',
+      quantity: 1,
+      portionLabel: '100 g',
+      grams: 100,
+      nutrients,
+    },
+    { now, nextId },
+  );
+  await addFavourite(db, userId, referenceFoodId, now);
   await caller.food.addPortion({
     foodId: referenceFoodId,
     label: `${userId}'s spoon`,
@@ -95,6 +114,8 @@ const ownedRows = (userId: string) => {
     foods: sql`owner_user_id = ${userId}`,
     food_nutrients: sql`food_id in (${ownFoods})`,
     food_portions: sql`user_id = ${userId} or food_id in (${ownFoods})`,
+    diary_entries: sql`user_id = ${userId}`,
+    favourites: sql`user_id = ${userId}`,
   };
 };
 
