@@ -23,6 +23,7 @@ order).
 | [0011](0011-derive-goals-live-from-the-profile-and-the-latest-weight.md) | Derive goals live from the profile and the latest weight | Accepted | 2026-10-20 |
 | [0012](0012-manage-sign-in-methods-through-the-account-router.md) | Manage sign-in methods through the account router, keeping at least one in a single statement | Accepted | 2026-10-20 |
 | [0013](0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md) | Read labels through a provider-agnostic AI seam, and discard the photo | Accepted | 2026-10-20 |
+| [0014](0014-install-from-the-manifest-alone-with-no-service-worker.md) | Install from the manifest alone, with no service worker | Accepted | 2026-10-20 |
 
 ## How to add one
 

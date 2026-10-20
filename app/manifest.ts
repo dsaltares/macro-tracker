@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: siteName,
     short_name: siteShortName,
     description: siteDescription,
-    start_url: routes.home,
+    start_url: routes.diary,
     scope: routes.home,
     display: 'standalone',
     orientation: 'portrait',
