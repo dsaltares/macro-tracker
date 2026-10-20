@@ -3,6 +3,7 @@ import type { EmailMessage, SendEmail } from '@/lib/email/transport';
 import { migratedDatabasePerTest } from '@/test/db';
 import { createAuth } from './auth.ts';
 import { resolveCaller } from './caller.ts';
+import { termsNotAccepted } from './credentials.ts';
 import { usesGoogleCode } from './errors.ts';
 import type { GoogleOptions } from './google.ts';
 
@@ -63,9 +64,18 @@ const linkIn = ({ text }: EmailMessage) => {
   return found[0];
 };
 
-const signUp = (auth: ReturnType<typeof createAuth>) =>
+const signUp = (
+  auth: ReturnType<typeof createAuth>,
+  consent: { termsAccepted?: boolean } = { termsAccepted: true },
+) =>
   auth.api.signUpEmail({
-    body: { email, password, name: 'eater', callbackURL: '/verify' },
+    body: {
+      email,
+      password,
+      name: 'eater',
+      callbackURL: '/verify',
+      ...consent,
+    },
   });
 
 const signIn = (auth: ReturnType<typeof createAuth>, secret = password) =>
@@ -77,11 +87,20 @@ const signIn = (auth: ReturnType<typeof createAuth>, secret = password) =>
     }),
   );
 
-const signInWithGoogle = (auth: ReturnType<typeof createAuth>) =>
+const signInWithGoogle = (
+  auth: ReturnType<typeof createAuth>,
+  additionalData: Record<string, unknown> = {},
+) =>
   auth.api.signInSocial({
-    body: { provider: 'google', idToken: { token: 'a-stub-id-token' } },
+    body: {
+      provider: 'google',
+      idToken: { token: 'a-stub-id-token' },
+      additionalData,
+    },
     asResponse: true,
   });
+
+const agreed = { termsAccepted: true };
 
 const accountsOf = () =>
   database()
@@ -109,6 +128,38 @@ describe('createAuth', () => {
     expect(linkIn(sent[0] as EmailMessage)).toMatch(
       `${baseUrl}/api/auth/verify-email?token=`,
     );
+  });
+
+  it('records when the terms were agreed to at sign-up', async () => {
+    const { auth } = authWithOutbox();
+    const before = new Date();
+
+    await signUp(auth);
+
+    const { terms_accepted_at } = await database()
+      .selectFrom('users')
+      .select('terms_accepted_at')
+      .where('email', '=', email)
+      .executeTakeFirstOrThrow();
+    expect(new Date(terms_accepted_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+      before.getTime(),
+    );
+  });
+
+  it.each([
+    ['without agreeing to the terms', {}],
+    ['having declined the terms', { termsAccepted: false }],
+  ])('refuses a sign-up %s, and mails nothing', async (_, consent) => {
+    const { auth, sent } = authWithOutbox();
+
+    await expect(signUp(auth, consent)).rejects.toMatchObject({
+      body: { code: 'TERMS_NOT_ACCEPTED' },
+    });
+
+    expect(await database().selectFrom('users').select('id').execute()).toEqual(
+      [],
+    );
+    expect(sent).toEqual([]);
   });
 
   it('refuses to sign in an address that is not confirmed', async () => {
@@ -218,10 +269,10 @@ describe('createAuth', () => {
 });
 
 describe('signing in with Google', () => {
-  it('opens an account for an address nobody has signed up with', async () => {
+  it('opens an account for an address nobody has signed up with, once the terms are agreed', async () => {
     const { auth, sent } = authWithOutbox();
 
-    const response = await signInWithGoogle(auth);
+    const response = await signInWithGoogle(auth, agreed);
 
     expect(response.status).toBe(200);
     expect(await accountsOf()).toEqual([
@@ -231,6 +282,21 @@ describe('signing in with Google', () => {
       userId: expect.any(String),
     });
     expect(sent).toEqual([]);
+    const { terms_accepted_at } = await database()
+      .selectFrom('users')
+      .select('terms_accepted_at')
+      .executeTakeFirstOrThrow();
+    expect(terms_accepted_at).not.toBeNull();
+  });
+
+  it('opens no account through Google without the terms agreed', async () => {
+    const { auth } = authWithOutbox();
+
+    const response = await signInWithGoogle(auth);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: termsNotAccepted });
+    expect(await accountsOf()).toEqual([]);
   });
 
   it('attaches Google to the confirmed password account on the same address', async () => {
@@ -284,7 +350,7 @@ describe('signing in with Google', () => {
 
   it('tells a password sign-in on a Google-only account to use Google', async () => {
     const { auth } = authWithOutbox();
-    await signInWithGoogle(auth);
+    await signInWithGoogle(auth, agreed);
 
     const response = await signIn(auth);
 

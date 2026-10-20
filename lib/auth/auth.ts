@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api';
 import type { Kysely } from 'kysely';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
@@ -8,7 +8,11 @@ import { resetPasswordEmail } from '../email/templates/reset-password.tsx';
 import { verifyAddressEmail } from '../email/templates/verify-address.tsx';
 import type { SendEmail } from '../email/transport.ts';
 import { authBaseUrl } from './base-url.ts';
-import { maxPasswordLength, minPasswordLength } from './credentials.ts';
+import {
+  maxPasswordLength,
+  minPasswordLength,
+  termsNotAccepted,
+} from './credentials.ts';
 import { usesGoogleCode } from './errors.ts';
 import {
   credentialProviderId,
@@ -29,7 +33,50 @@ const defaultLimitRequests = () =>
 
 const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' };
 
-const signInEmailPath = '/sign-in/email';
+const emailSignUpPath = '/sign-up/email';
+
+const emailSignInPath = '/sign-in/email';
+
+const socialSignInPath = '/sign-in/social';
+
+const termsRefused = () =>
+  new APIError('BAD_REQUEST', {
+    code: termsNotAccepted,
+    message: 'Agreeing to the terms is required to create an account.',
+  });
+
+type HookContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+const requireTermsOnSignUp = (ctx: HookContext) => {
+  if (ctx.path === emailSignUpPath && ctx.body?.termsAccepted !== true) {
+    throw termsRefused();
+  }
+};
+
+const sendGoogleOnlyToGoogle = async (ctx: HookContext) => {
+  if (ctx.path !== emailSignInPath || typeof ctx.body?.email !== 'string') {
+    return;
+  }
+  const found = await ctx.context.internalAdapter.findUserByEmail(
+    ctx.body.email.toLowerCase(),
+    { includeAccounts: true },
+  );
+  const providers = found?.accounts.map(({ providerId }) => providerId);
+  if (
+    providers?.includes(googleProviderId) &&
+    !providers.includes(credentialProviderId)
+  ) {
+    throw new APIError('UNAUTHORIZED', {
+      code: usesGoogleCode,
+      message: 'This account signs in with Google.',
+    });
+  }
+};
+
+const acceptedTermsOnGoogle = async (ctx: HookContext) =>
+  (await getOAuthState())?.termsAccepted === true ||
+  (ctx.path === socialSignInPath &&
+    ctx.body?.additionalData?.termsAccepted === true);
 
 export type AuthOptions = {
   db?: Kysely<Database>;
@@ -55,6 +102,14 @@ export const createAuth = ({
     user: {
       modelName: 'users',
       fields: { emailVerified: 'email_verified', ...timestamps },
+      additionalFields: {
+        termsAcceptedAt: {
+          type: 'date',
+          required: false,
+          input: false,
+          fieldName: 'terms_accepted_at',
+        },
+      },
     },
     session: {
       modelName: 'sessions',
@@ -114,6 +169,22 @@ export const createAuth = ({
     },
     socialProviders: google ? { [googleProviderId]: google } : {},
     databaseHooks: {
+      user: {
+        create: {
+          before: async (user, ctx) => {
+            if (!ctx) {
+              return { data: user };
+            }
+            if (
+              ctx.path !== emailSignUpPath &&
+              !(await acceptedTermsOnGoogle(ctx))
+            ) {
+              throw termsRefused();
+            }
+            return { data: { ...user, termsAcceptedAt: new Date() } };
+          },
+        },
+      },
       account: {
         create: {
           after: async (account, ctx) => {
@@ -137,26 +208,8 @@ export const createAuth = ({
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        if (
-          ctx.path !== signInEmailPath ||
-          typeof ctx.body?.email !== 'string'
-        ) {
-          return;
-        }
-        const found = await ctx.context.internalAdapter.findUserByEmail(
-          ctx.body.email.toLowerCase(),
-          { includeAccounts: true },
-        );
-        const providers = found?.accounts.map(({ providerId }) => providerId);
-        if (
-          providers?.includes(googleProviderId) &&
-          !providers.includes(credentialProviderId)
-        ) {
-          throw new APIError('UNAUTHORIZED', {
-            code: usesGoogleCode,
-            message: 'This account signs in with Google.',
-          });
-        }
+        requireTermsOnSignUp(ctx);
+        await sendGoogleOnlyToGoogle(ctx);
       }),
     },
   });

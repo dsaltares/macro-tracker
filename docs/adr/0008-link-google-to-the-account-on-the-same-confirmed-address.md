@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-20
-- **Related:** #22, #89, [ADR 0006](0006-sessions-only-for-a-confirmed-address.md), Triumph [0004](https://github.com/dsaltares/triumph-army-builder/blob/main/docs/adr/0004-implicit-account-linking.md), Triumph [0015](https://github.com/dsaltares/triumph-army-builder/blob/main/docs/adr/0015-require-a-confirmed-address-before-a-session.md)
+- **Related:** #22, #89, [ADR 0006](0006-sessions-only-for-a-confirmed-address.md), [ADR 0009](0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md), Triumph [0004](https://github.com/dsaltares/triumph-army-builder/blob/main/docs/adr/0004-implicit-account-linking.md), Triumph [0015](https://github.com/dsaltares/triumph-army-builder/blob/main/docs/adr/0015-require-a-confirmed-address-before-a-session.md)
 
 ## Context
 
@@ -30,6 +30,13 @@ either signs in. Linking onto an account whose address was never confirmed confi
 the same request. The password was chosen by whoever typed the address, which Google has just shown
 need not be its owner; the owner keeps Google and can set a password by reset mail or, later, from
 settings (#89).
+
+A Google sign-in that would create a user needs the consent ADR
+[0009](0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) requires: the button on
+Create account checks the same box first and sends `termsAccepted` through the OAuth state, and a
+`user.create.before` hook stamps `terms_accepted_at` or refuses with `TERMS_NOT_ACCEPTED`. The
+button on Sign in sends nothing, so it signs in and links but never creates a user; a new address
+there comes back with a message pointing to Create account.
 
 A password sign-in on an account with Google and no password answers `USES_GOOGLE`, and the sign-in
 form says to use the Google button, instead of a wrong-password error.

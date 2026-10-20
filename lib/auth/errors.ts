@@ -1,3 +1,5 @@
+import { termsNotAccepted, termsRequired } from './credentials.ts';
+
 export const somethingWentWrong =
   'Something went wrong on our side. Try again in a moment.';
 
@@ -24,6 +26,7 @@ const codeMessages: Record<string, string> = {
     'This account signs in with Google. Use the Continue with Google button.',
   PASSWORD_TOO_SHORT: 'That password is too short.',
   PASSWORD_TOO_LONG: 'That password is too long.',
+  [termsNotAccepted]: termsRequired,
 };
 
 export type AuthError = {
@@ -47,6 +50,8 @@ export const verificationErrorMessage = (code: string) =>
   verificationErrors.has(code) ? confirmationLinkExpired : somethingWentWrong;
 
 const googleCodeMessages: Record<string, string> = {
+  [termsNotAccepted]:
+    'There is no account for that Google address yet. To make one, go to Create account, agree to the terms and continue with Google there.',
   access_denied: 'Google sign-in was cancelled. Try again when you are ready.',
   account_not_linked:
     'Google has not confirmed that address, so it cannot open this account. Sign in with your password.',

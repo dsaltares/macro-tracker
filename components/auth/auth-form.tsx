@@ -15,14 +15,17 @@ import { authUrl } from '@/lib/auth/redirect';
 
 export function AuthLink({
   href,
+  newTab = false,
   children,
 }: {
   href: string;
+  newTab?: boolean;
   children: ReactNode;
 }) {
   return (
     <Link
       href={href}
+      {...(newTab ? { target: '_blank', rel: 'noreferrer' } : {})}
       className="font-medium text-foreground underline underline-offset-4"
     >
       {children}
@@ -79,6 +82,7 @@ export function AuthForm({
   footer,
   next,
   google = false,
+  consentToGoogle,
   children,
 }: {
   onSubmit: ComponentProps<'form'>['onSubmit'];
@@ -89,6 +93,7 @@ export function AuthForm({
   footer: { prompt: string; href: string; label: string };
   next: string | null;
   google?: boolean;
+  consentToGoogle?: () => Promise<boolean>;
   children: ReactNode;
 }) {
   const [interactive, setInteractive] = useState(false);
@@ -107,7 +112,11 @@ export function AuthForm({
       {error ? <FormError>{error}</FormError> : null}
       {google ? (
         <>
-          <GoogleButton next={next} disabled={!interactive} />
+          <GoogleButton
+            next={next}
+            disabled={!interactive}
+            consent={consentToGoogle}
+          />
           <OrDivider />
         </>
       ) : null}

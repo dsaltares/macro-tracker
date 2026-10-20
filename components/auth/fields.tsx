@@ -4,6 +4,7 @@ import { IconAlertTriangle, IconEye, IconEyeOff } from '@tabler/icons-react';
 import { type ComponentProps, type ReactNode, useId, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -77,6 +78,44 @@ export function PasswordField(props: FieldProps) {
       }
       {...props}
     />
+  );
+}
+
+export function CheckboxField({
+  label,
+  error,
+  checked,
+  onCheckedChange,
+  onBlur,
+}: {
+  label: ReactNode;
+  error?: string | undefined;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  onBlur?: () => void;
+}) {
+  const id = useId();
+  const messageId = `${id}-message`;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="items-start gap-3 font-normal text-sm leading-snug">
+        <Checkbox
+          className="mt-0.5"
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          onBlur={onBlur}
+          aria-invalid={!!error}
+          aria-describedby={error ? messageId : undefined}
+        />
+        <span>{label}</span>
+      </Label>
+      {error ? (
+        <p id={messageId} className="text-destructive text-xs">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

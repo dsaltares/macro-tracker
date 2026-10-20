@@ -14,6 +14,10 @@ A user may also sign in with **Google**, whose confirmation of the address stand
 mailed link. A Google sign-in on an address that already has a user attaches to that user, so it
 lands in the same diary; an account with only Google has no password until one is set.
 
+What a user logs about their food and weight is health data, so signing up records their
+**consent**: agreeing to the terms and acknowledging the privacy policy, with the time they did,
+before an account exists. A later change to those documents does not ask again.
+
 ## Nutrients
 
 A **nutrient** is one entry in the canonical list in `lib/domain/nutrition/nutrients.ts`: a key,

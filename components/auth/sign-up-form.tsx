@@ -3,9 +3,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { AuthForm } from '@/components/auth/auth-form';
-import { PasswordField, TextField } from '@/components/auth/fields';
+import { Controller, useForm } from 'react-hook-form';
+import { AuthForm, AuthLink } from '@/components/auth/auth-form';
+import {
+  CheckboxField,
+  PasswordField,
+  TextField,
+} from '@/components/auth/fields';
 import { signUp } from '@/lib/auth/client';
 import {
   displayNameFor,
@@ -15,7 +19,24 @@ import {
 } from '@/lib/auth/credentials';
 import { authErrorMessage } from '@/lib/auth/errors';
 import { authUrl, emailParam, nextParam } from '@/lib/auth/redirect';
+import { privacyPolicy, terms } from '@/lib/navigation';
 import { routes } from '@/lib/routes';
+
+function Consent() {
+  return (
+    <>
+      I agree to the terms and conditions and acknowledge the privacy policy: my
+      food diary and weight are health data, stored for me to track them.{' '}
+      <AuthLink href={terms.href} newTab>
+        Terms
+      </AuthLink>{' '}
+      ·{' '}
+      <AuthLink href={privacyPolicy.href} newTab>
+        Privacy
+      </AuthLink>
+    </>
+  );
+}
 
 export function SignUpForm({ google }: { google: boolean }) {
   const router = useRouter();
@@ -23,21 +44,29 @@ export function SignUpForm({ google }: { google: boolean }) {
   const [failure, setFailure] = useState<string>();
   const {
     register,
+    control,
     handleSubmit,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<SignUpCredentials>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '' },
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      termsAccepted: false,
+    },
     mode: 'onTouched',
   });
 
-  const onSubmit = handleSubmit(async ({ email, password }) => {
+  const onSubmit = handleSubmit(async ({ email, password, termsAccepted }) => {
     setFailure(undefined);
 
     const { error } = await signUp.email({
       email,
       password,
       name: displayNameFor(email),
+      termsAccepted,
       callbackURL: authUrl(routes.verify, next),
     });
     if (error) {
@@ -57,6 +86,7 @@ export function SignUpForm({ google }: { google: boolean }) {
       pending={isSubmitting}
       next={next}
       google={google}
+      consentToGoogle={() => trigger('termsAccepted')}
       footer={{
         prompt: 'Already have an account?',
         href: routes.signIn,
@@ -84,6 +114,19 @@ export function SignUpForm({ google }: { google: boolean }) {
         autoComplete="new-password"
         error={errors.confirmPassword?.message}
         {...register('confirmPassword')}
+      />
+      <Controller
+        control={control}
+        name="termsAccepted"
+        render={({ field, fieldState }) => (
+          <CheckboxField
+            label={<Consent />}
+            checked={field.value}
+            onCheckedChange={field.onChange}
+            onBlur={field.onBlur}
+            error={fieldState.error?.message}
+          />
+        )}
       />
     </AuthForm>
   );
