@@ -23,6 +23,7 @@
     "db:import-foods": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/import-foods.ts",
     "db:seed": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/seed.ts",
     "db:copy-down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/copy-down.ts",
+    "env:copy-down": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env scripts/env-copy-down.ts",
     "data:sample": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/data-sample.ts",
     "data:off": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/read-off-export.ts",
     "data:off-deltas": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/read-off-deltas.ts",
