@@ -476,7 +476,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   user and calls every procedure as them. `api.wrap(<Component />)` renders with the client
   providers; `api.fails('<procedure>')` makes one procedure answer 500.
 - `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
-  source; the PNGs are rendered from it.
+  source; the PNGs are rendered from it. **No service worker**: nothing is cached on the device,
+  and `e2e/install.spec.ts` fails if one is registered (ADR 0014).
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.
