@@ -298,6 +298,7 @@ export function EntryForm({
   logged,
   defaultValues,
   saving,
+  amountOnly = false,
   onSave,
   children,
 }: {
@@ -307,6 +308,7 @@ export function EntryForm({
   logged?: LoggedAmount;
   defaultValues: EntryValues;
   saving: boolean;
+  amountOnly?: boolean;
   onSave: (values: EntryValues) => void;
   children?: ReactNode;
 }) {
@@ -378,17 +380,21 @@ export function EntryForm({
         </div>
       )}
       {preview === null ? null : <NutrientPreview {...preview} />}
-      <div className="grid grid-cols-2 gap-3">
-        <SelectField label="Meal" {...register('meal')}>
-          {meals.map((meal) => (
-            <option key={meal} value={meal}>
-              {mealNames[meal]}
-            </option>
-          ))}
-        </SelectField>
-        <TextField label="Time" type="time" {...register('time')} />
-      </div>
-      {foodId === null ? null : <FavouriteToggle foodId={foodId} />}
+      {amountOnly ? null : (
+        <div className="grid grid-cols-2 gap-3">
+          <SelectField label="Meal" {...register('meal')}>
+            {meals.map((meal) => (
+              <option key={meal} value={meal}>
+                {mealNames[meal]}
+              </option>
+            ))}
+          </SelectField>
+          <TextField label="Time" type="time" {...register('time')} />
+        </div>
+      )}
+      {foodId === null || amountOnly ? null : (
+        <FavouriteToggle foodId={foodId} />
+      )}
       <div className="flex flex-col gap-2">
         <Button type="submit" size="lg" className="h-11" disabled={saving}>
           {saving ? 'Saving…' : 'Save'}

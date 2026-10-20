@@ -10,6 +10,7 @@ import {
 import type { Database } from '../db/schema.ts';
 import {
   maxMealDescriptionLength,
+  maxMealPhotos,
   mealDraft,
   previousEstimateSchema,
 } from '../domain/diary/meal-estimate.ts';
@@ -21,8 +22,6 @@ import {
   readUpTo,
 } from '../photo-upload.ts';
 import type { Caller } from '../trpc/context.ts';
-
-export const maxMealPhotos = 4;
 
 const maxFieldBytes = 256 * 1024;
 

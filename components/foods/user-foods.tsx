@@ -9,9 +9,9 @@ import {
   FoodRowContent,
   foodRowClass,
   ResultsSkeleton,
+  searchDebounceMs,
   useWhenVisible,
 } from '@/components/diary/food-search-results';
-import { searchDebounceMs } from '@/components/diary/food-search-sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';

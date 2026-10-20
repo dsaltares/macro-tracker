@@ -470,7 +470,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   with the meal estimate: `maxPhotoBytes`, `isJpegOrWebp`, `readUpTo` and `aiFailureStatuses`.
 - `lib/meal-estimate/route.ts` — `POST /api/meal-estimate`, session-only like label scan.
   `mealEstimateRoute({ estimateMeal, resolveCaller, db, logger })` reads `multipart/form-data` of
-  at most `maxMealEstimateBytes`: one to four `photos` (`maxMealPhotos`), an optional
+  at most `maxMealEstimateBytes`: one to four `photos` (`maxMealPhotos`, in
+  `lib/domain/diary/meal-estimate.ts` for the browser to read too), an optional
   `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
   (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
   the estimator is off, `400` on a bad part, `413` for a photo over `maxPhotoBytes`, `415` for one
@@ -482,7 +483,24 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   as WebP, JPEG where the browser cannot encode WebP (`shrinkPhoto`, `photo.ts`), sent with
   `XMLHttpRequest` for its upload progress (`uploadPhoto`), then *Reading the label…*, handing the
   reading to `onRead`. A failure that may pass offers *Try again* with the same photo; every failure
-  offers another. Tests mock `photo.ts`, which needs a real canvas.
+  offers another. Tests mock `photo.ts`, which needs a real canvas. `postWithProgress` there is
+  the `XMLHttpRequest` both uploads share.
+- `components/meal-estimate/` — `MealEstimate`, the sheet's step behind the camera button beside
+  the barcode one while estimation is on (`getMealEstimator()`, passed down from the diary page
+  as `mealEstimates`). It keeps the photos and description while it switches between
+  `MealPhotoStep` (*Take a photo* or *Choose photos*, up to `maxMealPhotos`, each through
+  `shrinkPhoto` with a thumbnail and remove, a description, *Estimate*: `requestMealEstimate`
+  (`estimate.ts`) posts the form to `/api/meal-estimate` with upload progress, then *Looking at
+  your meal…*; failures as `LabelCapture` shows them, *Try again* keeping the photos) and
+  `MealDraftReview`: the totals of the draft over one row per item (name, source badge, *Recipe*
+  or *Estimate*, grams, kcal), unsure and unresolved rows flagged *Check* with their notes. A
+  row opens its amount (`draft-item-editors.tsx`: `EntryForm` with `amountOnly` for a food or a
+  recipe, the guess's own totals form) and is rebuilt by `foodDraftItem`, `recipeDraftItem` or
+  `guessDraftItem` (`lib/domain/diary/meal-estimate.ts`), no longer unsure (`checkedByUser`);
+  *Replace* searches with the row's name and swaps it by `replacedDraftItem`, keeping the
+  grams; *Add item* searches and appends; `draftOfItems` keeps the totals. *Log meal* is
+  `diary.addMeal` of `mealDraftToEntries`, then a toast and the sheet closes. Tests answer
+  `/api/meal-estimate` with `serveApi().use(handler)` (MSW intercepts the upload).
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,

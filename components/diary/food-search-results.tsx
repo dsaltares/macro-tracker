@@ -19,6 +19,8 @@ import { formatAmount } from '@/lib/domain/nutrition/format';
 import { useTRPC } from '@/lib/trpc/client';
 import { cn } from '@/lib/utils';
 
+export const searchDebounceMs = 300;
+
 export const searchFailed = 'Foods could not be searched. Try again.';
 
 export const searchPrompt = 'Search foods by name or brand.';

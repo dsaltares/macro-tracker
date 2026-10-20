@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { hundredGrams, standardPortions } from '../foods/portions.ts';
+import { hundredGrams, oneGram, standardPortions } from '../foods/portions.ts';
 import { servingLabel } from '../recipes/recipes.ts';
 import {
+  checkedByUser,
+  draftOfItems,
+  foodDraftItem,
+  guessDraftItem,
   type MatchedFood,
   mealDraft,
   mealDraftToEntries,
   mealEstimateSchema,
   previousEstimateSchema,
   type ResolvedMatches,
+  recipeDraftItem,
+  replacedDraftItem,
 } from './meal-estimate.ts';
 
 const base = { name: 'Something', grams: 100, confidence: 0.9, note: null };
@@ -303,6 +309,143 @@ describe('mealDraftToEntries', () => {
     expect(mealDraftToEntries(draftOf([bananaItem], nothing))).toEqual([
       { kind: 'quick', label: 'Banana', nutrients: { totals: {} } },
     ]);
+  });
+});
+
+describe('checkedByUser', () => {
+  it('is sure of an item the user added', () => {
+    expect(checkedByUser()).toEqual({
+      confidence: 1,
+      unsure: false,
+      note: null,
+    });
+  });
+
+  it("keeps an edited item's confidence and note, no longer unsure", () => {
+    const [sauce] = draftOf([sauceItem]).items;
+
+    expect(checkedByUser(sauce)).toEqual({
+      confidence: 0.4,
+      unsure: false,
+      note: 'Looked like a satay sauce',
+    });
+  });
+});
+
+describe('draft items edited in review', () => {
+  const sure = checkedByUser();
+
+  it('resolves a food at a quantity of one of its portions', () => {
+    expect(
+      foodDraftItem(
+        { ...banana, id: 'banana' },
+        { label: '1 medium', grams: 150 },
+        2,
+        sure,
+      ),
+    ).toMatchObject({
+      kind: 'food',
+      foodId: 'banana',
+      portionLabel: '1 medium',
+      quantity: 2,
+      name: 'Banana, raw',
+      grams: 300,
+      nutrients: { energy_kcal: 267 },
+      ...sure,
+    });
+  });
+
+  it('resolves a recipe by servings or by grams', () => {
+    expect(
+      recipeDraftItem({ ...chili, id: 'chili' }, { servings: 2 }, sure),
+    ).toMatchObject({
+      kind: 'recipe',
+      recipeId: 'chili',
+      amount: { servings: 2 },
+      name: 'Chili con carne',
+      grams: 700,
+      nutrients: { energy_kcal: 840 },
+    });
+    expect(
+      recipeDraftItem({ ...chili, id: 'chili' }, { grams: 50 }, sure),
+    ).toMatchObject({ grams: 50, nutrients: { energy_kcal: 60 } });
+  });
+
+  it('takes the totals of a guess, filling energy from the macros', () => {
+    expect(
+      guessDraftItem(
+        {
+          name: 'Satay sauce',
+          grams: 40,
+          nutrients: { protein: 2, carbohydrate: 4, fat: 7 },
+        },
+        sure,
+      ),
+    ).toEqual({
+      kind: 'guess',
+      unresolved: false,
+      name: 'Satay sauce',
+      grams: 40,
+      nutrients: {
+        energy_kcal: 87,
+        protein: 2,
+        carbohydrate: 4,
+        fat: 7,
+      },
+      ...sure,
+    });
+  });
+
+  it('replaces an item with a food at the same grams', () => {
+    const [unresolved] = draftOf([bananaItem], nothing).items;
+    if (unresolved === undefined) {
+      throw new Error('The draft has no item');
+    }
+
+    expect(
+      replacedDraftItem(unresolved, {
+        kind: 'food',
+        food: { ...banana, id: 'banana' },
+      }),
+    ).toMatchObject({
+      kind: 'food',
+      foodId: 'banana',
+      portionLabel: oneGram.label,
+      quantity: 200,
+      grams: 200,
+      unsure: false,
+      note: null,
+    });
+  });
+
+  it('replaces an item with a recipe by the same grams', () => {
+    const [sauce] = draftOf([sauceItem]).items;
+    if (sauce === undefined) {
+      throw new Error('The draft has no item');
+    }
+
+    expect(
+      replacedDraftItem(sauce, {
+        kind: 'recipe',
+        recipe: { ...chili, id: 'chili' },
+      }),
+    ).toMatchObject({
+      kind: 'recipe',
+      recipeId: 'chili',
+      amount: { grams: 30 },
+      grams: 30,
+      nutrients: { energy_kcal: 36 },
+    });
+  });
+
+  it('sums the items it is given into the totals', () => {
+    const { items } = draftOf([bananaItem, sauceItem]);
+
+    expect(draftOfItems(items.slice(1), ['A note'])).toEqual({
+      items: items.slice(1),
+      totals: { energy_kcal: 90, protein: 2, carbohydrate: 4, fat: 7 },
+      notes: ['A note'],
+    });
   });
 });
 

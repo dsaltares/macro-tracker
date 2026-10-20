@@ -51,24 +51,26 @@ type CaptureState =
 
 const percent = (share: number) => Math.round(share * 100);
 
-function PhotoInput({
+export function PhotoInput({
   label,
   icon: Icon,
   capture,
+  multiple = false,
   primary,
-  onPhoto,
+  onPhotos,
 }: {
   label: string;
   icon: typeof IconCamera;
   capture?: 'environment';
+  multiple?: boolean;
   primary: boolean;
-  onPhoto: (photo: File) => void;
+  onPhotos: (photos: File[]) => void;
 }) {
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const [photo] = event.target.files ?? [];
+    const photos = [...(event.target.files ?? [])];
     event.target.value = '';
-    if (photo !== undefined) {
-      onPhoto(photo);
+    if (photos.length > 0) {
+      onPhotos(photos);
     }
   };
 
@@ -88,6 +90,7 @@ function PhotoInput({
         type="file"
         accept="image/*"
         capture={capture}
+        multiple={multiple}
         className="sr-only"
         onChange={onChange}
       />
@@ -95,12 +98,18 @@ function PhotoInput({
   );
 }
 
-function UploadProgress({ sent }: { sent: number }) {
+export function UploadProgress({
+  sent,
+  label = 'Sending the photo',
+}: {
+  sent: number;
+  label?: string;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <div
         role="progressbar"
-        aria-label="Sending the photo"
+        aria-label={label}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent(sent)}
@@ -112,7 +121,7 @@ function UploadProgress({ sent }: { sent: number }) {
         />
       </div>
       <p role="status" className="text-center text-muted-foreground text-sm">
-        Sending the photo…
+        {label}…
       </p>
     </div>
   );
@@ -149,6 +158,12 @@ export function LabelCapture({
       return;
     }
     await send(photo);
+  };
+
+  const scanFirst = async (photo: File | undefined) => {
+    if (photo !== undefined) {
+      await scan(photo);
+    }
   };
 
   const choosing =
@@ -196,13 +211,13 @@ export function LabelCapture({
             icon={IconCamera}
             capture="environment"
             primary={state.step !== 'failed' || !retriable.has(state.error)}
-            onPhoto={(photo) => void scan(photo)}
+            onPhotos={([photo]) => void scanFirst(photo)}
           />
           <PhotoInput
             label="Choose a photo"
             icon={IconPhoto}
             primary={false}
-            onPhoto={(photo) => void scan(photo)}
+            onPhotos={([photo]) => void scanFirst(photo)}
           />
         </>
       ) : null}

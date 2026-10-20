@@ -24,6 +24,7 @@ export const routes = {
   exportWeights: '/api/export/weights.csv',
   exportAll: '/api/export/all.json',
   labelScan: '/api/label-scan',
+  mealEstimate: '/api/meal-estimate',
   signIn: '/sign-in',
   signUp: '/sign-up',
   verify: '/verify',

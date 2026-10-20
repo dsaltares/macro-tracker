@@ -1,6 +1,11 @@
 'use client';
 
-import { IconArrowLeft, IconBarcode, IconSearch } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconBarcode,
+  IconCamera,
+  IconSearch,
+} from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -11,7 +16,10 @@ import {
   FrequentFoods,
   RecentFoods,
 } from '@/components/diary/food-lists';
-import { FoodSearchResults } from '@/components/diary/food-search-results';
+import {
+  FoodSearchResults,
+  searchDebounceMs,
+} from '@/components/diary/food-search-results';
 import {
   type FoodHeader,
   FoodStep,
@@ -20,6 +28,7 @@ import {
 import { QuickAddStep } from '@/components/diary/quick-add-step';
 import { RecipeList, RecipeStep } from '@/components/diary/recipe-step';
 import { ScanStep } from '@/components/diary/scan-step';
+import { MealEstimate } from '@/components/meal-estimate/meal-estimate';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -37,8 +46,6 @@ import type { Meal } from '@/lib/domain/diary/entries';
 import { newFoodHref } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 import { cn } from '@/lib/utils';
-
-export const searchDebounceMs = 300;
 
 const foodLists = [
   {
@@ -73,6 +80,7 @@ function SearchStep({
   onSelectFood,
   onSelectRecipe,
   onScan,
+  onEstimate,
 }: {
   date: string;
   meal: Meal;
@@ -83,6 +91,7 @@ function SearchStep({
   onSelectFood: (food: FoodSummary) => void;
   onSelectRecipe: (recipe: RecipeSummary) => void;
   onScan: () => void;
+  onEstimate: (() => void) | null;
 }) {
   const debouncedQuery = useDebouncedValue(query, searchDebounceMs);
 
@@ -116,6 +125,17 @@ function SearchStep({
           <IconBarcode className="size-5" />
           <span className="sr-only">Scan a barcode</span>
         </Button>
+        {onEstimate === null ? null : (
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-11"
+            onClick={onEstimate}
+          >
+            <IconCamera className="size-5" />
+            <span className="sr-only">Estimate from a photo</span>
+          </Button>
+        )}
       </div>
       <Tabs
         value={list}
@@ -230,11 +250,13 @@ function FoodSearch({
   date,
   meal,
   createdFoodId,
+  mealEstimates,
   onAdded,
 }: {
   date: string;
   meal: Meal;
   createdFoodId: string | null;
+  mealEstimates: boolean;
   onAdded: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -244,6 +266,7 @@ function FoodSearch({
   const [chosenRecipe, setChosenRecipe] = useState<RecipeSummary | null>(null);
   const [created, setCreated] = useState(createdFoodId);
   const [quickAdding, setQuickAdding] = useState(false);
+  const [estimating, setEstimating] = useState(false);
 
   if (created !== null) {
     return (
@@ -253,6 +276,17 @@ function FoodSearch({
         meal={meal}
         onBack={() => setCreated(null)}
         onAdded={onAdded}
+      />
+    );
+  }
+
+  if (estimating) {
+    return (
+      <MealEstimate
+        date={date}
+        meal={meal}
+        onBack={() => setEstimating(false)}
+        onLogged={onAdded}
       />
     );
   }
@@ -316,6 +350,7 @@ function FoodSearch({
         onSelectFood={setChosen}
         onSelectRecipe={setChosenRecipe}
         onScan={() => setScanning(true)}
+        onEstimate={mealEstimates ? () => setEstimating(true) : null}
       />
       <div className="grid grid-cols-2 gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Link
@@ -344,11 +379,13 @@ export function FoodSearchSheet({
   date,
   meal,
   createdFoodId = null,
+  mealEstimates = false,
   onClose,
 }: {
   date: string;
   meal: Meal | null;
   createdFoodId?: string | null;
+  mealEstimates?: boolean;
   onClose: () => void;
 }) {
   return (
@@ -374,6 +411,7 @@ export function FoodSearchSheet({
             date={date}
             meal={meal}
             createdFoodId={createdFoodId}
+            mealEstimates={mealEstimates}
             onAdded={onClose}
           />
         </SheetContent>

@@ -48,34 +48,52 @@ export type UploadProgress = (sent: number) => void;
 
 const ok = 200;
 
-export const uploadPhoto = (photo: Blob, onProgress: UploadProgress) =>
-  new Promise<ScanResult>((resolve) => {
+export type Answer =
+  | { answered: true; ok: boolean; body: unknown }
+  | { answered: false };
+
+export const postWithProgress = (
+  url: string,
+  body: Blob | FormData,
+  onProgress: UploadProgress,
+) =>
+  new Promise<Answer>((resolve) => {
     const request = new XMLHttpRequest();
-    request.open('POST', routes.labelScan);
+    request.open('POST', url);
     request.responseType = 'json';
-    request.setRequestHeader('content-type', photo.type);
+    if (body instanceof Blob) {
+      request.setRequestHeader('content-type', body.type);
+    }
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onProgress(event.loaded / event.total);
       }
     };
     request.upload.onload = () => onProgress(1);
-    request.onload = () => {
-      const body = request.response as
-        | LabelReading
-        | { error?: ScanError }
-        | null;
-      resolve(
-        request.status === ok
-          ? { read: true, reading: body as LabelReading }
-          : {
-              read: false,
-              error:
-                (body !== null && 'error' in body ? body.error : undefined) ??
-                'unavailable',
-            },
-      );
-    };
-    request.onerror = () => resolve({ read: false, error: 'offline' });
-    request.send(photo);
+    request.onload = () =>
+      resolve({
+        answered: true,
+        ok: request.status === ok,
+        body: request.response,
+      });
+    request.onerror = () => resolve({ answered: false });
+    request.send(body);
   });
+
+export const errorOf = <Error extends string>(body: unknown) =>
+  (typeof body === 'object' && body !== null && 'error' in body
+    ? (body.error as Error | undefined)
+    : undefined) ?? 'unavailable';
+
+export const uploadPhoto = async (
+  photo: Blob,
+  onProgress: UploadProgress,
+): Promise<ScanResult> => {
+  const answer = await postWithProgress(routes.labelScan, photo, onProgress);
+  if (!answer.answered) {
+    return { read: false, error: 'offline' };
+  }
+  return answer.ok
+    ? { read: true, reading: answer.body as LabelReading }
+    : { read: false, error: errorOf<ScanError>(answer.body) };
+};

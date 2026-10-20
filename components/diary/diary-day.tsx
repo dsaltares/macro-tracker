@@ -73,10 +73,12 @@ function usePrefetchAdjacentDays(date: string, loaded: boolean) {
 function Day({
   date,
   created,
+  mealEstimates,
   onCreatedDone,
 }: {
   date: string;
   created: CreatedFood | null;
+  mealEstimates: boolean;
   onCreatedDone: () => void;
 }) {
   const trpc = useTRPC();
@@ -116,6 +118,7 @@ function Day({
         date={date}
         meal={adding}
         createdFoodId={created?.foodId ?? null}
+        mealEstimates={mealEstimates}
         onClose={() => {
           setAdding(null);
           if (created !== null) {
@@ -127,7 +130,11 @@ function Day({
   );
 }
 
-export function DiaryDay() {
+export function DiaryDay({
+  mealEstimates = false,
+}: {
+  mealEstimates?: boolean;
+}) {
   const today = useToday();
   const [chosenDate, setChosenDate] = useQueryState('date', dateParser);
   const [{ meal, food }, setAdding] = useQueryStates(addingParsers);
@@ -158,6 +165,7 @@ export function DiaryDay() {
           key={date}
           date={date}
           created={created}
+          mealEstimates={mealEstimates}
           onCreatedDone={() => setAdding({ meal: null, food: null })}
         />
       )}
