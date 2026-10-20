@@ -4,8 +4,9 @@ import type { Auth } from '../auth/auth.ts';
 import { resolveCaller } from '../auth/caller.ts';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
+import type { Caller } from '../services/context.ts';
 
-export type Caller = { userId: string };
+export type { Caller };
 
 export type Context = {
   db: Kysely<Database>;

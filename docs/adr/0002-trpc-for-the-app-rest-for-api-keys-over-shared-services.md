@@ -42,9 +42,31 @@ Two transports over one layer of services.
   `toJSONSchema`, and served at `/api/v1/openapi.json` (#62). It is never written by hand, and a
   route without a spec entry fails a test.
 
-Until #58 there is only one transport, and a procedure may hold its logic inline. #58 extracts
-whatever a REST route needs into `lib/services/` and updates this record with the shape that
-results.
+### The shape, as built in #58
+
+- A **service** is `(context: ServiceContext, input?) => result`, one file per area in
+  `lib/services/` (`account.ts` is the first). `ServiceContext` (`lib/services/context.ts`) is
+  `{ db, caller, now, nextId }` with a non-null caller; tRPC's `Context` is the same with a caller
+  that may be null, so `accountProcedure`'s `ctx` is a `ServiceContext` as it is. A service returns
+  `null` or `false` for what is not there, as `lib/db/` already does, and each adapter turns that
+  into its own not found. A procedure whose logic is already one `lib/db/` call keeps calling it;
+  a function moves into `lib/services/` when a REST route needs it too.
+- A **route** is `apiHandler({ scope, input?, params?, status?, handle })` in `lib/api/routes/`,
+  wired to the server by a one-line `app/api/v1/**/route.ts`. In order: the bearer key, looked up
+  by its SHA-256 (`MISSING_API_KEY`, `INVALID_API_KEY`, `REVOKED_API_KEY`, all `401`); the key's
+  `last_used_at`, written at most once a minute and for any live key, so a key refused for its
+  scope still shows as in use; the scope, which must be in the key's scopes, `write` not implying
+  `read` (`INSUFFICIENT_SCOPE`, `403`); the path parameters against `params`; `input` against the
+  query of a `GET`, `HEAD` or `DELETE` and the JSON body of anything else (`INVALID_REQUEST`,
+  `400`, with `issues`). `handle` gets a `ServiceContext` for the key's user and the key itself, and
+  maps the service's result to the response. Returning nothing answers `204`.
+- **Errors** are one envelope, `{ error: { code, message, issues? } }`, every response
+  `Cache-Control: no-store`. `handle` throws `apiError(code, message)` for an expected failure;
+  anything else is logged and answered `500` `INTERNAL_ERROR` without its details. An unknown path
+  under `/api/v1` is `404` `NOT_FOUND` in the same envelope.
+- **Pages** are `{ items, nextCursor }`. The cursor is opaque to clients (`cursorSchema` and
+  `pageOf` in `lib/api/pagination.ts`): today it wraps the offset the services page by, so paging can
+  change underneath without a new version.
 
 ## Alternatives considered
 

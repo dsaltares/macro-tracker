@@ -269,6 +269,22 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `revoke`) is these over the caller. `ApiKeysSettings` (`components/settings/`) is Settings › API
   keys: a name and scopes, the new key in a dialog to copy, and the list with each key's prefix,
   scopes, creation and last use, revoked once confirmed.
+- `lib/api/` — the REST surface under `/api/v1` for API keys (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
+  `apiHandler({ scope, input, params, status, handle })` (`handler.ts`) authenticates the bearer
+  key (`authenticate.ts`: by its hash, refusing a revoked one, writing `last_used_at` at most once
+  a minute), checks the route's scope, validates the path parameters and the query or JSON body
+  with Zod, and calls `handle` with a `ServiceContext` for the key's user; it returns
+  `(server: ApiServer) => (request, { params })`, and `apiServer()` (`server.ts`) is the server's.
+  Every error is `{ error: { code, message, issues? } }` (`errors.ts`); `handle` throws
+  `apiError(code, message)` for an expected one. Pages are `{ items, nextCursor }` with an opaque
+  cursor (`pagination.ts`). Routes are in `routes/` and tested there with the real handler over
+  `migratedDatabasePerTest()`; each `app/api/v1/**/route.ts` only wires one to `apiServer()`, and
+  `app/api/v1/[...path]` answers the envelope's `404` to any other path. `GET /api/v1/me` is the
+  key's account, profile and the key's name, prefix and scopes.
+- `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
+  `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
+  (`account.ts`) is behind `account.get` and `/api/v1/me`. A `lib/db/` function moves behind a
+  service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
