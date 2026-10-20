@@ -8,8 +8,13 @@ import { emptyRecipe } from '@/components/diary/recipe-step';
 import { shrinkPhoto } from '@/components/label-scan/photo';
 import {
   logMealFailed,
+  revisedNote,
   unresolvedNote,
 } from '@/components/meal-estimate/meal-draft-review';
+import {
+  feedbackRoundsSpent,
+  roundsLeftHint,
+} from '@/components/meal-estimate/meal-feedback';
 import {
   estimateErrorMessages,
   mealCapturePrompt,
@@ -23,6 +28,7 @@ import {
   type MealDraft,
   mealDraft,
   mealEstimateSchema,
+  previousEstimateSchema,
 } from '@/lib/domain/diary/meal-estimate';
 import { formatAmount } from '@/lib/domain/nutrition/format';
 import { serveApi } from '@/test/api';
@@ -103,24 +109,32 @@ const latte = {
   nutrients: { energy_kcal: 130, protein: 8, carbohydrate: 12, fat: 5 },
 };
 
-const seedDraft = async (extra: unknown[] = []): Promise<MealDraft> => {
-  const { eggsId, sourdoughId } = await seedFoods();
-  return mealDraft(
+type SeededFoods = Awaited<ReturnType<typeof seedFoods>>;
+
+const draftOfSeeded = (
+  { eggsId, sourdoughId }: SeededFoods,
+  {
+    eggCount = 2,
+    toastGrams = 80,
+    extra = [],
+  }: { eggCount?: number; toastGrams?: number; extra?: unknown[] } = {},
+): MealDraft =>
+  mealDraft(
     mealEstimateSchema.parse({
       items: [
         {
           kind: 'food',
           name: 'Eggs',
-          grams: 100,
+          grams: 50 * eggCount,
           confidence: 0.9,
           note: null,
           foodId: eggsId,
-          portion: { label: '1 egg', quantity: 2 },
+          portion: { label: '1 egg', quantity: eggCount },
         },
         {
           kind: 'food',
           name: 'Toast',
-          grams: 80,
+          grams: toastGrams,
           confidence: 0.85,
           note: null,
           foodId: sourdoughId,
@@ -139,7 +153,9 @@ const seedDraft = async (extra: unknown[] = []): Promise<MealDraft> => {
       recipes: new Map(),
     },
   );
-};
+
+const seedDraft = async (extra: unknown[] = []) =>
+  draftOfSeeded(await seedFoods(), { extra });
 
 const answering = (...responses: Response[]) => {
   const posted: FormData[] = [];
@@ -539,5 +555,152 @@ describe('MealDraftReview', () => {
       { label: 'Sourdough bread', grams: 80, energy: 200 },
       { label: 'Latte', grams: null, energy: 130 },
     ]);
+  });
+});
+
+describe('MealFeedback', () => {
+  const askForChanges = async (user: User, feedback: string) => {
+    await user.type(screen.getByLabelText('Ask for changes'), feedback);
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    return screen.findByText(revisedNote);
+  };
+
+  const editToast = async (user: User, grams: string) => {
+    await user.click(row('Sourdough bread'));
+    const editor = screen.getByRole('region', { name: 'Sourdough bread' });
+    const quantity = await within(editor).findByLabelText('Quantity');
+    await user.clear(quantity);
+    await user.type(quantity, grams);
+    await user.click(within(editor).getByRole('button', { name: 'Save' }));
+  };
+
+  it('sends the photos, the edited draft and the feedback, marking what changed', async () => {
+    const foods = await seedFoods();
+    const posted = answering(
+      HttpResponse.json(draftOfSeeded(foods)),
+      HttpResponse.json(draftOfSeeded(foods, { eggCount: 4, toastGrams: 160 })),
+    );
+    const { user } = renderSheet();
+    await estimate(user);
+    await editToast(user, '160');
+
+    await askForChanges(user, 'double the eggs');
+
+    expect(posted).toHaveLength(2);
+    const [, form] = posted;
+    expect(form?.getAll('photos')).toHaveLength(2);
+    expect(form?.get('description')).toBe('two eggs, sourdough, latte');
+    const previous = previousEstimateSchema.parse(
+      JSON.parse(String(form?.get('previous'))),
+    );
+    expect(previous.feedback).toBe('double the eggs');
+    expect(
+      previous.draft.items.map(({ name, grams }) => [name, grams]),
+    ).toEqual([
+      ['Boiled eggs', 100],
+      ['Sourdough bread', 160],
+      ['Latte', 250],
+    ]);
+    expect(previous.draft.totals.energy_kcal).toBe(143 + 400 + 130);
+
+    expect(row('Boiled eggs')).toHaveTextContent('Changed');
+    expect(row('Boiled eggs')).toHaveTextContent('200 g · 286 kcal');
+    expect(row('Sourdough bread')).not.toHaveTextContent('Changed');
+    expect(row('Latte')).not.toHaveTextContent('Changed');
+    expect(totalOf('Energy')).toBe(kcal(286 + 400 + 130));
+  });
+
+  it('marks a line the revision added', async () => {
+    const foods = await seedFoods();
+    answering(
+      HttpResponse.json(draftOfSeeded(foods)),
+      HttpResponse.json(
+        draftOfSeeded(foods, {
+          extra: [
+            {
+              kind: 'food',
+              name: 'Butter',
+              grams: 10,
+              confidence: 0.9,
+              note: null,
+              foodId: foods.butterId,
+              portion: null,
+            },
+          ],
+        }),
+      ),
+    );
+    const { user } = renderSheet();
+    await estimate(user);
+
+    await askForChanges(user, 'there was butter on the toast');
+
+    expect(row('Boiled eggs')).not.toHaveTextContent('Changed');
+    expect(row('Butter')).toHaveTextContent('New');
+  });
+
+  it('undoes a revision back to the draft as it was sent', async () => {
+    const foods = await seedFoods();
+    answering(
+      HttpResponse.json(draftOfSeeded(foods)),
+      HttpResponse.json(draftOfSeeded(foods, { eggCount: 4 })),
+    );
+    const { user } = renderSheet();
+    await estimate(user);
+    await editToast(user, '160');
+    await askForChanges(user, 'double the eggs');
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+
+    expect(screen.queryByText(revisedNote)).toBeNull();
+    expect(row('Boiled eggs')).toHaveTextContent('100 g · 143 kcal');
+    expect(row('Boiled eggs')).not.toHaveTextContent('Changed');
+    expect(row('Sourdough bread')).toHaveTextContent('160 g · 400 kcal');
+    expect(totalOf('Energy')).toBe(kcal(143 + 400 + 130));
+  });
+
+  it('keeps the draft when a revision fails', async () => {
+    answering(
+      HttpResponse.json(await seedDraft()),
+      HttpResponse.json({ error: 'unavailable' }, { status: 503 }),
+    );
+    const { user } = renderSheet();
+    await estimate(user);
+
+    await user.type(screen.getByLabelText('Ask for changes'), 'more rice');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(
+      await screen.findByText(estimateErrorMessages.unavailable),
+    ).toBeInTheDocument();
+    expect(row('Boiled eggs')).toHaveTextContent('100 g · 143 kcal');
+    expect(
+      screen.getByLabelText('Ask for changes'),
+    ).toHaveAccessibleDescription(roundsLeftHint(3));
+  });
+
+  it('refuses a fourth round', async () => {
+    const foods = await seedFoods();
+    const posted = answering(
+      ...[2, 3, 4, 5].map((eggCount) =>
+        HttpResponse.json(draftOfSeeded(foods, { eggCount })),
+      ),
+    );
+    const { user } = renderSheet();
+    await estimate(user);
+
+    expect(
+      screen.getByLabelText('Ask for changes'),
+    ).toHaveAccessibleDescription(roundsLeftHint(3));
+    for (const feedback of ['one more egg', 'another egg', 'and another']) {
+      await askForChanges(user, feedback);
+    }
+
+    expect(posted).toHaveLength(4);
+    expect(row('Boiled eggs')).toHaveTextContent('250 g');
+    const field = screen.getByLabelText('Ask for changes');
+    expect(field).toBeDisabled();
+    expect(field).toHaveAccessibleDescription(feedbackRoundsSpent);
+    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
   });
 });

@@ -1,6 +1,11 @@
 'use client';
 
-import { IconPlus, IconReplace, IconTrash } from '@tabler/icons-react';
+import {
+  IconArrowBackUp,
+  IconPlus,
+  IconReplace,
+  IconTrash,
+} from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -20,10 +25,13 @@ import {
   SourceSearch,
   StepSection,
 } from '@/components/meal-estimate/draft-item-editors';
+import { MealFeedback } from '@/components/meal-estimate/meal-feedback';
+import type { MealPhoto } from '@/components/meal-estimate/meal-photo-step';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Meal } from '@/lib/domain/diary/entries';
 import {
+  type DraftChange,
   draftOfItems,
   type MealDraft,
   type MealDraftItem,
@@ -37,6 +45,26 @@ import { cn } from '@/lib/utils';
 export const logMealFailed = 'The meal could not be logged. Try again.';
 
 export const replaceFailed = 'That food could not be loaded. Try again.';
+
+export const revisedNote = 'Revised as you asked. Changed lines are marked.';
+
+const changeLabels: Record<DraftChange, string | null> = {
+  added: 'New',
+  changed: 'Changed',
+  unchanged: null,
+};
+
+export type Revision = {
+  changes: readonly DraftChange[];
+  onUndo: () => void;
+};
+
+export type Feedback = {
+  photos: readonly MealPhoto[];
+  description: string;
+  roundsLeft: number;
+  onRevised: (sent: MealDraft, revised: MealDraft) => void;
+};
 
 export const unresolvedNote =
   'Not found among your foods. Replace it, or enter its amounts.';
@@ -94,17 +122,20 @@ const noteOf = (item: MealDraftItem) =>
 
 function DraftRow({
   item,
+  change,
   onEdit,
   onReplace,
   onRemove,
 }: {
   item: MealDraftItem;
+  change: DraftChange;
   onEdit: () => void;
   onReplace: () => void;
   onRemove: () => void;
 }) {
   const note = noteOf(item);
   const flagged = item.unsure || (item.kind === 'guess' && item.unresolved);
+  const changeLabel = changeLabels[change];
 
   return (
     <li
@@ -122,6 +153,9 @@ function DraftRow({
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{item.name}</span>
             <ItemBadge item={item} />
+            {changeLabel === null ? null : (
+              <Badge variant="secondary">{changeLabel}</Badge>
+            )}
             {flagged ? (
               <Badge
                 variant="outline"
@@ -202,12 +236,16 @@ function useLoadSource() {
 
 export function MealDraftReview({
   draft,
+  revision,
+  feedback,
   date,
   meal,
   onBack,
   onLogged,
 }: {
   draft: MealDraft;
+  revision: Revision | null;
+  feedback: Feedback;
   date: string;
   meal: Meal;
   onBack: () => void;
@@ -351,6 +389,21 @@ export function MealDraftReview({
         back="Back to photos"
         onBack={onBack}
       >
+        {revision === null ? null : (
+          <div className="flex items-center gap-2 rounded-lg bg-muted p-3">
+            <p role="status" className="flex-1 text-sm">
+              {revisedNote}
+            </p>
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={revision.onUndo}
+            >
+              <IconArrowBackUp className="size-5" />
+              Undo
+            </Button>
+          </div>
+        )}
         <DraftTotals totals={current.totals} />
         {items.length === 0 ? (
           <p className="py-2 text-center text-muted-foreground">
@@ -362,6 +415,7 @@ export function MealDraftReview({
               <DraftRow
                 key={key}
                 item={item}
+                change={revision?.changes[key] ?? 'unchanged'}
                 onEdit={() => setStep({ step: 'editing', key })}
                 onReplace={() => {
                   replace.reset();
@@ -390,6 +444,7 @@ export function MealDraftReview({
             ))}
           </ul>
         )}
+        <MealFeedback {...feedback} draft={current} />
       </StepSection>
       <div className="flex flex-col gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {log.isError ? <FormError>{logMealFailed}</FormError> : null}

@@ -7,7 +7,18 @@ import {
   MealPhotoStep,
 } from '@/components/meal-estimate/meal-photo-step';
 import type { Meal } from '@/lib/domain/diary/entries';
-import type { MealDraft } from '@/lib/domain/diary/meal-estimate';
+import {
+  type DraftChange,
+  draftChanges,
+  type MealDraft,
+  maxFeedbackRounds,
+} from '@/lib/domain/diary/meal-estimate';
+
+type Reviewed = {
+  version: number;
+  draft: MealDraft;
+  revised: { changes: DraftChange[]; previous: MealDraft } | null;
+};
 
 function useRevokedOnUnmount(photos: readonly MealPhoto[]) {
   const latest = useRef(photos);
@@ -35,16 +46,46 @@ export function MealEstimate({
 }) {
   const [photos, setPhotos] = useState<MealPhoto[]>([]);
   const [description, setDescription] = useState('');
-  const [draft, setDraft] = useState<MealDraft | null>(null);
+  const [reviewed, setReviewed] = useState<Reviewed | null>(null);
+  const [rounds, setRounds] = useState(0);
   useRevokedOnUnmount(photos);
 
-  if (draft !== null) {
+  const review = (draft: MealDraft, revised: Reviewed['revised'] = null) =>
+    setReviewed((last) => ({
+      version: (last?.version ?? 0) + 1,
+      draft,
+      revised,
+    }));
+
+  if (reviewed !== null) {
+    const { revised } = reviewed;
     return (
       <MealDraftReview
-        draft={draft}
+        key={reviewed.version}
+        draft={reviewed.draft}
+        revision={
+          revised === null
+            ? null
+            : {
+                changes: revised.changes,
+                onUndo: () => review(revised.previous),
+              }
+        }
+        feedback={{
+          photos,
+          description,
+          roundsLeft: maxFeedbackRounds - rounds,
+          onRevised: (previous, draft) => {
+            setRounds((spent) => spent + 1);
+            review(draft, {
+              changes: draftChanges(previous, draft),
+              previous,
+            });
+          },
+        }}
         date={date}
         meal={meal}
-        onBack={() => setDraft(null)}
+        onBack={() => setReviewed(null)}
         onLogged={onLogged}
       />
     );
@@ -56,7 +97,7 @@ export function MealEstimate({
       description={description}
       onDescriptionChange={setDescription}
       onBack={onBack}
-      onEstimated={setDraft}
+      onEstimated={(draft) => review(draft)}
     />
   );
 }

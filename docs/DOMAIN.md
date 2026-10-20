@@ -172,6 +172,13 @@ model's name and grams with no nutrients, flagged for the user to replace and ne
 draft's totals are the sum of its items' snapshots. Logging a draft adds one entry per item, of
 its kind, in one go, and the photos are never kept.
 
+A **feedback round** is the user asking for changes to a draft in their own words ("the rice is
+brown, double the chicken"): the same photos and description go back to the model with the draft
+as it stands, the user's edits included, and the feedback, and the revised draft replaces it with
+each **changed line** marked: a line whose food, recipe or guess (by name) the draft before did
+not have, or whose grams or nutrients differ. Undoing a round brings back the draft as it was
+sent. A meal gets three rounds, undone or not.
+
 ## Body and goals
 
 A **profile** is sex (female or male, what the energy and reference value equations take), date

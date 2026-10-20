@@ -22,6 +22,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | clearing a meal | Deleting every entry of one meal on one date. | [Diary](DOMAIN.md#diary) |
 | consent | Agreeing to the terms and acknowledging the privacy policy at sign-up, stored as `terms_accepted_at`. Required for an account, because the diary is health data. | [Accounts](DOMAIN.md#accounts), [ADR 0009](adr/0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) |
 | confirmed address | An email address whose owner followed the link mailed to it. Required before a session. | [Accounts](DOMAIN.md#accounts) |
+| changed line | A line of a revised meal draft that the draft before had not, by food, recipe or guess name, or whose grams or nutrients differ. Marked in the review. | [Diary](DOMAIN.md#diary) |
 | copying a meal | Adding a copy of each of a meal's entries, snapshots as they are, to another date and meal. The originals stay. | [Diary](DOMAIN.md#diary) |
 | cooked weight | A recipe's optional weight in grams once cooked. | [Recipes](DOMAIN.md#recipes) |
 | daily totals | A date's day totals within a trend range, flagged when the date is not a logged day. | [Trends](DOMAIN.md#trends) |
@@ -34,6 +35,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
 | dietary reference value | The default for a micro goal, by sex and age band: EFSA's population reference intake, else its adequate intake, else another body's figure. | [Body and goals](DOMAIN.md#body-and-goals), [Data sources](DATA-SOURCES.md) |
 | estimated item | One line of a meal estimate or draft: a name, the model's grams, a confidence and an optional note, and a food, a recipe or a guess. | [Diary](DOMAIN.md#diary) |
+| feedback round | Asking the model for changes to a meal draft in words, with the same photos and the draft as edited. Three a meal, each undoable. | [Diary](DOMAIN.md#diary) |
 | favourite | A food a user marked to find again quickly. Theirs alone; goes with the food. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
 | food import | One run of the importer over some sources: queued, running, succeeded or failed, with its counts. One runs at a time. | [Foods](DOMAIN.md#foods) |

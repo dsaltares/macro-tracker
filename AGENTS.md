@@ -95,6 +95,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `recipePortionOf`) or `quickEntryNutrients` for a guess, flags `unsure` by `isUnsure`, turns a
   food or recipe not in `resolved` into an `unresolved` guess with no nutrients, and sums the
   totals. `mealDraftToEntries(draft)` is the entries to add, one per item, by kind.
+  `draftChanges(previous, revised)` marks each revised line `added`, `changed` or `unchanged`,
+  matching each previous line once by food id, recipe id or a guess's name in any case, and
+  comparing grams and nutrients. `maxFeedbackRounds` (3) is a sheet's feedback rounds.
 - `lib/domain/recipes/` — `recipeNutrients(recipe, ingredients)` sums each ingredient's vector
   per 100 g at its grams (filling energy from the macros, as `resolveEntry` does) into the total,
   per serving and per 100 g over the cooked weight or else the ingredients' grams.
@@ -499,7 +502,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `guessDraftItem` (`lib/domain/diary/meal-estimate.ts`), no longer unsure (`checkedByUser`);
   *Replace* searches with the row's name and swaps it by `replacedDraftItem`, keeping the
   grams; *Add item* searches and appends; `draftOfItems` keeps the totals. *Log meal* is
-  `diary.addMeal` of `mealDraftToEntries`, then a toast and the sheet closes. Tests answer
+  `diary.addMeal` of `mealDraftToEntries`, then a toast and the sheet closes. `MealFeedback`
+  (`meal-feedback.tsx`) under the rows is *Ask for changes* and *Send*: the kept photos, the
+  description and `previous` (the draft as edited and the feedback) through `requestMealEstimate`.
+  `MealEstimate` counts the rounds, remounts the review on the revised draft with
+  `draftChanges` marking rows *Changed* or *New*, and *Undo* brings back the draft that was sent;
+  past `maxFeedbackRounds` the field is disabled and says so. Tests answer
   `/api/meal-estimate` with `serveApi().use(handler)` (MSW intercepts the upload).
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
