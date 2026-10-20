@@ -9,17 +9,21 @@ export const e2eDatabaseUrl = '.data/e2e.sqlite';
 
 export const e2eDistDir = '.next-e2e';
 
+export const e2eOutboxDir = '.data/e2e-outbox';
+
 // next dev rewrites its prerender manifest in place and compiles each route
 // on its first request, so under parallel workers a request reads the
 // manifest half-written or a navigation outlasts its assertion. A production
 // build does neither, which is why it is the default and dev is opt-in.
+const prepareDatabase =
+  'node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON e2e/prepare-database.ts';
+
 const serverCommand = againstDevServer
-  ? `yarn next dev --port ${port}`
-  : `yarn next build && yarn next start --port ${port}`;
+  ? `${prepareDatabase} && yarn next dev --port ${port}`
+  : `yarn next build && ${prepareDatabase} && yarn next start --port ${port}`;
 
 export default defineConfig({
   testDir: './e2e',
-  globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
@@ -50,6 +54,12 @@ export default defineConfig({
       NEXT_TELEMETRY_DISABLED: '1',
       DATABASE_URL: e2eDatabaseUrl,
       FOOD_IMPORT_CRON: '',
+      DISABLE_AUTH_RATE_LIMIT: '1',
+      BETTER_AUTH_URL: baseURL,
+      BETTER_AUTH_SECRET: 'a-throwaway-secret-only-the-e2e-server-signs-with',
+      RESEND_API_KEY: '',
+      EMAIL_FROM: '',
+      EMAIL_OUTBOX_DIR: e2eOutboxDir,
       FOOD_DELTA_CRON: '',
     },
   },

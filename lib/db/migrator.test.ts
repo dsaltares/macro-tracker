@@ -31,10 +31,12 @@ const everyMigration = [
   '0003-food-imports',
   '0004-food-original-names',
   '0005-food-source-preferences',
-  '0006-food-import-history',
+  '0006-accounts',
+  '0007-food-import-history',
 ];
 
 const everyTable = [
+  'accounts',
   'food_imports',
   'food_nutrients',
   'food_portions',
@@ -46,7 +48,12 @@ const everyTable = [
   'foods_fts_docsize',
   'foods_fts_idx',
   'meta',
+  'sessions',
+  'users',
+  'verifications',
 ];
+
+const accountTables = ['accounts', 'sessions', 'users', 'verifications'];
 
 const targets = [
   ['in memory', () => inMemory],
@@ -99,15 +106,20 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
-    expect(await migrateDown(db)).toEqual(['0006-food-import-history']);
+    expect(await migrateDown(db)).toEqual(['0007-food-import-history']);
     expect(await tableNames(db)).toEqual(everyTable);
+
+    expect(await migrateDown(db)).toEqual(['0006-accounts']);
+    expect(await tableNames(db)).toEqual(
+      everyTable.filter((table) => !accountTables.includes(table)),
+    );
   });
 
   it('can go up again after coming down', async () => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0006-food-import-history']);
+    expect(await migrateToLatest(db)).toEqual(['0007-food-import-history']);
   });
 
   it('reads back what is written to meta', async () => {

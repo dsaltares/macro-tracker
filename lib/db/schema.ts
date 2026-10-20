@@ -78,6 +78,54 @@ export type FoodSourcePreferencesTable = {
   position: number;
 };
 
+type Timestamp = ColumnType<string, string | undefined, string>;
+
+export type UsersTable = {
+  id: string;
+  name: string;
+  email: string;
+  email_verified: Generated<0 | 1>;
+  image: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type SessionsTable = {
+  id: string;
+  user_id: string;
+  token: string;
+  expires_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type AccountsTable = {
+  id: string;
+  user_id: string;
+  account_id: string;
+  provider_id: string;
+  access_token: string | null;
+  refresh_token: string | null;
+  id_token: string | null;
+  access_token_expires_at: string | null;
+  refresh_token_expires_at: string | null;
+  scope: string | null;
+  password: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
+export type VerificationsTable = {
+  id: string;
+  identifier: string;
+  value: string;
+  expires_at: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -86,4 +134,8 @@ export type Database = {
   foods_fts: FoodsFtsTable;
   food_imports: FoodImportsTable;
   food_source_preferences: FoodSourcePreferencesTable;
+  users: UsersTable;
+  sessions: SessionsTable;
+  accounts: AccountsTable;
+  verifications: VerificationsTable;
 };

@@ -13,7 +13,7 @@ import {
 } from '../../db/food-source-preferences.ts';
 import { genericSources } from '../../domain/foods/sources.ts';
 import type { Context } from '../context.ts';
-import { publicProcedure, router, signedInProcedure } from '../trpc.ts';
+import { accountProcedure, publicProcedure, router } from '../trpc.ts';
 
 const maxQueryLength = 200;
 const maxPortionLabelLength = 60;
@@ -69,13 +69,13 @@ export const foodRouter = router({
   sources: publicProcedure.query(({ ctx }) =>
     listFoodSources(ctx.db, ctx.caller?.userId ?? null),
   ),
-  setSourcePreferences: signedInProcedure
+  setSourcePreferences: accountProcedure
     .input(sourcePreferencesInput)
     .mutation(async ({ ctx, input }) => {
       await setFoodSourcePreferences(ctx.db, ctx.caller.userId, input);
       return listFoodSources(ctx.db, ctx.caller.userId);
     }),
-  addPortion: signedInProcedure
+  addPortion: accountProcedure
     .input(portionInput)
     .mutation(async ({ ctx, input }) => {
       const added = await addUserPortion(
@@ -95,7 +95,7 @@ export const foodRouter = router({
       }
       return added.portion;
     }),
-  removePortion: signedInProcedure
+  removePortion: accountProcedure
     .input(z.string().min(1))
     .mutation(async ({ ctx, input }) => {
       if (!(await removeUserPortion(ctx.db, ctx.caller.userId, input))) {

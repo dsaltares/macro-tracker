@@ -9,7 +9,7 @@ export const createCallerFactory = t.createCallerFactory;
 
 export const publicProcedure = t.procedure;
 
-export const signedInProcedure = t.procedure.use(({ ctx, next }) => {
+export const accountProcedure = t.procedure.use(({ ctx, next }) => {
   if (ctx.caller === null) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }

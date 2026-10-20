@@ -1,0 +1,90 @@
+'use client';
+
+import { IconAlertTriangle, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { type ComponentProps, type ReactNode, useId, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+export type FieldProps = ComponentProps<'input'> & {
+  label: string;
+  error?: string | undefined;
+  hint?: string | undefined;
+};
+
+export function TextField({
+  label,
+  error,
+  hint,
+  trailing,
+  className,
+  ...input
+}: FieldProps & { trailing?: ReactNode }) {
+  const id = useId();
+  const messageId = `${id}-message`;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          className={cn('h-11 text-base', trailing && 'pr-12', className)}
+          aria-invalid={!!error}
+          aria-describedby={error || hint ? messageId : undefined}
+          {...input}
+        />
+        {trailing}
+      </div>
+      <div className="min-h-4">
+        {error ? (
+          <p id={messageId} className="text-destructive text-xs">
+            {error}
+          </p>
+        ) : hint ? (
+          <p id={messageId} className="text-muted-foreground text-xs">
+            {hint}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+export function PasswordField(props: FieldProps) {
+  const [revealed, setRevealed] = useState(false);
+  const Icon = revealed ? IconEyeOff : IconEye;
+
+  return (
+    <TextField
+      type={revealed ? 'text' : 'password'}
+      trailing={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-lg"
+          className="absolute top-1/2 right-1 size-9 -translate-y-1/2 text-muted-foreground"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setRevealed(!revealed)}
+        >
+          <Icon className="size-4" />
+          <span className="sr-only">
+            {revealed ? 'Hide password' : 'Show password'}
+          </span>
+        </Button>
+      }
+      {...props}
+    />
+  );
+}
+
+export function FormError({ children }: { children: string }) {
+  return (
+    <Alert variant="destructive">
+      <IconAlertTriangle />
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
+  );
+}

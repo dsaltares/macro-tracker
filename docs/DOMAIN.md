@@ -3,6 +3,14 @@
 The vocabulary every issue, ADR and module uses. Keep it short; detail belongs in
 `lib/domain/` and its tests.
 
+## Accounts
+
+A **user** signs up with an email address and a password, and has an **account** once the
+address is **confirmed** by following the link mailed to it. Until then there is no session and
+nothing to own. A **session** is what the app holds once a confirmed user signs in; every user
+datum is reached through the session's user, never an id from input. A forgotten password is
+replaced by following a **reset link**, which signs out every session.
+
 ## Nutrients
 
 A **nutrient** is one entry in the canonical list in `lib/domain/nutrition/nutrients.ts`: a key,
