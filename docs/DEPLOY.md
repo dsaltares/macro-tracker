@@ -92,6 +92,9 @@ RESEND_API_KEY=
 EMAIL_FROM=Macro Tracker <noreply@macros.saltares.dev>
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+AI_PROVIDER=
+AI_MODEL=
+AI_API_KEY=
 ```
 
 `DATA_PATH` is a host directory such as `/mnt/store/homelab/macro-tracker`, so borgmatic backs it
@@ -105,6 +108,10 @@ confirmation and reset mail through Resend, from a domain verified there; with e
 mail is only logged and nobody can confirm an address. `GOOGLE_CLIENT_ID` and
 `GOOGLE_CLIENT_SECRET` are a Google Cloud OAuth web client whose authorised redirect URI is
 `<BETTER_AUTH_URL>/api/auth/callback/google`; with either empty, the Google button is not shown.
+`AI_API_KEY` is the key of the provider that reads label photos (ADR
+[0013](adr/0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md));
+`AI_PROVIDER` is `openai`, the default and only one, and `AI_MODEL` overrides its default model.
+With the key empty, label scanning is off.
 
 `INTERNAL_API_TOKEN` (`openssl rand -hex 32`) unlocks the internal import endpoint; left empty,
 the endpoint answers `404` to everyone. The server imports reference foods on its own: every

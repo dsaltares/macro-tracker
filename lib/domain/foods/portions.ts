@@ -7,7 +7,7 @@ export const maxPortionLabelLength = 60;
 
 const hundredGrams: Portion = { label: '100 g', grams: 100 };
 
-const gramsPerMillilitreWithoutDensity = 1;
+export const gramsPerMillilitreWithoutDensity = 1;
 
 export const standardPortions: readonly Portion[] = [
   hundredGrams,
