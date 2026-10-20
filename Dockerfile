@@ -14,7 +14,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN corepack enable && yarn build
+RUN corepack enable && yarn build && yarn build:import-worker
 
 FROM node:24-alpine AS runner
 WORKDIR /app
@@ -24,6 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3014
 ENV HOSTNAME=0.0.0.0
 ENV DATABASE_URL=/data/db.sqlite
+ENV FOOD_IMPORT_WORKER=/app/import-worker.mjs
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs && \
@@ -32,6 +33,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/build/import-worker.mjs ./import-worker.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/backup-database.ts ./scripts/backup-database.ts
 COPY --from=builder --chown=nextjs:nodejs /app/lib/db/backup.ts /app/lib/db/url.ts ./lib/db/
 

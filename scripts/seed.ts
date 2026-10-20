@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { v7 } from 'uuid';
 import { devUser } from '../lib/auth/dev-user.ts';
 import { refusedInProduction, seedDevUser } from '../lib/auth/seed-dev-user.ts';
 import { foodImportWorkDir } from '../lib/data/import-foods.ts';
@@ -14,7 +14,7 @@ const seedUser = async (db: ReturnType<typeof createDatabase>) => {
   const { created } = await seedDevUser({
     db,
     now,
-    nextId: () => randomUUID(),
+    nextId: v7,
   });
   console.log(
     created
@@ -35,7 +35,7 @@ const run = async () => {
     await seedUser(db);
     const seed = await seedFoods({
       db,
-      clock: { now, nextId: () => randomUUID() },
+      clock: { now, nextId: v7 },
       logger: getLogger('seed'),
       signal: new AbortController().signal,
       workDir: foodImportWorkDir(),
