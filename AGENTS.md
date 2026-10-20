@@ -9,6 +9,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn typecheck` · `yarn lint` · `yarn format`
 - `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
   both. `vitest run --project ui <path>` narrows to one file.
+- `yarn test:real-ai` — the `real-ai` project: the label reader against the photos in
+  `test/fixtures/labels/` through the real model of `AI_PROVIDER`, `AI_MODEL` and `AI_API_KEY`
+  (read from `.env`), printing a table of each photo's fields read right, and failing under 90% on
+  the EU mandatory fields per 100 g. Skipped without a key, never run by `yarn test`, `yarn
+  test:watch` or CI, and every run costs money
 - `yarn test:e2e` — Playwright against a production build of its own (`next build` then
   `next start`, in `.next-e2e` on 3015), never a server already running; `E2E_PORT` moves it when
   another worktree holds 3015. `yarn test:e2e:dev` runs it against `next dev` instead, for hot
@@ -337,7 +342,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `rejected`, `rate-limited`, `unavailable`) with a message, never the SDK's error, whose request
   holds the photo. The photo is never written or logged. `resolveLanguageModel` (`model.ts`) reads
   `AI_PROVIDER` (`openai`), `AI_MODEL` and `AI_API_KEY`, `null` without a key;
-  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The schema
+  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The prompt is
+  tuned against `label-evals/`: `fixtures.ts` reads `test/fixtures/labels/`, a photo of a real
+  label beside a JSON of its source and the `LabelReading` expected of it, transcribed by hand
+  from the photo, never from the source's data; `score.ts` compares a reading to it field by field,
+  amounts by value whatever the decimal separator or unit. The schema
   sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
   answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
   `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
@@ -467,7 +476,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - A **date** is the user's local day as a `YYYY-MM-DD` string, never a `Date` or a timestamp.
 - **No `console`.** Log through pino: `getLogger('<module>')` from `lib/logger.ts`. Biome enforces
   this everywhere except `scripts/`, which are CLIs and print.
-- **Three kinds of test, and the extension picks the kind.** All three live next to what they
+- **Four kinds of test, and the extension picks the kind.** All four live next to what they
   cover, except the end-to-end ones.
   - `*.test.ts` — Vitest `unit` project, `environment: 'node'`. Pure logic, and the modules that
     own I/O driven for real against an in-memory database: `migratedDatabasePerTest()` from
@@ -479,6 +488,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
     says back. Query by role, label and text — never by class, inline style or a fragment of
     markup. A component that calls tRPC renders with `renderUi(ui, { wrap: api.wrap })` over
     `serveApi()` from `test/api.tsx`.
+  - `*.eval.ts` — Vitest `real-ai` project, `environment: 'node'`, run only by
+    `yarn test:real-ai`: measurements against a paid model, which print what they measured and
+    may use `console`.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and

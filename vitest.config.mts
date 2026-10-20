@@ -31,6 +31,16 @@ export default defineConfig({
           setupFiles: ['./test/dom-setup.ts'],
         },
       },
+      {
+        extends: true,
+        test: {
+          ...shared,
+          name: 'real-ai',
+          environment: 'node',
+          include: ['**/*.eval.ts'],
+          testTimeout: 600_000,
+        },
+      },
     ],
     coverage: {
       provider: 'v8',

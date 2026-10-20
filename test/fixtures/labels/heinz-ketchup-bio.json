@@ -1,0 +1,62 @@
+{
+  "source": "https://world.openfoodfacts.org/product/8715700407760",
+  "photo": "https://images.openfoodfacts.org/images/products/871/570/040/7760/43.jpg",
+  "reading": {
+    "productName": null,
+    "brand": null,
+    "netQuantity": null,
+    "servingSize": null,
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "476",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "112",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "0,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "0,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "25,3",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "24,8",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "1,4",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "1,7",
+        "unit": "g",
+        "confidence": 1
+      }
+    ],
+    "perServing": [],
+    "notes": []
+  }
+}

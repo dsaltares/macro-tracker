@@ -1,0 +1,161 @@
+{
+  "source": "https://world.openfoodfacts.org/product/20724696",
+  "photo": "https://images.openfoodfacts.org/images/products/20724696/122.jpg",
+  "reading": {
+    "productName": null,
+    "brand": null,
+    "netQuantity": {
+      "value": "200 g",
+      "confidence": 1
+    },
+    "servingSize": {
+      "label": null,
+      "amount": 30,
+      "unit": "g",
+      "confidence": 1
+    },
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "2567",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "621",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "53,3",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "4,3",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "4,8",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "4,8",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "24,5",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "0,01",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "monounsaturated_fat",
+        "printed": "37,0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "polyunsaturated_fat",
+        "printed": "11,8",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "12,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "magnesium",
+        "printed": "260",
+        "unit": "mg",
+        "confidence": 1
+      }
+    ],
+    "perServing": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "770",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "186",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "16,0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "1,3",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "1,4",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "1,4",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "7,4",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "<0,01",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "monounsaturated_fat",
+        "printed": "11,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "polyunsaturated_fat",
+        "printed": "3,5",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "3,6",
+        "unit": "g",
+        "confidence": 1
+      }
+    ],
+    "notes": []
+  }
+}
