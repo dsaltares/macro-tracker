@@ -3,6 +3,7 @@ import { hundredGrams, oneGram, standardPortions } from '../foods/portions.ts';
 import { servingLabel } from '../recipes/recipes.ts';
 import {
   checkedByUser,
+  draftChanges,
   draftOfItems,
   foodDraftItem,
   guessDraftItem,
@@ -489,5 +490,60 @@ describe('previousEstimateSchema', () => {
     ],
   ])('refuses %s', (_, previous) => {
     expect(previousEstimateSchema.safeParse(previous).success).toBe(false);
+  });
+});
+
+describe('draftChanges', () => {
+  const previous = draftOf([bananaItem, chiliItem, sauceItem]);
+
+  it('marks nothing when the revision answers the same draft', () => {
+    expect(
+      draftChanges(previous, draftOf([bananaItem, chiliItem, sauceItem])),
+    ).toEqual(['unchanged', 'unchanged', 'unchanged']);
+  });
+
+  it('marks a line whose grams or nutrients changed', () => {
+    expect(
+      draftChanges(
+        previous,
+        draftOf([
+          { ...bananaItem, grams: 400 },
+          { ...chiliItem, servings: 2 },
+          {
+            ...sauceItem,
+            nutrients: { ...sauceItem.nutrients, energy_kcal: 120 },
+          },
+        ]),
+      ),
+    ).toEqual(['changed', 'changed', 'changed']);
+  });
+
+  it('marks a line of a food, recipe or guess the previous draft did not have', () => {
+    expect(
+      draftChanges(
+        draftOf([bananaItem]),
+        draftOf([
+          { ...bananaItem, foodId: 'gone' },
+          chiliItem,
+          sauceItem,
+          bananaItem,
+        ]),
+      ),
+    ).toEqual(['added', 'added', 'added', 'unchanged']);
+  });
+
+  it('matches a guess by its name, whatever its case', () => {
+    expect(
+      draftChanges(
+        previous,
+        draftOf([{ ...sauceItem, name: 'unknown SAUCE ' }]),
+      ),
+    ).toEqual(['unchanged']);
+  });
+
+  it('matches each previous line once', () => {
+    expect(
+      draftChanges(draftOf([bananaItem]), draftOf([bananaItem, bananaItem])),
+    ).toEqual(['unchanged', 'added']);
   });
 });

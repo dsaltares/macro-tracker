@@ -1,6 +1,5 @@
 import type { Kysely } from 'kysely';
 import type { Logger } from 'pino';
-import type { z } from 'zod';
 import type { EstimateMeal } from '../ai/meal-estimator.ts';
 import type { AiFailure } from '../ai/structured-output.ts';
 import {
@@ -12,6 +11,7 @@ import {
   maxMealDescriptionLength,
   maxMealPhotos,
   mealDraft,
+  type PreviousEstimate,
   previousEstimateSchema,
 } from '../domain/diary/meal-estimate.ts';
 import {
@@ -40,8 +40,6 @@ const failed = (error: MealEstimateError, status: number) =>
   Response.json({ error }, { status });
 
 const invalid = () => failed('INVALID_REQUEST', 400);
-
-type PreviousEstimate = z.infer<typeof previousEstimateSchema>;
 
 type MealEstimateForm = {
   photos: File[];

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { confidenceSchema, isUnsure } from '../foods/label-reading.ts';
 import { oneGram, type Portion } from '../foods/portions.ts';
 import { nutrientVectorSchema } from '../foods/source-food.ts';
+import { nutrientKeys } from '../nutrition/nutrients.ts';
 import type { NutrientVector } from '../nutrition/vector.ts';
 import { type RecipeAmount, recipePortionOf } from '../recipes/recipes.ts';
 import {
@@ -178,6 +179,8 @@ export const previousEstimateSchema = z.strictObject({
   draft: mealDraftSchema,
   feedback: z.string().trim().min(1).max(maxMealDescriptionLength),
 });
+
+export type PreviousEstimate = z.infer<typeof previousEstimateSchema>;
 
 export type ItemAssessment = Pick<
   DraftItemFields,
@@ -374,3 +377,39 @@ const entryOf = (item: MealDraftItem): MealEntryToAdd => {
 
 export const mealDraftToEntries = (draft: MealDraft): MealEntryToAdd[] =>
   draft.items.map(entryOf);
+
+export const maxFeedbackRounds = 3;
+
+export type DraftChange = 'added' | 'changed' | 'unchanged';
+
+const sourceOf = (item: MealDraftItem) => {
+  switch (item.kind) {
+    case 'food':
+      return `food:${item.foodId}`;
+    case 'recipe':
+      return `recipe:${item.recipeId}`;
+    case 'guess':
+      return `guess:${item.name.trim().toLowerCase()}`;
+  }
+};
+
+const sameAmounts = (a: MealDraftItem, b: MealDraftItem) =>
+  a.grams === b.grams &&
+  nutrientKeys.every((key) => a.nutrients[key] === b.nutrients[key]);
+
+export const draftChanges = (
+  previous: MealDraft,
+  revised: MealDraft,
+): DraftChange[] => {
+  const unmatched = [...previous.items];
+  return revised.items.map((item) => {
+    const match = unmatched.find(
+      (candidate) => sourceOf(candidate) === sourceOf(item),
+    );
+    if (match === undefined) {
+      return 'added';
+    }
+    unmatched.splice(unmatched.indexOf(match), 1);
+    return sameAmounts(match, item) ? 'unchanged' : 'changed';
+  });
+};

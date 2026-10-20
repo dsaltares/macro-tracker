@@ -3,7 +3,10 @@ import {
   postWithProgress,
   type UploadProgress,
 } from '@/components/label-scan/photo';
-import type { MealDraft } from '@/lib/domain/diary/meal-estimate';
+import type {
+  MealDraft,
+  PreviousEstimate,
+} from '@/lib/domain/diary/meal-estimate';
 import type { MealEstimateError } from '@/lib/meal-estimate/route';
 import { routes } from '@/lib/routes';
 
@@ -16,6 +19,7 @@ export type EstimateResult =
 export type MealToEstimate = {
   photos: readonly Blob[];
   description: string;
+  previous?: PreviousEstimate;
 };
 
 const extensions: Record<string, string> = {
@@ -23,7 +27,7 @@ const extensions: Record<string, string> = {
   'image/jpeg': 'jpg',
 };
 
-const formOf = ({ photos, description }: MealToEstimate) => {
+const formOf = ({ photos, description, previous }: MealToEstimate) => {
   const form = new FormData();
   for (const [index, photo] of photos.entries()) {
     form.append(
@@ -34,6 +38,9 @@ const formOf = ({ photos, description }: MealToEstimate) => {
   }
   if (description.trim() !== '') {
     form.append('description', description.trim());
+  }
+  if (previous !== undefined) {
+    form.append('previous', JSON.stringify(previous));
   }
   return form;
 };
