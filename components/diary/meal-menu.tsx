@@ -38,7 +38,7 @@ export const copyFailed = 'The meal could not be copied. Try again.';
 
 export const clearFailed = 'The meal could not be cleared. Try again.';
 
-const entriesCount = (count: number) =>
+export const entriesCount = (count: number) =>
   count === 1 ? '1 entry' : `${count} entries`;
 
 const mealName = (meal: Meal) => mealNames[meal].toLowerCase();

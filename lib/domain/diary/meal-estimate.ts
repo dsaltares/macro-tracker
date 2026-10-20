@@ -16,6 +16,8 @@ export const maxEstimateNoteLength = 300;
 
 export const maxMealDescriptionLength = 500;
 
+export const maxMealPhotos = 4;
+
 export const maxDraftItemNameLength = 300;
 
 const gramsSchema = z
@@ -177,24 +179,105 @@ export const previousEstimateSchema = z.strictObject({
   feedback: z.string().trim().min(1).max(maxMealDescriptionLength),
 });
 
-const fieldsOf = (
-  item: EstimatedItem,
-  name: string,
-  grams: number,
-  nutrients: NutrientVector,
-): DraftItemFields => ({
+export type ItemAssessment = Pick<
+  DraftItemFields,
+  'confidence' | 'unsure' | 'note'
+>;
+
+const fullConfidence = 1;
+
+export const checkedByUser = (
+  item: MealDraftItem | null = null,
+): ItemAssessment => ({
+  confidence: item?.confidence ?? fullConfidence,
+  unsure: false,
+  note: item?.note ?? null,
+});
+
+const assessmentOf = ({ confidence, note }: EstimatedItem): ItemAssessment => ({
+  confidence,
+  unsure: isUnsure(confidence),
+  note,
+});
+
+export type FoodToDraft = MatchedFood & { id: string };
+
+export const foodDraftItem = (
+  food: FoodToDraft,
+  portion: Portion,
+  quantity: number,
+  assessment: ItemAssessment,
+): MealDraftItem => {
+  const { grams, nutrients } = resolveEntry(food, portion, quantity);
+  return {
+    kind: 'food',
+    foodId: food.id,
+    portionLabel: portion.label,
+    quantity,
+    name: food.name,
+    grams,
+    nutrients,
+    ...assessment,
+  };
+};
+
+export const recipeDraftItem = (
+  recipe: FoodToDraft,
+  amount: RecipeAmount,
+  assessment: ItemAssessment,
+): MealDraftItem => {
+  const { portion, quantity } = recipePortionOf(recipe.portions, amount);
+  const { grams, nutrients } = resolveEntry(recipe, portion, quantity);
+  return {
+    kind: 'recipe',
+    recipeId: recipe.id,
+    amount,
+    name: recipe.name,
+    grams,
+    nutrients,
+    ...assessment,
+  };
+};
+
+export type GuessedAmounts = {
+  name: string;
+  grams: number;
+  nutrients: NutrientVector;
+};
+
+export const guessDraftItem = (
+  { name, grams, nutrients }: GuessedAmounts,
+  assessment: ItemAssessment,
+): MealDraftItem => ({
+  kind: 'guess',
+  unresolved: false,
   name,
   grams,
-  confidence: item.confidence,
-  unsure: isUnsure(item.confidence),
-  note: item.note,
-  nutrients,
+  nutrients: quickEntryNutrients({ totals: nutrients }),
+  ...assessment,
 });
+
+export const replacedDraftItem = (
+  item: MealDraftItem,
+  replacement:
+    | { kind: 'food'; food: FoodToDraft }
+    | { kind: 'recipe'; recipe: FoodToDraft },
+): MealDraftItem =>
+  replacement.kind === 'food'
+    ? foodDraftItem(replacement.food, oneGram, item.grams, checkedByUser())
+    : recipeDraftItem(
+        replacement.recipe,
+        { grams: item.grams },
+        checkedByUser(),
+      );
 
 const unresolvedGuess = (item: EstimatedItem): MealDraftItem => ({
   kind: 'guess',
   unresolved: true,
-  ...fieldsOf(item, item.name, item.grams, {}),
+  name: item.name,
+  grams: item.grams,
+  nutrients: {},
+  ...assessmentOf(item),
 });
 
 type EstimatedFoodItem = Extract<EstimatedItem, { kind: 'food' }>;
@@ -225,54 +308,44 @@ const draftItemOf = (
         return unresolvedGuess(item);
       }
       const { portion, quantity } = foodPortionOf(food, item);
-      const { grams, nutrients } = resolveEntry(food, portion, quantity);
-      return {
-        kind: 'food',
-        foodId: item.foodId,
-        portionLabel: portion.label,
+      return foodDraftItem(
+        { ...food, id: item.foodId },
+        portion,
         quantity,
-        ...fieldsOf(item, food.name, grams, nutrients),
-      };
+        assessmentOf(item),
+      );
     }
     case 'recipe': {
       const recipe = recipes.get(item.recipeId);
       if (recipe === undefined) {
         return unresolvedGuess(item);
       }
-      const amount: RecipeAmount =
+      return recipeDraftItem(
+        { ...recipe, id: item.recipeId },
         item.servings === null
           ? { grams: item.grams }
-          : { servings: item.servings };
-      const { portion, quantity } = recipePortionOf(recipe.portions, amount);
-      const { grams, nutrients } = resolveEntry(recipe, portion, quantity);
-      return {
-        kind: 'recipe',
-        recipeId: item.recipeId,
-        amount,
-        ...fieldsOf(item, recipe.name, grams, nutrients),
-      };
+          : { servings: item.servings },
+        assessmentOf(item),
+      );
     }
     case 'guess':
-      return {
-        kind: 'guess',
-        unresolved: false,
-        ...fieldsOf(
-          item,
-          item.name,
-          item.grams,
-          quickEntryNutrients({ totals: item.nutrients }),
-        ),
-      };
+      return guessDraftItem(item, assessmentOf(item));
   }
 };
+
+export const draftOfItems = (
+  items: MealDraftItem[],
+  notes: string[],
+): MealDraft => ({ items, totals: dayTotals(items), notes });
 
 export const mealDraft = (
   estimate: MealEstimate,
   resolved: ResolvedMatches,
-): MealDraft => {
-  const items = estimate.items.map((item) => draftItemOf(item, resolved));
-  return { items, totals: dayTotals(items), notes: estimate.notes };
-};
+): MealDraft =>
+  draftOfItems(
+    estimate.items.map((item) => draftItemOf(item, resolved)),
+    estimate.notes,
+  );
 
 export type MealEntryToAdd =
   | { kind: 'food'; foodId: string; portion: string; quantity: number }

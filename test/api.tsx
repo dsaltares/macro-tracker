@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import type { Kysely } from 'kysely';
-import { HttpResponse, http } from 'msw';
+import { HttpResponse, http, type RequestHandler } from 'msw';
 import { setupServer } from 'msw/node';
 import { type ReactNode, useState } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
@@ -111,6 +111,7 @@ export const serveApi = ({ signedInAs }: ServeApiOptions = {}) => {
   return {
     database: () => db,
     fails: (procedure: string) => server.use(failingProcedure(procedure)),
+    use: (...handlers: RequestHandler[]) => server.use(...handlers),
     wrap: (children: ReactNode) => <ApiProviders>{children}</ApiProviders>,
   };
 };
