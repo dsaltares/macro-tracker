@@ -9,6 +9,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | account | A user with a confirmed address. Only an account has a session and owns data. | [Accounts](DOMAIN.md#accounts), [ADR 0006](adr/0006-sessions-only-for-a-confirmed-address.md) |
 | account deletion | Removing a user and everything they own in one statement, confirmed by typing the address, then signing out. Also how consent is withdrawn. | [Accounts](DOMAIN.md#accounts), [ADR 0010](adr/0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md) |
 | activity level | Sedentary, light, moderate, active or very active, each a TDEE multiplier from 1.2 to 1.9. | [Body and goals](DOMAIN.md#body-and-goals) |
+| age band | The EFSA adult age group a dietary reference value applies to: 18–24, 25–50, 51–70 or 71+. An account of 16 or 17 is in the youngest. | [Body and goals](DOMAIN.md#body-and-goals) |
 | API client | Anything that calls the REST API under `/api/v1` with an API key, never a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | API key | A user's named bearer credential, scoped `read` or `write`, stored hashed, shown once, revocable. A user may have several. | [API](DOMAIN.md#api) |
 | app | The installable PWA, which talks tRPC with a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
@@ -25,6 +26,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | delta | A source adapter that reads only what changed upstream since its last succeeded run. Upserts, never archives. | [Foods](DOMAIN.md#foods) |
 | derived goal | A goal computed from a weekly rate target at 7,700 kcal per kg, protein in g per kg, a fat share of energy, carbohydrate as the remainder and fibre at 14 g per 1,000 kcal. | [Body and goals](DOMAIN.md#body-and-goals) |
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
+| dietary reference value | The default for a micro goal, by sex and age band: EFSA's population reference intake, else its adequate intake, else another body's figure. | [Body and goals](DOMAIN.md#body-and-goals), [Data sources](DATA-SOURCES.md) |
 | favourite | A food a user marked to find again quickly. Theirs alone; goes with the food. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
 | food import | One run of the importer over some sources: queued, running, succeeded or failed, with its counts. One runs at a time. | [Foods](DOMAIN.md#foods) |
@@ -38,6 +40,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | manual goal | A goal with explicit targets instead of derived ones. | [Body and goals](DOMAIN.md#body-and-goals) |
 | meal | `breakfast`, `lunch`, `dinner` or `snack`. Fixed. | [Diary](DOMAIN.md#diary) |
 | meal totals | The sum of a meal's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
+| micro goal | The goal for a mineral, a vitamin, fibre, saturated fat or sugars, defaulting to its dietary reference value and overridable. | [Body and goals](DOMAIN.md#body-and-goals) |
 | nutrient | One key in the closed canon in `lib/domain/nutrition/nutrients.ts`, with a unit, a group and a display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient group | Energy, macros, fat detail, carbohydrate detail, minerals, vitamins, other — in that display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
@@ -59,7 +62,9 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |
 | source preferences | Which generic sources a user's search includes, and their order. All enabled by default; Open Food Facts is always on. | [Foods](DOMAIN.md#foods) |
+| target | A goal to reach. Every goal is a target unless it is an upper limit. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trace | A nutrient a source declares as below a limit or as "traces": stored as zero and listed among the food's traces. | [Foods](DOMAIN.md#foods) |
 | TDEE | Total daily energy expenditure: BMR times the activity multiplier. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trend weight | An exponential moving average over the weight log. | [Body and goals](DOMAIN.md#body-and-goals) |
+| upper limit | A goal to stay under: saturated fat, sugars, sodium and chloride. | [Body and goals](DOMAIN.md#body-and-goals) |
 | user food | A food with `source` `user`: owned by one user, visible only to them, may carry a barcode. | [Foods](DOMAIN.md#foods) |

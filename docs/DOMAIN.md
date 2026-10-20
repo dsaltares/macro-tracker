@@ -146,8 +146,18 @@ carbohydrate as the remainder — or *manual*, with explicit targets. A derived 
 TDEE plus the weekly rate at 7,700 kcal per kg, spread over seven days; its fibre is 14 g per
 1,000 kcal. Either way the result is a **goal vector**: a target per nutrient, computed live for a
 date from the latest weight on or before it, never stored (ADR
-[0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)). Micro targets default
-to EFSA dietary reference values by sex and age, each overridable.
+[0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
+
+The **micro goals** default to **dietary reference values**: EFSA's population reference intake
+where it has one, otherwise its adequate intake, by sex and **age band** (18–24, 25–50, 51–70, 71+;
+an account of 16 or 17 is in the youngest), each overridable. Thiamin and niacin are set per MJ and
+scale with the day's kcal target. Every goal is a **target** to reach or an **upper limit** to stay
+under, and the two are coloured differently. The upper limits are saturated fat (10% of energy),
+sugars (90 g), sodium (2 g) and chloride (3.1 g). Where EFSA sets no number, the goal comes from
+another body: saturated fat from the WHO, sugars and chromium from the EU reference intakes (Reg.
+1169/2011, Annex XIII). Zinc assumes a moderate phytate intake (600 mg a day), and a woman's iron
+drops from 16 to 11 mg at 51, EFSA's postmenopausal value. Sources and retrieval are in
+[`DATA-SOURCES.md`](DATA-SOURCES.md).
 
 Goals **warn, never block**: an aggressive goal shows a warning, and still saves. A derived goal
 warns when its kcal target is under 1,200 for a woman or 1,500 for a man, when its weekly rate is

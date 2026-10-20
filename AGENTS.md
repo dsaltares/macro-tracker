@@ -77,7 +77,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
   energy, carbohydrate as the remainder floored at zero, fibre at 14 g per 1,000 kcal.
   `derivedGoal` (`derived.ts`) puts them together into a goal vector with its warnings, codes the
-  UI words. Coverage on it is gated at 100%.
+  UI words. `drv.ts` is the table of dietary reference values by sex and age band, sourced in
+  `docs/DATA-SOURCES.md`; `defaultMicroGoals(profile, date, kcal)` reads it into a vector, scaling
+  the values per MJ or share of energy by `kcal`, and `goalKind(key)` says whether a nutrient's
+  goal is a `target` or an `upper` limit. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
