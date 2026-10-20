@@ -80,7 +80,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   UI words. `drv.ts` is the table of dietary reference values by sex and age band, sourced in
   `docs/DATA-SOURCES.md`; `defaultMicroGoals(profile, date, kcal)` reads it into a vector, scaling
   the values per MJ or share of energy by `kcal`, and `goalKind(key)` says whether a nutrient's
-  goal is a `target` or an `upper` limit. Coverage on it is gated at 100%.
+  goal is a `target` or an `upper` limit. `settings.ts` is the goal settings' schema and defaults;
+  `goalOn(profile, weightKg, date, settings)` (`goal.ts`) is the goal vector for a date: the micro
+  defaults at the goal's kcal, the derived energy and macros (none without a weight) or a manual
+  goal's own, then the overrides. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -207,6 +210,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   linked from Trends, is `WeightLog`, with `WeightChart` above the log: the weights and the trend
   weight in Recharts (through shadcn's `components/ui/chart.tsx`) over 30 days, 90 days, a year or
   all, hidden from screen readers behind a `figcaption` that sums it up.
+- `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
+  object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
+  profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
+  The `goals` router (`get`, `set`, `forDate`) is these over the caller.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
