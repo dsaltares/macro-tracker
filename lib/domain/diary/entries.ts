@@ -14,6 +14,8 @@ export const entryKinds = ['food', 'recipe', 'quick'] as const;
 
 export type EntryKind = (typeof entryKinds)[number];
 
+export const maxEntryLabelLength = 100;
+
 export type ResolvedEntry = {
   grams: number;
   nutrients: NutrientVector;

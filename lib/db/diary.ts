@@ -10,7 +10,7 @@ import {
   type LastLoggedAmount,
   withLastLoggedAmounts,
 } from './food-search.ts';
-import type { FoodWriteContext } from './foods.ts';
+import { type FoodWriteContext, writeFood } from './foods.ts';
 import type { Database, DiaryEntriesTable } from './schema.ts';
 
 type EntryFields = {
@@ -130,6 +130,36 @@ export const insertDiaryEntry = async (
     .executeTakeFirstOrThrow();
   return diaryEntry(row);
 };
+
+export type QuickEntryToLog = Omit<QuickEntryInput, 'kind'> & {
+  foodPer100g: NutrientVector | null;
+};
+
+export const logQuickEntry = (
+  db: Kysely<Database>,
+  userId: string,
+  { foodPer100g, ...entry }: QuickEntryToLog,
+  context: FoodWriteContext,
+) =>
+  db.transaction().execute(async (trx) => {
+    if (foodPer100g !== null) {
+      await writeFood(
+        trx,
+        {
+          source: 'user',
+          owner_user_id: userId,
+          barcode: null,
+          name: entry.label,
+          brand: null,
+          quantity_label: null,
+          nutrients: foodPer100g,
+          portions: [],
+        },
+        context,
+      );
+    }
+    return insertDiaryEntry(trx, userId, { kind: 'quick', ...entry }, context);
+  });
 
 export type FoodToLog = {
   date: string;
