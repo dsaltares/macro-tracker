@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist } from 'next/font/google';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import type { ReactNode } from 'react';
+import { ThemeColor } from '@/components/theme-color';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import {
@@ -10,6 +11,7 @@ import {
   siteName,
   siteShortName,
 } from '@/lib/brand';
+import { startupImages } from '@/lib/splash';
 import { TRPCReactProvider } from '@/lib/trpc/client';
 import '@/app/globals.css';
 
@@ -30,6 +32,7 @@ export const metadata: Metadata = {
     capable: true,
     title: siteShortName,
     statusBarStyle: 'black-translucent',
+    startupImage: startupImages,
   },
   icons: {
     icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
@@ -42,8 +45,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: appBackground.light.css },
-    { media: '(prefers-color-scheme: dark)', color: appBackground.dark.css },
+    { media: '(prefers-color-scheme: light)', color: appBackground.light.hex },
+    { media: '(prefers-color-scheme: dark)', color: appBackground.dark.hex },
   ],
 };
 
@@ -59,6 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               enableSystem
               disableTransitionOnChange
             >
+              <ThemeColor />
               {children}
               <Toaster />
             </ThemeProvider>

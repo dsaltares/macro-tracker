@@ -129,6 +129,13 @@ export default function CookiesPage() {
             Clearing site data resets it to following your system setting.
           </p>
           <p>
+            On a phone, once you <strong>dismiss the banner</strong> that
+            explains how to install the app, that choice is kept in local
+            storage under the key <code>install-banner-dismissed</code>, so the
+            banner does not come back. It never leaves your device either, and
+            clearing site data brings the banner back.
+          </p>
+          <p>
             If the Website ever keeps another convenience on your device, it
             will be kept the same way — in your browser, never sent to us, gone
             when you clear site data — and listed here.
@@ -155,8 +162,8 @@ export default function CookiesPage() {
               position to set a cookie on your visit.
             </li>
             <li>
-              <strong>No preference cookies</strong> beyond the local-storage
-              theme setting described above.
+              <strong>No preference cookies</strong> beyond the two
+              local-storage entries described above.
             </li>
           </ul>
         </Prose>
