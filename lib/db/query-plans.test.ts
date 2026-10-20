@@ -5,6 +5,7 @@ import { accountDeletion } from './accounts.ts';
 import {
   diaryDayQuery,
   diaryEntryDeletion,
+  diaryEntryQuery,
   favouriteDeletion,
   favouritesQuery,
 } from './diary.ts';
@@ -286,6 +287,19 @@ describe('query plans', () => {
   it("reads a user's day of diary entries with a search", () => {
     expectSearch(
       diaryDayQuery(db, 'u', '2026-10-20').compile(),
+      'diary_entries',
+    );
+  });
+
+  it("reads a user's diary entry by id with a search", () => {
+    expectSearch(diaryEntryQuery(db, 'u', 'e').compile(), 'diary_entries');
+  });
+
+  it("reads one meal of a user's day with a search", () => {
+    expectSearch(
+      diaryDayQuery(db, 'u', '2026-10-20')
+        .where('meal', '=', 'lunch')
+        .compile(),
       'diary_entries',
     );
   });
