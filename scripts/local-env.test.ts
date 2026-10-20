@@ -13,6 +13,7 @@ describe('localEnvironment', () => {
     ).toEqual({
       DATABASE_URL: '.data/db.sqlite',
       FOOD_IMPORT_CRON: '',
+      FOOD_DELTA_CRON: '',
       NEXT_TELEMETRY_DISABLED: '1',
     });
   });
@@ -20,11 +21,11 @@ describe('localEnvironment', () => {
   it('turns scheduled food imports off', () => {
     expect(
       localEnvironment(
-        { FOOD_IMPORT_CRON: '0 3 * * SUN#1' },
-        { FOOD_IMPORT_CRON: '0 4 * * *' },
+        { FOOD_IMPORT_CRON: '0 3 * * SUN#1', FOOD_DELTA_CRON: '0 4 * * *' },
+        { FOOD_IMPORT_CRON: '0 4 * * *', FOOD_DELTA_CRON: '0 5 * * *' },
         '.data/db.sqlite',
       ),
-    ).toMatchObject({ FOOD_IMPORT_CRON: '' });
+    ).toMatchObject({ FOOD_IMPORT_CRON: '', FOOD_DELTA_CRON: '' });
   });
 
   it('drops what only means something in the container', () => {
@@ -45,6 +46,7 @@ describe('localEnvironment', () => {
       SOME_API_KEY: 'key_123',
       DATABASE_URL: '.data/db.sqlite',
       FOOD_IMPORT_CRON: '',
+      FOOD_DELTA_CRON: '',
     });
   });
 
@@ -60,6 +62,7 @@ describe('localEnvironment', () => {
       LOCAL_ONLY: 'local',
       DATABASE_URL: '.data/db.sqlite',
       FOOD_IMPORT_CRON: '',
+      FOOD_DELTA_CRON: '',
     });
   });
 });

@@ -17,7 +17,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   rolls one back
 - `yarn db:import-foods [--source off,ciqual,…] [--fixture]` — run the importer against
   `DATABASE_URL` after migrating it: the named source adapters, every registered one when none is
-  named, or the fixture alone. Refused while another import is running
+  named, or the fixture alone. Refused while another import is running. `off-deltas` is only ever
+  run by name
 - `yarn db:seed:foods` — migrate `DATABASE_URL` and import the fixture into it when it has no
   reference foods, so a fresh clone has something to search. Does nothing otherwise
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
@@ -28,6 +29,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn data:off` — stream the real Open Food Facts export through the adapter without writing
   anything, and print what it kept, the bytes, wall time and peak memory. An optional URL argument
   reads another export
+- `yarn data:off-deltas [since]` — the same for the Open Food Facts deltas: every listed file, or
+  those after an optional ISO time
 - `yarn data:cofid-sample [url-or-path]` — rebuild `test/fixtures/cofid/sample.xlsx`, the trimmed
   CoFID workbook the adapter's tests read, from the real one: its three header rows and the foods
   whose codes `scripts/cofid-sample.ts` lists
@@ -69,6 +72,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   An interrupted download resumes with a `Range` request pinned to the first response's ETag.
   `test/fixtures/off/export-header.tsv` is the real export's header; refresh it from upstream
   when the export changes shape.
+  `open-food-facts/deltas.ts` (`off-deltas`, a delta source) reads `index.txt` of the daily delta
+  files (gzipped JSONL, one per day for 14 days, each file name the Unix seconds it covers), and
+  fetches, oldest first, every file that ends after the last succeeded `off-deltas` run started.
+  Its products are in the newer nutrition schema: `nutrimentsFromNutrition` (`mapping.ts`) turns
+  the `aggregated_set` into the `*_100g` keys the CSV has, leaving out what Open Food Facts
+  estimated from the ingredients, so both go through the same table and the same filters
+  (`products.ts`). `test/fixtures/off/delta.jsonl` is twenty real products from one delta,
+  trimmed to the fields the adapter reads, that between them carry every nutrient key that day.
   `ciqual/table.ts` asks Recherche Data Gouv for the latest version of the CIQUAL 2025 dataset,
   reads `alim_*.xml` for the English and French names, then streams `compo_*.xml`, which is
   grouped by food, and emits each food that declares energy or all three energy macros. The
@@ -98,24 +109,29 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   datasets use; the adapter warns at run time about any new one.
 - `lib/data/import-foods.ts` — the importer. `importFoods({ db, sources, clock, logger, signal,
   workDir })` streams each `FoodSource` into `upsertFoods` in batches of 2,000, one transaction
-  per batch and a yield to the event loop between them, then archives the foods of the sources
-  that adapter `emits` that the run did not see. It takes no request context. A run is a row in
+  per batch and a yield to the event loop between them, then, for a `full` source, archives the
+  foods of the sources that adapter `emits` that the run did not see. A `delta` source only
+  upserts. Each source is handed `lastSucceededAt`, the start of the last succeeded run that read
+  it. It takes no request context. A run is a row in
   `food_imports` (`lib/db/food-imports.ts`), kept current after every batch; a partial unique
   index allows one `running` row, which is the lock, and a second run is answered with it.
   `instrumentation.ts` fails a row still `running` at boot as `interrupted`. "Seen" is an
   `updated_at` at or after the run's start: every upsert writes it. `launchFoodImport` answers
   once the row exists, with a `finished` promise; `importFoods` awaits it. The adapters the CLI,
-  the endpoint and the schedule can name are in `lib/data/sources/registry.ts` (`chooseSources`).
+  the endpoint and the schedule can name are in `lib/data/sources/registry.ts` (`chooseSources`);
+  naming none means every `full` one.
 - `lib/data/background-import.ts` — `serverFoodImport(db)` starts a run that outlives the request
   with the server's clock, logger and work directory: the one code path behind the endpoint and the
   schedule. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
   for `yarn db:seed:foods` and `e2e/prepare-database.ts`.
-- `lib/data/food-import-schedule.ts` — the in-process schedule (`croner`). `FOOD_IMPORT_CRON` is
-  the pattern; unset means the first Sunday of the month at 03:00 server time, empty means off,
-  and it is always off under Vitest. The e2e server and the `.env` `yarn db:copy-down` writes set
-  it empty.
-- `lib/internal-api/` — `POST /api/internal/imports/foods` (`{ sources? }`, every registered
-  adapter when absent) answers `202` with the new `food_imports` row, or `409` with the running one;
+- `lib/data/food-import-schedule.ts` — the in-process schedules (`croner`). `FOOD_IMPORT_CRON` is
+  the pattern of the full import, every `full` source; unset means the first Sunday of the month
+  at 03:00 server time. `FOOD_DELTA_CRON` is the pattern of the delta import, every `delta`
+  source; unset means every day at 04:00. Empty means off, and both are always off under Vitest.
+  The e2e server and the `.env` `yarn db:copy-down` writes set both empty.
+- `lib/internal-api/` — `POST /api/internal/imports/foods` (`{ sources? }`, every `full`
+  adapter when absent, `['off-deltas']` for the deltas) answers `202` with the new `food_imports` row, or `409` with
+  the running one;
   `GET` lists the last 20 runs. Both answer `404`, with no body, unless the request carries
   `Authorization: Bearer <INTERNAL_API_TOKEN>`, and always while that variable is unset. Operator
   plumbing, not part of `/api/v1`. The route in `app/api/internal/` only wires it to the server.

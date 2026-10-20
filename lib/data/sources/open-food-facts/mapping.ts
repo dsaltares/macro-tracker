@@ -163,6 +163,7 @@ export const ignoredOffNutriments: readonly string[] = [
   'fruits-vegetables-legumes-estimate-from-ingredients',
   'fruits-vegetables-nuts',
   'fruits-vegetables-nuts-dried',
+  'fruits-vegetables-nuts-estimate',
   'fruits-vegetables-nuts-estimate-from-ingredients',
   'collagen-meat-protein-ratio',
   'cocoa',
@@ -175,6 +176,8 @@ export const ignoredOffNutriments: readonly string[] = [
   'carnitine',
   'sulphate',
   'nitrate',
+  'nitrite',
+  'crude-ash',
   'acidity',
   'carbohydrates-total',
   'dry-residue',
@@ -239,6 +242,53 @@ export const offProductSchema = z.object({
 });
 
 export type OffProduct = z.input<typeof offProductSchema>;
+
+const offNutritionNutrientSchema = z.object({
+  value: offNumber,
+  modifier: offText,
+  source: offText,
+});
+
+export const offNutritionSchema = z.object({
+  aggregated_set: z
+    .object({
+      preparation: offText,
+      per: offText,
+      nutrients: z.record(z.string(), offNutritionNutrientSchema).default({}),
+    })
+    .nullish(),
+});
+
+export type OffNutrition = z.input<typeof offNutritionSchema>;
+
+const asSold = 'as_sold';
+const per100 = new Set(['100g', '100ml']);
+const estimated = 'estimate';
+
+export const nutrimentsFromNutrition = (
+  nutrition: z.output<typeof offNutritionSchema>,
+): Record<string, unknown> => {
+  const aggregated = nutrition.aggregated_set;
+  if (
+    !aggregated ||
+    aggregated.preparation !== asSold ||
+    !per100.has(aggregated.per ?? '')
+  ) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(aggregated.nutrients).flatMap(([key, nutrient]) =>
+      nutrient.source === estimated || nutrient.value == null
+        ? []
+        : [
+            [`${key}_100g`, nutrient.value],
+            ...(nutrient.modifier
+              ? [[`${key}_modifier`, nutrient.modifier]]
+              : []),
+          ],
+    ),
+  );
+};
 
 export type OffMapping =
   | { success: true; food: SourceFood }

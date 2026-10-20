@@ -59,6 +59,9 @@ A **source adapter** streams one upstream dataset as `SourceFood` records
 (`lib/domain/foods/source-food.ts`): canonical nutrients per 100 g, whatever the upstream keys,
 units and basis were (ADR [0005](adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md)).
 The **importer** runs inside the server, upserts them and archives what a run no longer sees.
+Most adapters read a whole dataset. A **delta** adapter reads only what changed upstream since it
+last succeeded (Open Food Facts publishes a file of changed products a day); a delta never says
+what was removed, so its run only upserts and never archives. Only a full run archives.
 Each run is a **food import**: the sources it read, `queued`, `running`, `succeeded` or `failed`,
 and how many foods it inserted, updated and archived. Only one runs at a time. A
 user's **source preferences** choose which generic sources appear in their search, and in what

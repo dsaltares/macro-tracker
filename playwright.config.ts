@@ -60,6 +60,7 @@ export default defineConfig({
       RESEND_API_KEY: '',
       EMAIL_FROM: '',
       EMAIL_OUTBOX_DIR: e2eOutboxDir,
+      FOOD_DELTA_CRON: '',
     },
   },
 });

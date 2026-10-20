@@ -226,6 +226,7 @@ export const createUsdaSource = ({
   urls?: Readonly<Record<UsdaDataset, string>>;
 } = {}): FoodSource => ({
   id: 'usda',
+  kind: 'full',
   emits: ['usda'],
   async *fetch(context) {
     const { logger } = context;

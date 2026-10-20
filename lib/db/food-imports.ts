@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from 'kysely';
+import { type Kysely, type Selectable, sql } from 'kysely';
 import type { Database, FoodImportsTable } from './schema.ts';
 
 export type FoodImport = Selectable<FoodImportsTable>;
@@ -35,6 +35,26 @@ export const recentFoodImports = (
     .orderBy('started_at', 'desc')
     .limit(limit)
     .execute();
+
+const listing = (source: string) =>
+  `%${sourceSeparator}${source}${sourceSeparator}%`;
+
+export const lastSucceededFoodImportQuery = (
+  db: Kysely<Database>,
+  source: string,
+) =>
+  db
+    .selectFrom('food_imports')
+    .selectAll()
+    .where('status', '=', 'succeeded')
+    .where(
+      sql<boolean>`${sourceSeparator} || ${sql.ref('sources')} || ${sourceSeparator} like ${listing(source)}`,
+    )
+    .orderBy('started_at', 'desc')
+    .limit(1);
+
+export const lastSucceededFoodImport = (db: Kysely<Database>, source: string) =>
+  lastSucceededFoodImportQuery(db, source).executeTakeFirst();
 
 export type NewFoodImport = {
   id: string;
