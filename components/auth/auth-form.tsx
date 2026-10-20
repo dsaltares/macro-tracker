@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { FormError } from '@/components/auth/fields';
+import { GoogleButton } from '@/components/auth/google-button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { authUrl } from '@/lib/auth/redirect';
@@ -59,6 +60,16 @@ export function AuthOutcome({
 
 export const submitButtonClass = 'h-11 text-sm';
 
+function OrDivider() {
+  return (
+    <div className="flex items-center gap-3 text-muted-foreground text-xs">
+      <span className="h-px flex-1 bg-border" />
+      or with your email
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 export function AuthForm({
   onSubmit,
   error,
@@ -67,6 +78,7 @@ export function AuthForm({
   pending,
   footer,
   next,
+  google = false,
   children,
 }: {
   onSubmit: ComponentProps<'form'>['onSubmit'];
@@ -76,6 +88,7 @@ export function AuthForm({
   pending: boolean;
   footer: { prompt: string; href: string; label: string };
   next: string | null;
+  google?: boolean;
   children: ReactNode;
 }) {
   const [interactive, setInteractive] = useState(false);
@@ -92,6 +105,12 @@ export function AuthForm({
       noValidate
     >
       {error ? <FormError>{error}</FormError> : null}
+      {google ? (
+        <>
+          <GoogleButton next={next} disabled={!interactive} />
+          <OrDivider />
+        </>
+      ) : null}
       {children}
       <Button
         type="submit"

@@ -28,6 +28,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | generic source | `ciqual`, `cofid` or `usda`. A user chooses which of them appear in their search. | [Foods](DOMAIN.md#foods) |
 | goal | Derived or manual; either way it yields a goal vector. Goals warn, never block. | [Body and goals](DOMAIN.md#body-and-goals) |
 | goal vector | A target per nutrient for a date, from what the user weighed and had set then. | [Body and goals](DOMAIN.md#body-and-goals) |
+| Google | A way to sign in whose confirmation of the address stands in for the mailed link. Attaches to the user with the same address. | [Accounts](DOMAIN.md#accounts), [ADR 0008](adr/0008-link-google-to-the-account-on-the-same-confirmed-address.md) |
 | importer | The in-server job that upserts what source adapters stream and archives what a run no longer sees. | [Foods](DOMAIN.md#foods) |
 | ingredient | A food or a recipe, with grams, in a recipe's ordered list. | [Recipes](DOMAIN.md#recipes) |
 | manual goal | A goal with explicit targets instead of derived ones. | [Body and goals](DOMAIN.md#body-and-goals) |

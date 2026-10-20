@@ -8,21 +8,26 @@ import { AuthForm, AuthLink } from '@/components/auth/auth-form';
 import { PasswordField, TextField } from '@/components/auth/fields';
 import { signIn } from '@/lib/auth/client';
 import { type SignInCredentials, signInSchema } from '@/lib/auth/credentials';
-import { authErrorMessage } from '@/lib/auth/errors';
+import { authErrorMessage, googleErrorMessage } from '@/lib/auth/errors';
 import {
   afterAuthPath,
   authUrl,
   emailParam,
+  errorParam,
   nextParam,
 } from '@/lib/auth/redirect';
 import { routes } from '@/lib/routes';
 
 const unverified = 'EMAIL_NOT_VERIFIED';
 
-export function SignInForm() {
+export function SignInForm({ google }: { google: boolean }) {
   const router = useRouter();
-  const next = useSearchParams().get(nextParam);
-  const [failure, setFailure] = useState<string>();
+  const searchParams = useSearchParams();
+  const next = searchParams.get(nextParam);
+  const googleError = searchParams.get(errorParam);
+  const [failure, setFailure] = useState(
+    googleError ? googleErrorMessage(googleError) : undefined,
+  );
   const {
     register,
     handleSubmit,
@@ -60,6 +65,7 @@ export function SignInForm() {
       working="Signing in…"
       pending={isSubmitting}
       next={next}
+      google={google}
       footer={{
         prompt: 'No account yet?',
         href: routes.signUp,

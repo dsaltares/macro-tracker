@@ -21,11 +21,12 @@ const signInWith = async (user: ReturnType<typeof renderUi>['user']) => {
 beforeEach(() => {
   atSearchParams('');
   signIn.email.mockResolvedValue({});
+  signIn.social.mockResolvedValue({});
 });
 
 describe('SignInForm', () => {
   it('checks the address before it asks the server anything', async () => {
-    const { user } = renderUi(<SignInForm />);
+    const { user } = renderUi(<SignInForm google={false} />);
 
     await user.type(email(), 'eater');
     await user.click(submit());
@@ -39,7 +40,7 @@ describe('SignInForm', () => {
 
   it('signs in with the address lowercased and goes where it was headed', async () => {
     atSearchParams('?next=%2Fdiary');
-    const { user } = renderUi(<SignInForm />);
+    const { user } = renderUi(<SignInForm google={false} />);
 
     await signInWith(user);
 
@@ -52,7 +53,7 @@ describe('SignInForm', () => {
 
   it('sends an unconfirmed address to confirm it', async () => {
     signIn.email.mockResolvedValue({ error: { code: 'EMAIL_NOT_VERIFIED' } });
-    const { user } = renderUi(<SignInForm />);
+    const { user } = renderUi(<SignInForm google={false} />);
 
     await signInWith(user);
 
@@ -65,7 +66,7 @@ describe('SignInForm', () => {
     signIn.email.mockResolvedValue({
       error: { code: 'INVALID_EMAIL_OR_PASSWORD', status: 401 },
     });
-    const { user } = renderUi(<SignInForm />);
+    const { user } = renderUi(<SignInForm google={false} />);
 
     await signInWith(user);
 
@@ -73,5 +74,54 @@ describe('SignInForm', () => {
       'That email and password do not match an account.',
     );
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('tells a Google-only account to sign in with Google', async () => {
+    signIn.email.mockResolvedValue({
+      error: { code: 'USES_GOOGLE', status: 401 },
+    });
+    const { user } = renderUi(<SignInForm google />);
+
+    await signInWith(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This account signs in with Google.',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers no Google button when Google is not set up', () => {
+    renderUi(<SignInForm google={false} />);
+
+    expect(
+      screen.queryByRole('button', { name: 'Continue with Google' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('goes to Google and comes back where it was headed', async () => {
+    atSearchParams('?next=%2Fdiary');
+    const { user } = renderUi(<SignInForm google />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    );
+
+    expect(signIn.social).toHaveBeenCalledWith({
+      provider: 'google',
+      callbackURL: '/diary',
+      errorCallbackURL: '/sign-in?next=%2Fdiary',
+    });
+  });
+
+  it('says why Google sent it back', () => {
+    atSearchParams('?error=access_denied');
+
+    renderUi(<SignInForm google />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Google sign-in was cancelled.',
+    );
   });
 });

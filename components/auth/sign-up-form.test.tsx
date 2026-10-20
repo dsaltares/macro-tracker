@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SignUpForm } from '@/components/auth/sign-up-form';
 import { minPasswordLength } from '@/lib/auth/credentials';
-import { signUp } from '@/test/auth-client';
+import { signIn, signUp } from '@/test/auth-client';
 import { atSearchParams, router } from '@/test/next-navigation';
 import { renderUi } from '@/test/ui';
 
@@ -31,7 +31,7 @@ beforeEach(() => {
 
 describe('SignUpForm', () => {
   it('asks for a long enough password', async () => {
-    const { user } = renderUi(<SignUpForm />);
+    const { user } = renderUi(<SignUpForm google={false} />);
 
     await fill(user, { chosen: 'short' });
 
@@ -42,7 +42,7 @@ describe('SignUpForm', () => {
   });
 
   it('asks for the same password twice', async () => {
-    const { user } = renderUi(<SignUpForm />);
+    const { user } = renderUi(<SignUpForm google={false} />);
 
     await fill(user, { repeated: `${password}!` });
 
@@ -54,7 +54,7 @@ describe('SignUpForm', () => {
 
   it('creates the account with a confirmation link back to where it was headed', async () => {
     atSearchParams('?next=%2Fdiary');
-    const { user } = renderUi(<SignUpForm />);
+    const { user } = renderUi(<SignUpForm google={false} />);
 
     await fill(user);
 
@@ -67,5 +67,20 @@ describe('SignUpForm', () => {
     expect(router.push).toHaveBeenCalledWith(
       '/verify?email=eater%40example.test&next=%2Fdiary',
     );
+  });
+
+  it('creates the account with Google instead', async () => {
+    const { user } = renderUi(<SignUpForm google />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    );
+
+    expect(signIn.social).toHaveBeenCalledWith({
+      provider: 'google',
+      callbackURL: '/',
+      errorCallbackURL: '/sign-in',
+    });
+    expect(signUp.email).not.toHaveBeenCalled();
   });
 });

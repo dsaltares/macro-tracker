@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import type { Kysely } from 'kysely';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
@@ -8,6 +9,13 @@ import { verifyAddressEmail } from '../email/templates/verify-address.tsx';
 import type { SendEmail } from '../email/transport.ts';
 import { authBaseUrl } from './base-url.ts';
 import { maxPasswordLength, minPasswordLength } from './credentials.ts';
+import { usesGoogleCode } from './errors.ts';
+import {
+  credentialProviderId,
+  type GoogleOptions,
+  googleOptions,
+  googleProviderId,
+} from './google.ts';
 
 const day = 60 * 60 * 24;
 
@@ -21,12 +29,15 @@ const defaultLimitRequests = () =>
 
 const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' };
 
+const signInEmailPath = '/sign-in/email';
+
 export type AuthOptions = {
   db?: Kysely<Database>;
   secret?: string | undefined;
   baseUrl?: string;
   sendEmail?: SendEmail;
   limitRequests?: boolean;
+  google?: GoogleOptions | undefined;
 };
 
 export const createAuth = ({
@@ -35,6 +46,7 @@ export const createAuth = ({
   baseUrl = authBaseUrl(),
   sendEmail = sendEmailThroughTransport,
   limitRequests = defaultLimitRequests(),
+  google = googleOptions(),
 }: AuthOptions = {}) =>
   betterAuth({
     database: { db, type: 'sqlite' },
@@ -69,6 +81,12 @@ export const createAuth = ({
         refreshTokenExpiresAt: 'refresh_token_expires_at',
         ...timestamps,
       },
+      accountLinking: {
+        enabled: true,
+        trustedProviders: [],
+        requireLocalEmailVerified: false,
+        allowDifferentEmails: false,
+      },
     },
     verification: {
       modelName: 'verifications',
@@ -93,6 +111,53 @@ export const createAuth = ({
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail(await verifyAddressEmail({ to: user.email, url }));
       },
+    },
+    socialProviders: google ? { [googleProviderId]: google } : {},
+    databaseHooks: {
+      account: {
+        create: {
+          after: async (account, ctx) => {
+            if (account.providerId === credentialProviderId || !ctx) {
+              return;
+            }
+            const { internalAdapter } = ctx.context;
+            const owner = await internalAdapter.findUserById(account.userId);
+            if (owner?.emailVerified) {
+              return;
+            }
+            const unconfirmedPasswords = (
+              await internalAdapter.findAccounts(account.userId)
+            ).filter(({ providerId }) => providerId === credentialProviderId);
+            for (const { id } of unconfirmedPasswords) {
+              await internalAdapter.deleteAccount(id);
+            }
+          },
+        },
+      },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (
+          ctx.path !== signInEmailPath ||
+          typeof ctx.body?.email !== 'string'
+        ) {
+          return;
+        }
+        const found = await ctx.context.internalAdapter.findUserByEmail(
+          ctx.body.email.toLowerCase(),
+          { includeAccounts: true },
+        );
+        const providers = found?.accounts.map(({ providerId }) => providerId);
+        if (
+          providers?.includes(googleProviderId) &&
+          !providers.includes(credentialProviderId)
+        ) {
+          throw new APIError('UNAUTHORIZED', {
+            code: usesGoogleCode,
+            message: 'This account signs in with Google.',
+          });
+        }
+      }),
     },
   });
 

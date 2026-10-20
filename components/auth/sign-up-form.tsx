@@ -17,7 +17,7 @@ import { authErrorMessage } from '@/lib/auth/errors';
 import { authUrl, emailParam, nextParam } from '@/lib/auth/redirect';
 import { routes } from '@/lib/routes';
 
-export function SignUpForm() {
+export function SignUpForm({ google }: { google: boolean }) {
   const router = useRouter();
   const next = useSearchParams().get(nextParam);
   const [failure, setFailure] = useState<string>();
@@ -56,6 +56,7 @@ export function SignUpForm() {
       working="Creating your account…"
       pending={isSubmitting}
       next={next}
+      google={google}
       footer={{
         prompt: 'Already have an account?',
         href: routes.signIn,

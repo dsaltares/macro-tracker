@@ -3,6 +3,8 @@ import type { EmailMessage, SendEmail } from '@/lib/email/transport';
 import { migratedDatabasePerTest } from '@/test/db';
 import { createAuth } from './auth.ts';
 import { resolveCaller } from './caller.ts';
+import { usesGoogleCode } from './errors.ts';
+import type { GoogleOptions } from './google.ts';
 
 const database = migratedDatabasePerTest();
 
@@ -12,7 +14,32 @@ const email = 'eater@example.test';
 
 const password = 'lentils-and-rice-forever';
 
-const authWithOutbox = () => {
+const googleClientId = 'a-test-google-client-id';
+
+const google = (verified = true): GoogleOptions => ({
+  clientId: googleClientId,
+  clientSecret: 'a-test-google-client-secret',
+  verifyIdToken: async () => true,
+  getUserInfo: async () => ({
+    user: { name: 'Eater', email, emailVerified: verified },
+    data: {
+      aud: googleClientId,
+      azp: googleClientId,
+      email,
+      email_verified: verified,
+      exp: 0,
+      family_name: '',
+      given_name: 'Eater',
+      iat: 0,
+      iss: 'https://accounts.google.com',
+      name: 'Eater',
+      picture: 'https://example.test/eater.png',
+      sub: 'google-subject-1',
+    },
+  }),
+});
+
+const authWithOutbox = (googleOptions = google()) => {
   const sent: EmailMessage[] = [];
   const sendEmail: SendEmail = async (message) => {
     sent.push(message);
@@ -23,6 +50,7 @@ const authWithOutbox = () => {
     secret: 'a-secret-only-these-tests-sign-with-0123456789',
     baseUrl,
     sendEmail,
+    google: googleOptions,
   });
   return { auth, sent };
 };
@@ -41,10 +69,27 @@ const signUp = (auth: ReturnType<typeof createAuth>) =>
   });
 
 const signIn = (auth: ReturnType<typeof createAuth>, secret = password) =>
-  auth.api.signInEmail({
-    body: { email, password: secret },
+  auth.handler(
+    new Request(`${baseUrl}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: baseUrl },
+      body: JSON.stringify({ email, password: secret }),
+    }),
+  );
+
+const signInWithGoogle = (auth: ReturnType<typeof createAuth>) =>
+  auth.api.signInSocial({
+    body: { provider: 'google', idToken: { token: 'a-stub-id-token' } },
     asResponse: true,
   });
+
+const accountsOf = () =>
+  database()
+    .selectFrom('users')
+    .innerJoin('accounts', 'accounts.user_id', 'users.id')
+    .select(['users.id', 'users.email_verified', 'accounts.provider_id'])
+    .orderBy('accounts.provider_id')
+    .execute();
 
 const cookieOf = (response: Response) =>
   new Headers({ cookie: response.headers.getSetCookie().join('; ') });
@@ -169,5 +214,91 @@ describe('createAuth', () => {
     const { auth } = authWithOutbox();
 
     expect(await resolveCaller(new Headers(), auth)).toBeNull();
+  });
+});
+
+describe('signing in with Google', () => {
+  it('opens an account for an address nobody has signed up with', async () => {
+    const { auth, sent } = authWithOutbox();
+
+    const response = await signInWithGoogle(auth);
+
+    expect(response.status).toBe(200);
+    expect(await accountsOf()).toEqual([
+      { id: expect.any(String), email_verified: 1, provider_id: 'google' },
+    ]);
+    expect(await resolveCaller(cookieOf(response), auth)).toEqual({
+      userId: expect.any(String),
+    });
+    expect(sent).toEqual([]);
+  });
+
+  it('attaches Google to the confirmed password account on the same address', async () => {
+    const { auth, sent } = authWithOutbox();
+    await signUp(auth);
+    await follow(auth, linkIn(sent[0] as EmailMessage));
+
+    const response = await signInWithGoogle(auth);
+
+    const accounts = await accountsOf();
+    expect(accounts.map(({ provider_id }) => provider_id)).toEqual([
+      'credential',
+      'google',
+    ]);
+    expect(new Set(accounts.map(({ id }) => id)).size).toBe(1);
+    expect(await resolveCaller(cookieOf(response), auth)).toEqual({
+      userId: accounts[0]?.id,
+    });
+    expect((await signIn(auth)).status).toBe(200);
+  });
+
+  it('confirms an unconfirmed address and drops the password nobody proved they own', async () => {
+    const { auth } = authWithOutbox();
+    const { user } = await signUp(auth);
+
+    const response = await signInWithGoogle(auth);
+
+    expect(await accountsOf()).toEqual([
+      { id: user.id, email_verified: 1, provider_id: 'google' },
+    ]);
+    expect(await resolveCaller(cookieOf(response), auth)).toEqual({
+      userId: user.id,
+    });
+    expect(await (await signIn(auth)).json()).toMatchObject({
+      code: usesGoogleCode,
+    });
+  });
+
+  it('refuses to attach a Google address Google has not confirmed', async () => {
+    const { auth, sent } = authWithOutbox(google(false));
+    await signUp(auth);
+    await follow(auth, linkIn(sent[0] as EmailMessage));
+
+    const response = await signInWithGoogle(auth);
+
+    expect(response.status).toBe(401);
+    expect((await accountsOf()).map(({ provider_id }) => provider_id)).toEqual([
+      'credential',
+    ]);
+  });
+
+  it('tells a password sign-in on a Google-only account to use Google', async () => {
+    const { auth } = authWithOutbox();
+    await signInWithGoogle(auth);
+
+    const response = await signIn(auth);
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ code: usesGoogleCode });
+  });
+
+  it('answers a password sign-in on an unknown address as a wrong password', async () => {
+    const { auth } = authWithOutbox();
+
+    const response = await signIn(auth);
+
+    expect(await response.json()).toMatchObject({
+      code: 'INVALID_EMAIL_OR_PASSWORD',
+    });
   });
 });

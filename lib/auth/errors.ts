@@ -7,6 +7,8 @@ export const resetLinkExpired =
 export const confirmationLinkExpired =
   'That confirmation link has expired or has been used already. Ask for a new one below.';
 
+export const usesGoogleCode = 'USES_GOOGLE';
+
 const tooManyAttempts = 'Too many attempts. Wait a few minutes and try again.';
 
 const tooManyRequests = 429;
@@ -18,6 +20,8 @@ const codeMessages: Record<string, string> = {
   INVALID_TOKEN: resetLinkExpired,
   EMAIL_NOT_VERIFIED:
     'Confirm your email address before signing in. The link is in your inbox.',
+  [usesGoogleCode]:
+    'This account signs in with Google. Use the Continue with Google button.',
   PASSWORD_TOO_SHORT: 'That password is too short.',
   PASSWORD_TOO_LONG: 'That password is too long.',
 };
@@ -41,3 +45,13 @@ const verificationErrors = new Set(['TOKEN_EXPIRED', 'INVALID_TOKEN']);
 
 export const verificationErrorMessage = (code: string) =>
   verificationErrors.has(code) ? confirmationLinkExpired : somethingWentWrong;
+
+const googleCodeMessages: Record<string, string> = {
+  access_denied: 'Google sign-in was cancelled. Try again when you are ready.',
+  account_not_linked:
+    'Google has not confirmed that address, so it cannot open this account. Sign in with your password.',
+};
+
+export const googleErrorMessage = (code: string) =>
+  googleCodeMessages[code] ??
+  'Signing in with Google did not finish. Try again in a moment.';
