@@ -64,7 +64,11 @@ function Day({ date }: { date: string }) {
         />
       ))}
       <EditEntryDialog entry={editing} onClose={() => setEditing(null)} />
-      <FoodSearchSheet meal={adding} onClose={() => setAdding(null)} />
+      <FoodSearchSheet
+        date={date}
+        meal={adding}
+        onClose={() => setAdding(null)}
+      />
     </>
   );
 }

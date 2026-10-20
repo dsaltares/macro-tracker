@@ -1,11 +1,14 @@
 import { screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { portionTaken } from '@/components/diary/entry-form';
 import {
   noMatches,
   searchFailed,
   searchPrompt,
 } from '@/components/diary/food-search-results';
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
+import { addFailed } from '@/components/diary/food-step';
+import { diaryDay, favourites } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { searchPageSize } from '@/lib/domain/foods/search';
 import { serveApi } from '@/test/api';
@@ -13,8 +16,10 @@ import { renderUi } from '@/test/ui';
 
 const api = serveApi({ signedInAs: 'user-1' });
 
-const render = () =>
-  renderUi(<FoodSearchSheet meal="lunch" onClose={() => {}} />, {
+const day = '2026-10-19';
+
+const render = (onClose = () => {}) =>
+  renderUi(<FoodSearchSheet date={day} meal="lunch" onClose={onClose} />, {
     wrap: api.wrap,
   });
 
@@ -29,7 +34,7 @@ const seeding = (): FoodWriteContext => {
 const seedFoods = async () => {
   const db = api.database();
   const context = seeding();
-  await insertFood(
+  const nutella = await insertFood(
     db,
     {
       source: 'off',
@@ -67,6 +72,7 @@ const seedFoods = async () => {
     },
     context,
   );
+  return { nutella };
 };
 
 const seedApples = async (count: number) => {
@@ -90,6 +96,24 @@ const seedApples = async (count: number) => {
 };
 
 const sheet = () => screen.getByRole('dialog', { name: 'Add to lunch' });
+
+const openNutella = async (user: ReturnType<typeof render>['user']) => {
+  await screen.findByRole('dialog', { name: 'Add to lunch' });
+  await searchFor(user, 'nutella');
+  await user.click(
+    await within(sheet()).findByRole('button', { name: /Nutella/ }),
+  );
+  return within(sheet()).findByRole('region', { name: 'Nutella' });
+};
+
+const preview = async (food: HTMLElement) =>
+  within(food).findByRole('region', { name: /^Nutrients/ });
+
+const previewed = (region: HTMLElement, label: string) => {
+  const terms = within(region).getAllByRole('term');
+  const index = terms.findIndex((term) => term.textContent === label);
+  return within(region).getAllByRole('definition')[index];
+};
 
 const searchFor = async (
   user: ReturnType<typeof render>['user'],
@@ -221,6 +245,167 @@ describe('FoodSearchSheet', () => {
     expect(
       await within(sheet()).findByRole('button', { name: /Nutella/ }),
     ).toBeInTheDocument();
+  });
+
+  it('previews the nutrients of the chosen portion and quantity', async () => {
+    await seedFoods();
+    const { user } = render();
+    const food = await openNutella(user);
+
+    expect(within(food).getByLabelText('Quantity')).toHaveValue(1);
+    expect(within(food).getByLabelText('Portion')).toHaveValue('1 serving');
+    expect(within(food).getByLabelText('Meal')).toHaveValue('lunch');
+    expect(await preview(food)).toHaveAccessibleName('Nutrients in 15 g');
+    expect(previewed(await preview(food), 'Energy')).toHaveTextContent(
+      '81 kcal',
+    );
+
+    await user.clear(within(food).getByLabelText('Quantity'));
+    await user.type(within(food).getByLabelText('Quantity'), '2');
+
+    expect(await preview(food)).toHaveAccessibleName('Nutrients in 30 g');
+    expect(previewed(await preview(food), 'Energy')).toHaveTextContent(
+      '162 kcal',
+    );
+    expect(previewed(await preview(food), 'Protein')).toHaveTextContent(
+      '1.9 g',
+    );
+
+    await user.selectOptions(within(food).getByLabelText('Portion'), '100 g');
+
+    expect(await preview(food)).toHaveAccessibleName('Nutrients in 200 g');
+    const label = await preview(food);
+    expect(previewed(label, 'Energy')).toHaveTextContent('1,078 kcal');
+    expect(previewed(label, 'Carbs')).toHaveTextContent('115 g');
+    expect(previewed(label, 'Fat')).toHaveTextContent('61.8 g');
+    expect(previewed(label, 'Fibre')).toHaveTextContent('—');
+  });
+
+  it('logs the food to the day and meal with the chosen amount and time', async () => {
+    const { nutella } = await seedFoods();
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const food = await openNutella(user);
+
+    await user.clear(within(food).getByLabelText('Quantity'));
+    await user.type(within(food).getByLabelText('Quantity'), '1.5');
+    await user.selectOptions(within(food).getByLabelText('Meal'), 'snack');
+    await user.type(within(food).getByLabelText('Time'), '16:30');
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+      expect.objectContaining({
+        kind: 'food',
+        foodId: nutella,
+        label: 'Nutella',
+        meal: 'snack',
+        time: '16:30',
+        quantity: 1.5,
+        portionLabel: '1 serving',
+        grams: 22.5,
+      }),
+    ]);
+  });
+
+  it('logs no time when none is given, and refuses a quantity of zero', async () => {
+    await seedFoods();
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const food = await openNutella(user);
+
+    await user.clear(within(food).getByLabelText('Quantity'));
+    await user.type(within(food).getByLabelText('Quantity'), '0');
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    expect(
+      await within(food).findByText('Enter a quantity above zero'),
+    ).toBeInTheDocument();
+
+    await user.clear(within(food).getByLabelText('Quantity'));
+    await user.type(within(food).getByLabelText('Quantity'), '1');
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+      expect.objectContaining({ meal: 'lunch', time: null, quantity: 1 }),
+    ]);
+  });
+
+  it('adds a portion inline and chooses it', async () => {
+    await seedFoods();
+    const { user } = render();
+    const food = await openNutella(user);
+
+    await user.clear(within(food).getByLabelText('Quantity'));
+    await user.type(within(food).getByLabelText('Quantity'), '2');
+    await user.selectOptions(within(food).getByLabelText('Meal'), 'snack');
+    await user.click(within(food).getByRole('button', { name: 'Add portion' }));
+    const adder = within(food).getByRole('group', { name: 'Add portion' });
+    await user.type(within(adder).getByLabelText('Label'), '1 slice of toast');
+    await user.type(within(adder).getByLabelText('Grams'), '20');
+    await user.click(within(adder).getByRole('button', { name: 'Add' }));
+
+    expect(
+      await within(food).findByRole('option', { name: '1 slice of toast' }),
+    ).toBeInTheDocument();
+    expect(within(food).getByLabelText('Portion')).toHaveValue(
+      '1 slice of toast',
+    );
+    expect(within(food).getByLabelText('Quantity')).toHaveValue(2);
+    expect(within(food).getByLabelText('Meal')).toHaveValue('snack');
+    expect(await preview(food)).toHaveAccessibleName('Nutrients in 40 g');
+    expect(
+      within(food).queryByRole('group', { name: 'Add portion' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(food).getByRole('button', { name: 'Add portion' }));
+    const again = within(food).getByRole('group', { name: 'Add portion' });
+    await user.type(within(again).getByLabelText('Label'), '1 serving');
+    await user.type(within(again).getByLabelText('Grams'), '15{Enter}');
+
+    expect(await within(again).findByText(portionTaken)).toBeInTheDocument();
+  });
+
+  it('marks the food a favourite and unmarks it', async () => {
+    const { nutella } = await seedFoods();
+    const { user } = render();
+    const food = await openNutella(user);
+
+    const favourite = await within(food).findByRole('button', {
+      name: 'Favourite',
+      pressed: false,
+    });
+    await vi.waitFor(() => expect(favourite).toBeEnabled());
+    await user.click(favourite);
+
+    await vi.waitFor(() =>
+      expect(favourite).toHaveAttribute('aria-pressed', 'true'),
+    );
+    expect(await favourites(api.database(), 'user-1')).toEqual([
+      expect.objectContaining({ foodId: nutella }),
+    ]);
+
+    await vi.waitFor(() => expect(favourite).toBeEnabled());
+    await user.click(favourite);
+
+    await vi.waitFor(() =>
+      expect(favourite).toHaveAttribute('aria-pressed', 'false'),
+    );
+    expect(await favourites(api.database(), 'user-1')).toEqual([]);
+  });
+
+  it('says so when the entry cannot be saved', async () => {
+    await seedFoods();
+    api.fails('diary.addFood');
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const food = await openNutella(user);
+
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    expect(await within(food).findByText(addFailed)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('offers to create the food or quick add it when nothing matches', async () => {

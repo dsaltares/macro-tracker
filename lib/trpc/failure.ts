@@ -5,3 +5,6 @@ export const failureOf = (error: unknown) =>
   error instanceof TRPCClientError && error.data?.code === 'BAD_REQUEST'
     ? error.message
     : somethingWentWrong;
+
+export const isConflict = (error: unknown) =>
+  error instanceof TRPCClientError && error.data?.code === 'CONFLICT';

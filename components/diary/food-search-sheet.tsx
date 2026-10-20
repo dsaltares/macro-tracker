@@ -114,13 +114,29 @@ function SearchStep({
   );
 }
 
-function FoodSearch() {
+function FoodSearch({
+  date,
+  meal,
+  onAdded,
+}: {
+  date: string;
+  meal: Meal;
+  onAdded: () => void;
+}) {
   const [query, setQuery] = useState('');
   const [list, setList] = useState<FoodList>('recent');
   const [chosen, setChosen] = useState<FoodSummary | null>(null);
 
   if (chosen !== null) {
-    return <FoodStep food={chosen} onBack={() => setChosen(null)} />;
+    return (
+      <FoodStep
+        food={chosen}
+        date={date}
+        meal={meal}
+        onBack={() => setChosen(null)}
+        onAdded={onAdded}
+      />
+    );
   }
 
   return (
@@ -145,9 +161,11 @@ function FoodSearch() {
 }
 
 export function FoodSearchSheet({
+  date,
   meal,
   onClose,
 }: {
+  date: string;
   meal: Meal | null;
   onClose: () => void;
 }) {
@@ -170,7 +188,7 @@ export function FoodSearchSheet({
               Add to {mealNames[meal].toLowerCase()}
             </SheetTitle>
           </SheetHeader>
-          <FoodSearch />
+          <FoodSearch date={date} meal={meal} onAdded={onClose} />
         </SheetContent>
       )}
     </Sheet>
