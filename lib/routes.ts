@@ -3,6 +3,7 @@ export const routes = {
   diary: '/diary',
   foods: '/foods',
   trends: '/trends',
+  body: '/body',
   onboarding: '/onboarding',
   settings: '/settings',
   profile: '/settings/profile',

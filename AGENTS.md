@@ -195,6 +195,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
   reads the food through the same visibility as `food.get`. Meals and entry kinds are in
   `lib/domain/diary/entries.ts`.
+- `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
+  `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
+  keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
+  first; `findLatestMeasurement` is the latest on or before an optional date, the read ADR 0011
+  needs. The `body` router (`lib/trpc/routers/body.ts`) is these over the caller. Metrics and the
+  weight bounds (20 to 400 kg) are in `lib/domain/body.ts`. The diary shows `LogWeightCard`
+  (`components/body/`) until today has a weight; `/body`, linked from Trends, is `WeightLog`.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
