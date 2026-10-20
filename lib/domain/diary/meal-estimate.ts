@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { confidenceSchema, isUnsure } from '../foods/label-reading.ts';
 import { oneGram, type Portion } from '../foods/portions.ts';
+import { nutrientVectorSchema } from '../foods/source-food.ts';
 import type { NutrientVector } from '../nutrition/vector.ts';
 import { type RecipeAmount, recipePortionOf } from '../recipes/recipes.ts';
 import {
@@ -12,6 +13,10 @@ import {
 } from './entries.ts';
 
 export const maxEstimateNoteLength = 300;
+
+export const maxMealDescriptionLength = 500;
+
+export const maxDraftItemNameLength = 300;
 
 const gramsSchema = z
   .number()
@@ -125,6 +130,52 @@ export type MealDraft = {
   totals: NutrientVector;
   notes: string[];
 };
+
+const draftItemFields = {
+  name: z.string().trim().min(1).max(maxDraftItemNameLength),
+  grams: z.number().positive(),
+  confidence: confidenceSchema,
+  unsure: z.boolean(),
+  note: itemFields.note,
+  nutrients: nutrientVectorSchema,
+};
+
+const positiveAmount = z.number().positive();
+
+export const mealDraftSchema = z.strictObject({
+  items: z.array(
+    z.discriminatedUnion('kind', [
+      z.strictObject({
+        kind: z.literal('food'),
+        ...draftItemFields,
+        foodId: z.string().min(1),
+        portionLabel: z.string().min(1),
+        quantity: positiveAmount,
+      }),
+      z.strictObject({
+        kind: z.literal('recipe'),
+        ...draftItemFields,
+        recipeId: z.string().min(1),
+        amount: z.union([
+          z.strictObject({ servings: positiveAmount }),
+          z.strictObject({ grams: positiveAmount }),
+        ]),
+      }),
+      z.strictObject({
+        kind: z.literal('guess'),
+        ...draftItemFields,
+        unresolved: z.boolean(),
+      }),
+    ]),
+  ),
+  totals: nutrientVectorSchema,
+  notes: mealEstimateSchema.shape.notes,
+}) satisfies z.ZodType<MealDraft>;
+
+export const previousEstimateSchema = z.strictObject({
+  draft: mealDraftSchema,
+  feedback: z.string().trim().min(1).max(maxMealDescriptionLength),
+});
 
 const fieldsOf = (
   item: EstimatedItem,

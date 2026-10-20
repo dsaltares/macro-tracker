@@ -2,7 +2,8 @@ import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import type { LabelReadingResult, ReadLabel } from '../ai/label-reader.ts';
 import type { LabelReading } from '../domain/foods/label-reading.ts';
-import { labelScanRoute, maxPhotoBytes } from './route.ts';
+import { maxPhotoBytes } from '../photo-upload.ts';
+import { labelScanRoute } from './route.ts';
 
 const signedInHeader = 'x-test-user';
 

@@ -312,8 +312,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   /api/v1/diary/entries` (`write`, `201`) takes a `kind` of `food`, `recipe` (servings or grams)
   or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
   and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
-  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`. Each entry goes out
-  through `entryOf`, its portion label as `portion`.
+  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`; `POST
+  /api/v1/diary/meals` (`write`, `201`) logs a meal as `diary.addMeal` does and answers `{ entries }`,
+  `404` naming the item whose food or recipe is gone. Each entry goes out through `entryOf`, its
+  portion label as `portion`.
   `routes/body.ts` is
   `GET|POST /api/v1/measurements` (`metric`, default `weight_kg`, `from`, `to`, 100 a page; a
   `POST` answers `201` and replaces the date's weight) and `DELETE /api/v1/measurements/{id}`;
@@ -335,8 +337,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). `body.ts`
   (with `measurementSchema`), `goals.ts`, `recipes.ts` (`listRecipes`, `findRecipe`) and
   `trends.ts` (`trendRange`, with `trendRangeSchema`) are behind the `body`, `goals`, `recipe`
-  and `trends` procedures and their routes. A `lib/db/` function moves behind a service when a
-  REST route needs it too.
+  and `trends` procedures and their routes. `meal.ts` is `logMeal(context, { date, meal, time,
+  items })`, behind `diary.addMeal` and `POST /api/v1/diary/meals`: the entries
+  `mealDraftToEntries` gives (`mealToLogSchema`), written by `logMealEntries` (`lib/db/diary.ts`)
+  in one transaction through the same writes as `logFood`, `logRecipe` and a quick entry, rolled
+  back whole when any item's food or recipe is not the caller's to log, with that item's `index`.
+  A `lib/db/` function moves behind a service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -446,7 +452,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo.
   `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
   caller: `searchFoods`' first page and the live recipes whose names hold every word
-  (`nameMatchesEveryTerm`), and a live food with its portions. `previous` is `{ draft, feedback }`,
+  (`nameMatchesEveryTerm`), and a live food with its portions. `resolveMealMatches` reads the live
+  foods and live, non-empty recipes an estimate names, for `mealDraft`. `previous` is `{ draft, feedback }`,
   sent as the model's earlier answer and the user's correction; the photos are sent again.
   `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
@@ -459,7 +466,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
   again while reading the body), `415` for anything but a JPEG or WebP by its leading bytes, and
   otherwise the `LabelReading` or the reader's failure, logged without the photo. The route in
-  `app/api/label-scan/` only wires it to the server.
+  `app/api/label-scan/` only wires it to the server. `lib/photo-upload.ts` holds what it shares
+  with the meal estimate: `maxPhotoBytes`, `isJpegOrWebp`, `readUpTo` and `aiFailureStatuses`.
+- `lib/meal-estimate/route.ts` — `POST /api/meal-estimate`, session-only like label scan.
+  `mealEstimateRoute({ estimateMeal, resolveCaller, db, logger })` reads `multipart/form-data` of
+  at most `maxMealEstimateBytes`: one to four `photos` (`maxMealPhotos`), an optional
+  `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
+  (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
+  the estimator is off, `400` on a bad part, `413` for a photo over `maxPhotoBytes`, `415` for one
+  that is not a JPEG or WebP, and otherwise the `MealDraft`, resolved on the server with
+  `mealDraft` over `resolveMealMatches`, or the estimator's failure, logged without the photos.
+  The route in `app/api/meal-estimate/` only wires it to the server.
 - `components/label-scan/` — `LabelCapture`: *Take a photo* (a file input with
   `capture="environment"`) or *Choose a photo*, shrunk in the browser to 1,600 px on the long edge
   as WebP, JPEG where the browser cannot encode WebP (`shrinkPhoto`, `photo.ts`), sent with

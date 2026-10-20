@@ -17,6 +17,7 @@ import {
   timeSchema,
   updateEntry,
 } from '../../services/diary.ts';
+import { logMeal, mealToLogSchema } from '../../services/meal.ts';
 import { apiError } from '../errors.ts';
 import { apiHandler } from '../handler.ts';
 
@@ -199,4 +200,33 @@ export const copyMealRoute = apiHandler({
   handle: async ({ context, input }) => ({
     entries: (await copyMeal(context, input)).map(entryOf),
   }),
+});
+
+export const addMealRoute = apiHandler({
+  scope: 'write',
+  status: 201,
+  input: mealToLogSchema.strict(),
+  handle: async ({ context, input }) => {
+    const logged = await logMeal(context, input);
+    switch (logged.outcome) {
+      case 'food-not-found':
+      case 'recipe-not-found':
+        throw apiError(
+          'NOT_FOUND',
+          `Item ${logged.index + 1}'s food or recipe no longer exists.`,
+        );
+      case 'portion-not-found':
+        throw apiError(
+          'INVALID_REQUEST',
+          `Item ${logged.index + 1}'s food has no portion with this label.`,
+        );
+      case 'empty-recipe':
+        throw apiError(
+          'INVALID_REQUEST',
+          `Item ${logged.index + 1}'s recipe has no ingredients.`,
+        );
+      case 'logged':
+        return { entries: logged.entries.map(entryOf) };
+    }
+  },
 });
