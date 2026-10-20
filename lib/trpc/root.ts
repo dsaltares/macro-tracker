@@ -5,6 +5,7 @@ import { foodRouter } from './routers/food.ts';
 import { goalsRouter } from './routers/goals.ts';
 import { healthRouter } from './routers/health.ts';
 import { profileRouter } from './routers/profile.ts';
+import { recipeRouter } from './routers/recipe.ts';
 import { trendsRouter } from './routers/trends.ts';
 import { createCallerFactory, router } from './trpc.ts';
 
@@ -16,6 +17,7 @@ export const appRouter = router({
   goals: goalsRouter,
   health: healthRouter,
   profile: profileRouter,
+  recipe: recipeRouter,
   trends: trendsRouter,
 });
 

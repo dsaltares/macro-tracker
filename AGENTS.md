@@ -234,7 +234,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   and `quantity` at a `position`, and links exactly one of `food_id` and `child_recipe_id`, never
   the recipe itself. Both links cascade, and the one-level nesting rule is the write's, not a
   constraint. `userRecipesQuery` lists a user's live recipes by name, `recipeQuery` reads one and
-  `recipeIngredientsQuery` its ingredients in order, ownership on each statement.
+  `recipeIngredientsQuery` its ingredients in order, ownership on each statement. `findRecipe`
+  resolves each ingredient from its current food (`findFood`) or recipe (`findRecipeFood`, the
+  recipe as `recipeAsFood` with its name) into the recipe's nutrients; `recipeFieldsSchema`
+  (`lib/domain/recipes/recipe-fields.ts`) is what a create or update takes. Every write is on the
+  caller's live recipe. `addIngredient` resolves the grams from a portion label among the ones the
+  food or nested recipe shows, appends it, and refuses a nested recipe `canNest` refuses, over
+  nesting facts read in the same transaction, or one without ingredients; `updateIngredient`
+  re-resolves the grams, keeping the saved weight of a portion the food no longer has;
+  `reorderIngredients` takes every ingredient id exactly once. The `recipe` router
+  (`lib/trpc/routers/recipe.ts`) is these over the caller. `logRecipe` (`diary.addRecipe`, servings
+  or grams) snapshots `recipeAsFood` at `1 serving` or `100 g`, and `updateDiaryEntry`
+  re-resolves a recipe entry from the current recipe the way it does a food entry.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
