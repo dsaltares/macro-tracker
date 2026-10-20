@@ -9,8 +9,9 @@ import {
   RecentFoods,
 } from '@/components/diary/food-lists';
 import { FoodSearchResults } from '@/components/diary/food-search-results';
-import { FoodStep } from '@/components/diary/food-step';
+import { type FoodHeader, FoodStep } from '@/components/diary/food-step';
 import { QuickAddStep } from '@/components/diary/quick-add-step';
+import { ScanStep } from '@/components/diary/scan-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import type { FoodSummary } from '@/lib/db/food-search';
+import type { Food, FoodSummary } from '@/lib/db/food-search';
 import type { Meal } from '@/lib/domain/diary/entries';
 
 export const searchDebounceMs = 300;
@@ -57,6 +58,7 @@ function SearchStep({
   list,
   onListChange,
   onSelectFood,
+  onScan,
 }: {
   date: string;
   meal: Meal;
@@ -65,6 +67,7 @@ function SearchStep({
   list: FoodList;
   onListChange: (list: FoodList) => void;
   onSelectFood: (food: FoodSummary) => void;
+  onScan: () => void;
 }) {
   const debouncedQuery = useDebouncedValue(query, searchDebounceMs);
 
@@ -89,7 +92,12 @@ function SearchStep({
             }}
           />
         </div>
-        <Button variant="outline" size="icon" className="size-11" disabled>
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-11"
+          onClick={onScan}
+        >
           <IconBarcode className="size-5" />
           <span className="sr-only">Scan a barcode</span>
         </Button>
@@ -134,6 +142,20 @@ function SearchStep({
   );
 }
 
+const headerOf = ({
+  id,
+  name,
+  brand,
+  source,
+  nutrients,
+}: Food): FoodHeader => ({
+  id,
+  name,
+  brand,
+  source,
+  energyKcal: nutrients.energy_kcal ?? null,
+});
+
 function FoodSearch({
   date,
   meal,
@@ -145,7 +167,8 @@ function FoodSearch({
 }) {
   const [query, setQuery] = useState('');
   const [list, setList] = useState<FoodList>('recent');
-  const [chosen, setChosen] = useState<FoodSummary | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [chosen, setChosen] = useState<FoodHeader | null>(null);
   const [quickAdding, setQuickAdding] = useState(false);
 
   if (quickAdding) {
@@ -165,8 +188,20 @@ function FoodSearch({
         food={chosen}
         date={date}
         meal={meal}
-        onBack={() => setChosen(null)}
+        onBack={() => {
+          setChosen(null);
+          setScanning(false);
+        }}
         onAdded={onAdded}
+      />
+    );
+  }
+
+  if (scanning) {
+    return (
+      <ScanStep
+        onBack={() => setScanning(false)}
+        onFound={(food) => setChosen(headerOf(food))}
       />
     );
   }
@@ -181,6 +216,7 @@ function FoodSearch({
         list={list}
         onListChange={setList}
         onSelectFood={setChosen}
+        onScan={() => setScanning(true)}
       />
       <div className="grid grid-cols-2 gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button variant="outline" size="lg" className="h-11" disabled>
