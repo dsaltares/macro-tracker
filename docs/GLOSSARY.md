@@ -17,8 +17,10 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | barcode | An EAN-8 or EAN-13; a UPC-A is normalised to EAN-13 with a leading zero. | [Foods](DOMAIN.md#foods) |
 | BMR | Basal metabolic rate: Mifflin-St Jeor over the profile, the latest weight and the age on the date. | [Body and goals](DOMAIN.md#body-and-goals) |
 | body measurement | A user, a date, a metric and a value. Only `weight_kg` in v1. | [Body and goals](DOMAIN.md#body-and-goals) |
+| clearing a meal | Deleting every entry of one meal on one date. | [Diary](DOMAIN.md#diary) |
 | consent | Agreeing to the terms and acknowledging the privacy policy at sign-up, stored as `terms_accepted_at`. Required for an account, because the diary is health data. | [Accounts](DOMAIN.md#accounts), [ADR 0009](adr/0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) |
 | confirmed address | An email address whose owner followed the link mailed to it. Required before a session. | [Accounts](DOMAIN.md#accounts) |
+| copying a meal | Adding a copy of each of a meal's entries, snapshots as they are, to another date and meal. The originals stay. | [Diary](DOMAIN.md#diary) |
 | cooked weight | A recipe's optional weight in grams once cooked. | [Recipes](DOMAIN.md#recipes) |
 | date | The user's local calendar day as `YYYY-MM-DD`. Never a timestamp. | [Diary](DOMAIN.md#diary) |
 | day totals | The sum of a day's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |

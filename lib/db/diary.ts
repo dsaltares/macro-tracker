@@ -10,7 +10,7 @@ import {
   type LastLoggedAmount,
   withLastLoggedAmounts,
 } from './food-search.ts';
-import type { FoodWriteContext } from './foods.ts';
+import { type FoodWriteContext, writeFood } from './foods.ts';
 import type { Database, DiaryEntriesTable } from './schema.ts';
 
 type EntryFields = {
@@ -130,6 +130,36 @@ export const insertDiaryEntry = async (
     .executeTakeFirstOrThrow();
   return diaryEntry(row);
 };
+
+export type QuickEntryToLog = Omit<QuickEntryInput, 'kind'> & {
+  foodPer100g: NutrientVector | null;
+};
+
+export const logQuickEntry = (
+  db: Kysely<Database>,
+  userId: string,
+  { foodPer100g, ...entry }: QuickEntryToLog,
+  context: FoodWriteContext,
+) =>
+  db.transaction().execute(async (trx) => {
+    if (foodPer100g !== null) {
+      await writeFood(
+        trx,
+        {
+          source: 'user',
+          owner_user_id: userId,
+          barcode: null,
+          name: entry.label,
+          brand: null,
+          quantity_label: null,
+          nutrients: foodPer100g,
+          portions: [],
+        },
+        context,
+      );
+    }
+    return insertDiaryEntry(trx, userId, { kind: 'quick', ...entry }, context);
+  });
 
 export type FoodToLog = {
   date: string;
@@ -343,6 +373,35 @@ export const removeDiaryEntry = async (
     entryId,
   ).executeTakeFirst();
   return numDeletedRows > 0n;
+};
+
+export type DiaryMeal = {
+  date: string;
+  meal: Meal;
+};
+
+export const diaryMealDeletion = (
+  db: Kysely<Database>,
+  userId: string,
+  { date, meal }: DiaryMeal,
+) =>
+  db
+    .deleteFrom('diary_entries')
+    .where('user_id', '=', userId)
+    .where('date', '=', date)
+    .where('meal', '=', meal);
+
+export const clearDiaryMeal = async (
+  db: Kysely<Database>,
+  userId: string,
+  meal: DiaryMeal,
+) => {
+  const { numDeletedRows } = await diaryMealDeletion(
+    db,
+    userId,
+    meal,
+  ).executeTakeFirst();
+  return Number(numDeletedRows);
 };
 
 export const favouritesQuery = (db: Kysely<Database>, userId: string) =>

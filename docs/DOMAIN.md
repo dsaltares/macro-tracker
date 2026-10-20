@@ -125,6 +125,9 @@ food, a recipe or re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
 
+**Copying a meal** adds a copy of each of its entries, snapshots as they are, to another date and
+meal; the originals stay. **Clearing a meal** deletes every entry of one meal on one date.
+
 A **favourite** is a food a user has marked to find again quickly. It is theirs alone, and goes
 when the food does.
 

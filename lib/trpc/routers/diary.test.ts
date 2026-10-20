@@ -291,6 +291,62 @@ describe('diary.addQuick', () => {
     });
   });
 
+  it('saves per 100 g amounts as a food of the caller’s own, alongside the entry', async () => {
+    const entry = await as('user-1').diary.addQuick({
+      ...coffee,
+      label: 'Granny’s flapjack',
+      nutrients: {
+        per100g: { protein: 6, fat: 20, carbohydrate: 55 },
+        grams: 50,
+      },
+      saveAsFood: true,
+    });
+
+    expect(entry).toMatchObject({
+      kind: 'quick',
+      foodId: null,
+      nutrients: { protein: 3, fat: 10, carbohydrate: 27.5, energy_kcal: 212 },
+    });
+    const [food, ...others] = (
+      await as('user-1').food.search({ query: 'flapjack' })
+    ).foods;
+    expect(others).toEqual([]);
+    expect(await as('user-1').food.get(food?.id ?? '')).toMatchObject({
+      name: 'Granny’s flapjack',
+      source: 'user',
+      nutrients: { protein: 6, fat: 20, carbohydrate: 55 },
+    });
+    expect(
+      (await as('user-2').food.search({ query: 'flapjack' })).foods,
+    ).toEqual([]);
+    expect((await as(null).food.search({ query: 'flapjack' })).foods).toEqual(
+      [],
+    );
+  });
+
+  it('saves no food unless asked to', async () => {
+    await as('user-1').diary.addQuick({
+      ...coffee,
+      label: 'Flapjack',
+      nutrients: { per100g: { protein: 6 }, grams: 50 },
+    });
+
+    expect(
+      (await as('user-1').food.search({ query: 'flapjack' })).foods,
+    ).toEqual([]);
+  });
+
+  it('refuses to save totals as a food, logging nothing', async () => {
+    const user = as('user-1');
+
+    await expect(
+      user.diary.addQuick({ ...coffee, saveAsFood: true }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(await labelsOn(date)).toEqual(
+      expect.objectContaining({ snack: [] }),
+    );
+  });
+
   it('refuses a nutrient that is not in the canon or a negative amount', async () => {
     const user = as('user-1');
 
@@ -519,6 +575,43 @@ describe('diary.copyMeal', () => {
       }),
     ).toEqual([]);
     expect(await labelsOn('2026-10-21')).toMatchObject({ breakfast: [] });
+  });
+});
+
+describe('diary.clearMeal', () => {
+  it('deletes every entry of one meal on one date, and nothing else', async () => {
+    const user = as('user-1');
+    await logNutella();
+    await user.diary.addQuick({ ...coffee, meal: 'breakfast' });
+    await user.diary.addQuick(coffee);
+    await logNutella({ date: '2026-10-21' });
+
+    expect(await user.diary.clearMeal({ date, meal: 'breakfast' })).toEqual({
+      cleared: 2,
+    });
+
+    expect(await labelsOn(date)).toMatchObject({
+      breakfast: [],
+      snack: ['Coffee with milk'],
+    });
+    expect(await labelsOn('2026-10-21')).toMatchObject({
+      breakfast: ['Nutella'],
+    });
+  });
+
+  it('clears nothing from an empty meal', async () => {
+    expect(
+      await as('user-1').diary.clearMeal({ date, meal: 'dinner' }),
+    ).toEqual({ cleared: 0 });
+  });
+
+  it("never clears another user's entries", async () => {
+    await logNutella();
+
+    expect(
+      await as('user-2').diary.clearMeal({ date, meal: 'breakfast' }),
+    ).toEqual({ cleared: 0 });
+    expect(await labelsOn(date)).toMatchObject({ breakfast: ['Nutella'] });
   });
 });
 

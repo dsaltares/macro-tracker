@@ -196,7 +196,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
-  a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are; `clearDiaryMeal` deletes one
+  meal of a date. `logQuickEntry`
+  logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
+  in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
   reads the food through the same visibility as `food.get`; `food.setFavourite`
   (`{ foodId, favourite }`, idempotent) is it over the caller. `recentFoods`
@@ -318,7 +321,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `diary.addFood`. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
   quantity and portion, a live preview of the nutrients (`resolveEntry`, or an entry's snapshot
   until its amount changes), *Add portion* inline (`food.addPortion`), meal, time and the
-  favourite toggle. Source badges are `SourceBadge` (`components/foods/`).
+  favourite toggle. *Quick add* opens `QuickAddStep` in the same sheet,
+  named after the search: a label and either amounts per 100 g (the three macros, optional energy,
+  and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
+  `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
+  next time. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Copy from
+  yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
+  tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
+  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`).
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is

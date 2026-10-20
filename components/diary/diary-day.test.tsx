@@ -3,6 +3,8 @@ import { NuqsTestingAdapter, type UrlUpdateEvent } from 'nuqs/adapters/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { noGoal } from '@/components/diary/day-totals';
 import { DiaryDay, loadFailed } from '@/components/diary/diary-day';
+import { clearFailed, copyFailed } from '@/components/diary/meal-menu';
+import { Toaster } from '@/components/ui/sonner';
 import { listMeasurements } from '@/lib/db/body-measurements';
 import { diaryDay } from '@/lib/db/diary';
 import { dayTotals } from '@/lib/domain/diary/entries';
@@ -29,6 +31,7 @@ const render = (search = `?date=${day}`) => {
             onUrlUpdate={(update) => urlUpdates.push(update)}
           >
             {children}
+            <Toaster />
           </NuqsTestingAdapter>,
         ),
     }),
@@ -358,6 +361,164 @@ describe('DiaryDay', () => {
     );
     expect((await storedDay()).map(({ id }) => id)).not.toContain(oatsEntry.id);
     expect(meal('Breakfast')).toHaveTextContent('162 kcal');
+  });
+
+  it('copies yesterday’s meal into the day, snapshots and all', async () => {
+    await seedDay('2026-10-18');
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Copy from yesterday' }),
+    );
+
+    expect(
+      await screen.findByText('Copied 2 entries from yesterday’s breakfast'),
+    ).toBeInTheDocument();
+    expect(entryIn('Breakfast', 'Nutella')).toHaveTextContent('162 kcal');
+    expect(entryIn('Breakfast', 'Rolled oats')).toBeInTheDocument();
+    expect(
+      within(meal('Dinner')).queryByRole('listitem'),
+    ).not.toBeInTheDocument();
+    expect((await storedDay()).map(({ label }) => label)).toEqual([
+      'Rolled oats',
+      'Nutella',
+    ]);
+  });
+
+  it('says so when yesterday’s meal is empty', async () => {
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Lunch options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Copy from yesterday' }),
+    );
+
+    expect(
+      await screen.findByText('Nothing to copy: yesterday’s lunch is empty'),
+    ).toBeInTheDocument();
+    expect(await storedDay()).toEqual([]);
+  });
+
+  it('copies a meal to the next day by default, or to the date and meal chosen', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy to…' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Copy breakfast',
+    });
+    expect(within(dialog).getByLabelText('Date')).toHaveValue('2026-10-20');
+    expect(within(dialog).getByLabelText('Meal')).toHaveValue('breakfast');
+
+    await user.selectOptions(within(dialog).getByLabelText('Meal'), 'lunch');
+    await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(
+      await screen.findByText(/^Copied 2 entries to lunch, /),
+    ).toBeInTheDocument();
+    expect(
+      (await storedDay('2026-10-20')).map(({ meal, label }) => [meal, label]),
+    ).toEqual([
+      ['lunch', 'Rolled oats'],
+      ['lunch', 'Nutella'],
+    ]);
+    expect(entryIn('Breakfast', 'Nutella')).toBeInTheDocument();
+  });
+
+  it('clears a meal once asked to confirm', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Clear meal' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Clear breakfast?',
+    });
+    expect(dialog).toHaveTextContent('This deletes its 2 entries.');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(entryIn('Breakfast', 'Nutella')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Breakfast options' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Clear meal' }),
+    );
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: 'Clear breakfast?' }),
+      ).getByRole('button', { name: 'Clear meal' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(meal('Breakfast')).queryByRole('listitem'),
+      ).not.toBeInTheDocument(),
+    );
+    expect((await storedDay()).map(({ label }) => label)).toEqual([
+      "Pizza at Luigi's",
+    ]);
+  });
+
+  it('says so when a meal cannot be copied or cleared', async () => {
+    await seedDay();
+    api.fails('diary.copyMeal');
+    api.fails('diary.clearMeal');
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Copy from yesterday' }),
+    );
+    expect(await screen.findByText(copyFailed)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Breakfast options' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Clear meal' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Clear breakfast?',
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Clear meal' }),
+    );
+    expect(await within(dialog).findByText(clearFailed)).toBeInTheDocument();
+    expect(await storedDay()).toHaveLength(3);
+  });
+
+  it('offers neither copying nor clearing an empty meal', async () => {
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Lunch options' }),
+    );
+
+    expect(
+      await screen.findByRole('menuitem', { name: 'Copy to…' }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('menuitem', { name: 'Clear meal' }),
+    ).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('opens the food search for the meal whose add button was tapped', async () => {
