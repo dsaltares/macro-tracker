@@ -62,6 +62,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |
 | override | An explicit target for one nutrient that wins over the goal vector's value for it, in either mode. | [Body and goals](DOMAIN.md#body-and-goals) |
 | portion | A named quantity in grams for one food. Every food has `100 g`, `1 g` and `1 ml`. | [Foods](DOMAIN.md#foods) |
+| prefix | The first eight characters of an API key, `mt_` and five more: all the app shows of a key once it is created. | [API](DOMAIN.md#api) |
 | profile | Sex, date of birth, height in cm and activity level. One per account, asked for at onboarding. | [Body and goals](DOMAIN.md#body-and-goals) |
 | progress | How far a day's or meal's totals have come toward a goal: under, near or over. Near is 90% to 110% of a target, or 90% to 100% of an upper limit. | [Body and goals](DOMAIN.md#body-and-goals) |
 | quick entry | A diary entry with a label and a nutrient vector typed directly, no food. | [Diary](DOMAIN.md#diary) |
@@ -70,6 +71,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | recipe entry | A diary entry for a recipe: a number of servings or grams. | [Diary](DOMAIN.md#diary) |
 | reference food | A food from a `source` other than `user`, written only by the importer. Upserted on `(source, source_id)`. | [Foods](DOMAIN.md#foods) |
 | reset link | A mailed link to choose a new password; works once, expires in an hour, signs out every session. | [Accounts](DOMAIN.md#accounts) |
+| revoked | An API key its owner revoked: it keeps its row, stops working at once and is never listed again. | [API](DOMAIN.md#api) |
 | rolling average | The average over the logged days of the seven ending on a date, reaching back before the range. | [Trends](DOMAIN.md#trends) |
 | search | Every word of a query against name and brand, the last as a prefix, diacritics ignored. A user's own foods first; archived foods never. | [Foods](DOMAIN.md#foods) |
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |

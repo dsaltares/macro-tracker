@@ -118,6 +118,7 @@ const giveEverything = async (userId: string) => {
     grams: 15,
   });
   await giveRecipes(db, userId, ownFoodId);
+  await caller.apiKeys.create({ name: `${userId}'s script`, scopes: ['read'] });
 };
 
 const giveRecipes = async (
@@ -186,6 +187,7 @@ const ownedRows = (userId: string) => {
     goals: sql`user_id = ${userId}`,
     recipes: sql`user_id = ${userId}`,
     recipe_ingredients: sql`recipe_id in (${ownRecipes})`,
+    api_keys: sql`user_id = ${userId}`,
   };
 };
 

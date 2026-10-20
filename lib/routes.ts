@@ -13,6 +13,7 @@ export const routes = {
   profile: '/settings/profile',
   goals: '/settings/goals',
   foodSources: '/settings/food-sources',
+  apiKeys: '/settings/api-keys',
   account: '/settings/account',
   export: '/settings/export',
   exportDiary: '/api/export/diary.csv',

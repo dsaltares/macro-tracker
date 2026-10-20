@@ -208,6 +208,18 @@ export type RecipeIngredientsTable = {
   position: number;
 };
 
+export type ApiKeysTable = {
+  id: string;
+  user_id: string;
+  name: string;
+  prefix: string;
+  key_hash: string;
+  scopes: ColumnType<string, string, never>;
+  last_used_at: string | null;
+  created_at: ColumnType<string, string, never>;
+  revoked_at: string | null;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -227,4 +239,5 @@ export type Database = {
   goals: GoalsTable;
   recipes: RecipesTable;
   recipe_ingredients: RecipeIngredientsTable;
+  api_keys: ApiKeysTable;
 };
