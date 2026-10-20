@@ -542,6 +542,29 @@ describe('DiaryDay', () => {
     );
   });
 
+  it('opens the food search on a food just created for a meal, and forgets it once logged', async () => {
+    const { oatsEntry } = await seedDay();
+    const { user, urlUpdates } = render(
+      `?date=${day}&meal=snack&food=${oatsEntry.foodId}`,
+    );
+
+    const sheet = await screen.findByRole('dialog', { name: 'Add to snack' });
+    const food = await within(sheet).findByRole('region', {
+      name: 'Rolled oats',
+    });
+    await user.click(within(food).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(
+      await within(meal('Snack')).findByRole('button', {
+        name: /Rolled oats/,
+      }),
+    ).toBeInTheDocument();
+    expect(urlUpdates.at(-1)?.queryString).toBe(`?date=${day}`);
+  });
+
   it('asks for a weight on today only, until today has one', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 20, 12));
