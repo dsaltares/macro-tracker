@@ -34,41 +34,41 @@ function NutrientRow({
   const { key, amount, goal, kind, share, progress } = row;
 
   return (
-    <div className="flex flex-col gap-1.5 px-4 py-3">
-      <div className="flex items-baseline gap-2 text-sm">
-        <dt className="min-w-0 flex-1 truncate">{name}</dt>
-        <dd className="flex shrink-0 items-baseline gap-2 tabular-nums">
-          <span
-            className={
-              amount === undefined ? 'text-muted-foreground' : 'font-medium'
-            }
-          >
-            {amount === undefined ? noData : amountIn(key, amount)}
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-1.5 px-4 py-3 text-sm">
+      <dt className="truncate">{name}</dt>
+      <dd className="flex items-baseline gap-2 tabular-nums">
+        <span
+          className={
+            amount === undefined ? 'text-muted-foreground' : 'font-medium'
+          }
+        >
+          {amount === undefined ? noData : amountIn(key, amount)}
+        </span>
+        {goal === undefined ? null : (
+          <span className="text-muted-foreground">
+            {' '}
+            {goalOf(key, goal, kind)}
           </span>
-          {goal === undefined ? null : (
-            <span className="text-muted-foreground">
-              {' '}
-              {goalOf(key, goal, kind)}
-            </span>
-          )}
-          {share === undefined ? null : (
-            <span className="w-10 text-right text-muted-foreground">
-              {' '}
-              {formatShare(share)}
-            </span>
-          )}
-        </dd>
-      </div>
+        )}
+        {share === undefined ? null : (
+          <span className="w-10 text-right text-muted-foreground">
+            {' '}
+            {formatShare(share)}
+          </span>
+        )}
+      </dd>
       {progress === undefined ? null : (
-        <ProgressBar
-          label={name}
-          share={share}
-          kind={kind}
-          progress={progress}
-        />
+        <dd className="col-span-2">
+          <ProgressBar
+            label={name}
+            share={share}
+            kind={kind}
+            progress={progress}
+          />
+        </dd>
       )}
       {note === undefined ? null : (
-        <dd className="text-muted-foreground text-xs">{note}</dd>
+        <dd className="col-span-2 text-muted-foreground text-xs">{note}</dd>
       )}
     </div>
   );

@@ -566,8 +566,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and
-    `mobile-chrome` (Pixel 7) projects. E2e has its own database, `.data/e2e.sqlite`, named once
-    in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
+    `mobile-chrome` (Pixel 7) projects, except `mobile.spec.ts`, the phone journey, which skips
+    on desktop. `expectNoSeriousViolations` (`e2e/axe.ts`) runs axe once the page's animations
+    settle and fails on any `serious` or `critical` violation. E2e has its own database,
+    `.data/e2e.sqlite`, named once in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
     the mail outbox, in the web server command before the server starts — not in `globalSetup`,
     which Playwright runs after the server has the old file open. It seeds the dev user too, whom
     `signInAsDevUser` (`e2e/auth.ts`) signs in as; a spec that changes an account makes a fresh
