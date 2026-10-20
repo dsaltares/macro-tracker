@@ -298,8 +298,14 @@ export default function PrivacyPage() {
               under <em>Who else sees it</em> before that feature is turned on.
             </li>
             <li>
-              <strong>No location data</strong>, no device sensors, no contacts,
-              and no data from fitness trackers or health apps.
+              <strong>No camera footage.</strong> The camera is on only while
+              the barcode scanner is open, with your permission. Its picture is
+              read for a barcode on your device and never leaves it; only the
+              barcode it finds is sent to look the food up.
+            </li>
+            <li>
+              <strong>No location data</strong>, no other device sensors, no
+              contacts, and no data from fitness trackers or health apps.
             </li>
             <li>
               <strong>No payment information.</strong> The Website is free and

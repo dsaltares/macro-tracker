@@ -328,12 +328,25 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   next time. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Copy from
   yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
   tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
-  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`).
+  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
+  opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
+  `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
+  *Scan the label* on a miss.
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
   what tests read), and links to `/diary/nutrients`, `NutrientPanel`: every nutrient of the `date`,
   or of the `meal` in the address, grouped, with *No data* for a nutrient nothing declared.
+- `components/scanner/` — `BarcodeScanner`: the rear camera through `getUserMedia`, read every
+  `scanIntervalMs` for EAN-8, EAN-13 and UPC-A, a code reported once it reads the same twice in a
+  row; a torch toggle where the track has one; the denied, no-camera and failed states; the stream
+  stopped on unmount. `createBarcodeDetector` (`detector.ts`) uses the browser's
+  `BarcodeDetector` when it reads all three formats and otherwise imports the `barcode-detector`
+  ponyfill, so ZXing stays out of the initial bundle. Its wasm is served from
+  `public/zxing/zxing_reader.wasm`, never jsDelivr (the privacy policy promises no third-party
+  requests); `detector.test.ts` fails until a `barcode-detector` upgrade copies the new
+  `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm` there. Component tests fake the camera
+  and the detector with `fakeCamera` (`test/camera.ts`).
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
