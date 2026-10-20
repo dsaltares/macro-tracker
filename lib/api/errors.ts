@@ -7,6 +7,7 @@ const apiErrorStatuses = {
   INSUFFICIENT_SCOPE: 403,
   INVALID_REQUEST: 400,
   NOT_FOUND: 404,
+  CONFLICT: 409,
   INTERNAL_ERROR: 500,
 } as const;
 

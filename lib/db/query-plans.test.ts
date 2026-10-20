@@ -31,6 +31,7 @@ import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
   foodByIdQuery,
+  foodNutrientsQuery,
   foodSummariesQuery,
   portionsQuery,
   searchQuery,
@@ -531,6 +532,13 @@ describe('query plans', () => {
 
   it('reads what search shows of some foods with a search', () => {
     expectNoScan(foodSummariesQuery(db, 'u', ['f', 'g']).compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
+  });
+
+  it('reads the nutrients of some foods a user sees with a search', () => {
+    expectNoScan(foodNutrientsQuery(db, 'u', ['f', 'g']).compile(), [
       'foods',
       'food_nutrients',
     ]);
