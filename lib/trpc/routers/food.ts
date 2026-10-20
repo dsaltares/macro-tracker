@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { addFavourite, favourites, removeFavourite } from '../../db/diary.ts';
 import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
 import {
   type FoodReader,
@@ -11,12 +12,12 @@ import {
   listFoodSources,
   setFoodSourcePreferences,
 } from '../../db/food-source-preferences.ts';
+import { maxPortionLabelLength } from '../../domain/foods/portions.ts';
 import { genericSources } from '../../domain/foods/sources.ts';
 import type { Context } from '../context.ts';
 import { accountProcedure, publicProcedure, router } from '../trpc.ts';
 
 const maxQueryLength = 200;
-const maxPortionLabelLength = 60;
 
 const readerOf = ({ db, caller }: Context): FoodReader => ({
   db,
@@ -33,6 +34,11 @@ const sourcePreferencesInput = z
       ),
     { message: 'List every generic source exactly once' },
   );
+
+const favouriteInput = z.object({
+  foodId: z.string().min(1),
+  favourite: z.boolean(),
+});
 
 const portionInput = z.object({
   foodId: z.string().min(1),
@@ -74,6 +80,26 @@ export const foodRouter = router({
     .mutation(async ({ ctx, input }) => {
       await setFoodSourcePreferences(ctx.db, ctx.caller.userId, input);
       return listFoodSources(ctx.db, ctx.caller.userId);
+    }),
+  favourites: accountProcedure.query(({ ctx }) =>
+    favourites(ctx.db, ctx.caller.userId),
+  ),
+  setFavourite: accountProcedure
+    .input(favouriteInput)
+    .mutation(async ({ ctx, input: { foodId, favourite } }) => {
+      if (!favourite) {
+        await removeFavourite(ctx.db, ctx.caller.userId, foodId);
+        return;
+      }
+      const added = await addFavourite(
+        ctx.db,
+        ctx.caller.userId,
+        foodId,
+        ctx.now,
+      );
+      if (added.outcome === 'food-not-found') {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
     }),
   addPortion: accountProcedure
     .input(portionInput)

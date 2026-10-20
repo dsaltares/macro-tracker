@@ -157,6 +157,15 @@ const shown = (label: string) => {
 const entryIn = (mealName: string, label: string) =>
   within(meal(mealName)).getByRole('button', { name: new RegExp(label) });
 
+const nutrientsIn = (dialog: HTMLElement) =>
+  within(dialog).getByRole('region', { name: /^Nutrients/ });
+
+const previewed = (dialog: HTMLElement, label: string) => {
+  const terms = within(nutrientsIn(dialog)).getAllByRole('term');
+  const index = terms.findIndex((term) => term.textContent === label);
+  return within(nutrientsIn(dialog)).getAllByRole('definition')[index];
+};
+
 const storedDay = (date = day) => diaryDay(api.database(), 'user-1', date);
 
 afterEach(() => {
@@ -278,7 +287,7 @@ describe('DiaryDay', () => {
 
     await user.click(await screen.findByRole('button', { name: /Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
-    expect(within(dialog).getByLabelText('Quantity')).toHaveValue(2);
+    expect(await within(dialog).findByLabelText('Quantity')).toHaveValue(2);
     expect(within(dialog).getByLabelText('Portion')).toHaveValue('1 serving');
     expect(within(dialog).getByLabelText('Meal')).toHaveValue('breakfast');
     expect(within(dialog).getByLabelText('Time')).toHaveValue('');
@@ -311,6 +320,26 @@ describe('DiaryDay', () => {
     });
   });
 
+  it('previews the logged nutrients, then those of a changed amount', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(await screen.findByRole('button', { name: /Nutella/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
+    await within(dialog).findByLabelText('Quantity');
+    expect(nutrientsIn(dialog)).toHaveAccessibleName('Nutrients in 30 g');
+    expect(previewed(dialog, 'Energy')).toHaveTextContent('162 kcal');
+
+    await user.clear(within(dialog).getByLabelText('Quantity'));
+    await user.type(within(dialog).getByLabelText('Quantity'), '3');
+
+    expect(nutrientsIn(dialog)).toHaveAccessibleName('Nutrients in 45 g');
+    expect(previewed(dialog, 'Energy')).toHaveTextContent('243 kcal');
+    expect(previewed(dialog, 'Salt')).toHaveTextContent(
+      formatAmount(salt(42 * 0.45), 'g'),
+    );
+  });
+
   it('moves a quick entry without offering an amount to change', async () => {
     const { pizzaEntry } = await seedDay();
     const { user } = render();
@@ -323,6 +352,8 @@ describe('DiaryDay', () => {
     });
     expect(within(dialog).queryByLabelText('Quantity')).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText('Time')).toHaveValue('21:00');
+    expect(nutrientsIn(dialog)).toHaveAccessibleName('Nutrients');
+    expect(previewed(dialog, 'Energy')).toHaveTextContent('900 kcal');
 
     await user.selectOptions(within(dialog).getByLabelText('Meal'), 'lunch');
     await user.clear(within(dialog).getByLabelText('Time'));
@@ -345,7 +376,7 @@ describe('DiaryDay', () => {
 
     await user.click(await screen.findByRole('button', { name: /Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
-    await user.clear(within(dialog).getByLabelText('Quantity'));
+    await user.clear(await within(dialog).findByLabelText('Quantity'));
     await user.type(within(dialog).getByLabelText('Quantity'), '0');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
@@ -366,7 +397,7 @@ describe('DiaryDay', () => {
     );
     const dialog = await screen.findByRole('dialog', { name: 'Rolled oats' });
     await user.click(
-      within(dialog).getByRole('button', { name: 'Delete entry' }),
+      await within(dialog).findByRole('button', { name: 'Delete entry' }),
     );
 
     await waitFor(() =>

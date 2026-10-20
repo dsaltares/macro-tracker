@@ -196,7 +196,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
   a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
-  reads the food through the same visibility as `food.get`. Meals and entry kinds are in
+  reads the food through the same visibility as `food.get`; `food.favourites` and
+  `food.setFavourite` (`{ foodId, favourite }`, idempotent) are them over the caller. Meals and entry kinds are in
   `lib/domain/diary/entries.ts`.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
@@ -299,7 +300,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
   view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. Choosing a food
-  opens `FoodStep` in the same sheet. Source badges are `SourceBadge` (`components/foods/`).
+  opens `FoodStep` in the same sheet, which reads it with `food.get` and logs it with
+  `diary.addFood`. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
+  quantity and portion, a live preview of the nutrients (`resolveEntry`, or an entry's snapshot
+  until its amount changes), *Add portion* inline (`food.addPortion`), meal, time and the
+  favourite toggle. Source badges are `SourceBadge` (`components/foods/`).
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
