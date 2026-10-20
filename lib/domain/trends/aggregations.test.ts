@@ -5,6 +5,7 @@ import {
   type DailyTotal,
   dailyTotals,
   datesFrom,
+  daysWithData,
   type GoalDay,
   isWithinEnergyGoal,
   loggedAverage,
@@ -198,6 +199,23 @@ describe('adherence', () => {
   });
 });
 
+describe('daysWithData', () => {
+  it('counts the logged days whose totals declare each nutrient', () => {
+    expect(
+      daysWithData([
+        { date: '2026-10-18', logged: true, totals: { energy_kcal: 1800 } },
+        {
+          date: '2026-10-19',
+          logged: true,
+          totals: { energy_kcal: 2000, vitamin_c: 0 },
+        },
+        { date: '2026-10-20', logged: false, totals: { vitamin_c: 40 } },
+        { date: '2026-10-21', logged: true, totals: {} },
+      ]),
+    ).toEqual({ energy_kcal: 2, vitamin_c: 1 });
+  });
+});
+
 describe('nutrientAverages', () => {
   it('averages the logged days and their goals, counting every day of the range', () => {
     expect(
@@ -210,6 +228,7 @@ describe('nutrientAverages', () => {
     ).toEqual({
       days: 4,
       loggedDays: 3,
+      daysWithData: { energy_kcal: 3 },
       average: { energy_kcal: 2100 },
       goal: { energy_kcal: 2100 },
     });
@@ -219,6 +238,7 @@ describe('nutrientAverages', () => {
     expect(nutrientAverages([withGoal(unlogged('2026-10-20'), 2000)])).toEqual({
       days: 1,
       loggedDays: 0,
+      daysWithData: {},
       average: null,
       goal: null,
     });

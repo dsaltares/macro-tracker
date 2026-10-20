@@ -2,42 +2,22 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { parseAsStringLiteral, useQueryState } from 'nuqs';
-import { useId } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
 import { BackLink } from '@/components/app-shell/back-link';
 import { FormError } from '@/components/auth/fields';
 import { mealNames } from '@/components/diary/amounts';
 import { dateParser } from '@/components/diary/date-param';
-import {
-  nutrientGroupNames,
-  nutrientNames,
-} from '@/components/nutrients/nutrient-names';
-import {
-  amountIn,
-  formatShare,
-  goalOf,
-  ProgressBar,
-} from '@/components/nutrients/progress';
+import { NutrientGroups } from '@/components/nutrients/nutrient-rows';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToday } from '@/components/use-today';
 import { formatDay } from '@/lib/domain/dates';
 import { type Meal, meals } from '@/lib/domain/diary/entries';
-import {
-  type NutrientProgress,
-  nutrientProgress,
-} from '@/lib/domain/goals/progress';
-import {
-  type NutrientGroup,
-  nutrientByKey,
-  nutrientGroups,
-} from '@/lib/domain/nutrition/nutrients';
+import { nutrientProgress } from '@/lib/domain/goals/progress';
 import { diaryHref } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'These nutrients could not be loaded.';
-
-export const noData = 'No data';
 
 const wholeDay = 'day';
 
@@ -57,71 +37,6 @@ function PanelSkeleton() {
       <Skeleton className="h-40 w-full" />
       <Skeleton className="h-64 w-full" />
     </div>
-  );
-}
-
-function NutrientRow({ row }: { row: NutrientProgress }) {
-  const name = nutrientNames[row.key];
-  const { key, amount, goal, kind, share, progress } = row;
-
-  return (
-    <div className="flex flex-col gap-1.5 px-4 py-3">
-      <div className="flex items-baseline gap-2 text-sm">
-        <dt className="min-w-0 flex-1 truncate">{name}</dt>
-        <dd className="flex shrink-0 items-baseline gap-2 tabular-nums">
-          <span
-            className={
-              amount === undefined ? 'text-muted-foreground' : 'font-medium'
-            }
-          >
-            {amount === undefined ? noData : amountIn(key, amount)}
-          </span>
-          {goal === undefined ? null : (
-            <span className="text-muted-foreground">
-              {' '}
-              {goalOf(key, goal, kind)}
-            </span>
-          )}
-          {share === undefined ? null : (
-            <span className="w-10 text-right text-muted-foreground">
-              {' '}
-              {formatShare(share)}
-            </span>
-          )}
-        </dd>
-      </div>
-      {progress === undefined ? null : (
-        <ProgressBar
-          label={name}
-          share={share}
-          kind={kind}
-          progress={progress}
-        />
-      )}
-    </div>
-  );
-}
-
-function NutrientGroupSection({
-  group,
-  rows,
-}: {
-  group: NutrientGroup;
-  rows: readonly NutrientProgress[];
-}) {
-  const headingId = useId();
-
-  return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2">
-      <h2 id={headingId} className="font-semibold text-sm">
-        {nutrientGroupNames[group]}
-      </h2>
-      <dl className="flex flex-col divide-y rounded-lg border">
-        {rows.map((row) => (
-          <NutrientRow key={row.key} row={row} />
-        ))}
-      </dl>
-    </section>
   );
 }
 
@@ -161,13 +76,7 @@ function Nutrients({ date, meal }: { date: string; meal: Meal | null }) {
           Percentages are of the day’s goals.
         </p>
       )}
-      {nutrientGroups.map((group) => (
-        <NutrientGroupSection
-          key={group}
-          group={group}
-          rows={rows.filter(({ key }) => nutrientByKey[key].group === group)}
-        />
-      ))}
+      <NutrientGroups rows={rows} />
     </div>
   );
 }

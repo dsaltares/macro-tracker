@@ -27,6 +27,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | daily totals | A date's day totals within a trend range, flagged when the date is not a logged day. | [Trends](DOMAIN.md#trends) |
 | date | The user's local calendar day as `YYYY-MM-DD`. Never a timestamp. | [Diary](DOMAIN.md#diary) |
 | day totals | The sum of a day's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
+| days with data | The logged days of a range whose totals declare a nutrient. None means no data over the range. | [Trends](DOMAIN.md#trends) |
 | default portion | A food's first own portion, or `100 g` when it has none. What search shows beside a food. | [Foods](DOMAIN.md#foods) |
 | delta | A source adapter that reads only what changed upstream since its last succeeded run. Upserts, never archives. | [Foods](DOMAIN.md#foods) |
 | derived goal | A goal computed from a weekly rate target at 7,700 kcal per kg, protein in g per kg, a fat share of energy, carbohydrate as the remainder and fibre at 14 g per 1,000 kcal. | [Body and goals](DOMAIN.md#body-and-goals) |
@@ -55,6 +56,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | nutrient | One key in the closed canon in `lib/domain/nutrition/nutrients.ts`, with a unit, a group and a display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient group | Energy, macros, fat detail, carbohydrate detail, minerals, vitamins, other — in that display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient panel | Every nutrient of a day, or of one meal against the day's goals, by group and display order, with its progress. | [Body and goals](DOMAIN.md#body-and-goals) |
+| nutrient report | The nutrient panel over a range: each nutrient's average against the average goal, its percentage and its days with data, by group or by percentage. | [Trends](DOMAIN.md#trends) |
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
 | onboarding | The steps after a new account's first sign-in: the profile, then the goal settings with their defaults chosen. Every other page sends an account without a profile there. | [Body and goals](DOMAIN.md#body-and-goals) |
 | original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |

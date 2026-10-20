@@ -6,6 +6,7 @@ export const routes = {
   newFood: '/foods/new',
   trends: '/trends',
   body: '/body',
+  nutrientReport: '/trends/nutrients',
   onboarding: '/onboarding',
   onboardingGoals: '/onboarding/goals',
   settings: '/settings',
