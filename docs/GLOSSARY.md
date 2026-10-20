@@ -54,6 +54,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |
 | session | What the app holds once a confirmed user signs in. The caller of every tRPC procedure that needs an account. | [Accounts](DOMAIN.md#accounts) |
 | settings | Where an account changes its profile, goals, source preferences, API keys, export and the account itself. | [Accounts](DOMAIN.md#accounts) |
+| sign-in method | Password or Google: a way an account signs in. Connected or not, shown in settings; the last one can never be disconnected. | [Accounts](DOMAIN.md#accounts), [ADR 0011](adr/0011-manage-sign-in-methods-through-the-account-router.md) |
 | snapshot | The nutrient vector a diary entry resolved to when logged. Editing the food or recipe changes future entries only. | [Diary](DOMAIN.md#diary), [ADR 0003](adr/0003-diary-entries-snapshot-their-nutrients.md) |
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |

@@ -87,6 +87,9 @@ describe('SignInForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This account signs in with Google.',
     );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'set a password in Settings › Account',
+    );
     expect(
       screen.getByRole('button', { name: 'Continue with Google' }),
     ).toBeInTheDocument();

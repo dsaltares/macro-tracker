@@ -20,6 +20,7 @@ order).
 | [0008](0008-link-google-to-the-account-on-the-same-confirmed-address.md) | Link a Google sign-in to the account on the same address, and drop a password nobody confirmed | Accepted | 2026-10-20 |
 | [0009](0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) | Process the diary as health data on explicit consent, recorded at sign-up | Accepted | 2026-10-20 |
 | [0010](0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md) | Delete an account in one statement that cascades through the schema | Accepted | 2026-10-20 |
+| [0011](0011-manage-sign-in-methods-through-the-account-router.md) | Manage sign-in methods through the account router, keeping at least one in a single statement | Accepted | 2026-10-20 |
 
 ## How to add one
 
