@@ -202,7 +202,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   per canonical nutrient; a new nutrient is a new migration, and `foods.test.ts` fails until there
   is one. `foods_fts` is external-content FTS5 over `name`, `brand` and `original_name`, kept in
   step by triggers.
-- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`,
+- `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`
+  (through `lib/services/foods.ts`),
   over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
   FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
   `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
@@ -281,7 +282,15 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   cursor (`pagination.ts`). Routes are in `routes/` and tested there with the real handler over
   `migratedDatabasePerTest()`; each `app/api/v1/**/route.ts` only wires one to `apiServer()`, and
   `app/api/v1/[...path]` answers the envelope's `404` to any other path. `GET /api/v1/me` is the
-  key's account, profile and the key's name, prefix and scopes. The diary is `routes/diary.ts`:
+  key's account, profile and the key's name, prefix and scopes. `routes/foods.ts` is
+  `GET /api/v1/foods?q=&cursor=` (search, paged as `food.search`), `GET /api/v1/foods/{id}`,
+  `GET /api/v1/foods/{id}/portions`, `GET /api/v1/foods/barcode/{ean}` (`400` on what is not an
+  EAN-8, EAN-13 or UPC-A) and `POST /api/v1/foods` (`write`, a user food over `userFoodSchema`
+  with `brand`, `barcode`, `quantityLabel` and `portions` optional, `201` with the food, `409`
+  `CONFLICT` on a barcode the caller's foods already have). Every food carries
+  `canonicalNutrients`: each canonical nutrient key in canon order, `null` where unknown. A
+  portion is `{ id, label, grams, source }`, a standard one with `id: null` and
+  `source: 'standard'`. The diary is `routes/diary.ts`:
   `GET /api/v1/diary/{date}` (`read`) is the day as `diary.day` has it; `POST
   /api/v1/diary/entries` (`write`, `201`) takes a `kind` of `food`, `recipe` (servings or grams)
   or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
@@ -290,11 +299,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   through `entryOf`, its portion label as `portion`.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
-  (`account.ts`) is behind `account.get` and `/api/v1/me`. `diary.ts` is the diary day, adding a
-  food, recipe or quick entry, updating and removing one, copying a meal, and the Zod schemas of
-  the fields both surfaces take (`dateSchema`, `mealSchema`, `timeSchema`, `quickNutrientsSchema`,
-  `savingOnlyPer100g`, …). A `lib/db/` function moves behind a service when a REST route needs it
-  too.
+  (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or
+  barcode, the nutrients of a page of foods and creating a user food, behind `food.search`,
+  `food.get`, `food.byBarcode`, `food.create` and the foods routes; its reads take a
+  `FoodReadContext`, whose caller may be null, since the app searches signed out too.
+  `diary.ts` is the diary day, adding a food, recipe or quick entry, updating and removing one,
+  copying a meal, and the Zod schemas of the fields both surfaces take (`dateSchema`,
+  `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). A `lib/db/`
+  function moves behind a service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -528,7 +540,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   providers; `api.fails('<procedure>')` makes one procedure answer 500.
 - `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
   source; the PNGs are rendered from it. **No service worker**: nothing is cached on the device,
-  and `e2e/install.spec.ts` fails if one is registered (ADR 0014).
+  and `e2e/install.spec.ts` fails if one is registered (ADR 0014). The manifest and the meta
+  theme-color carry `lib/brand.ts`'s hex colours; `ThemeColor` (`components/theme-color.tsx`, in
+  the root layout) sets every `theme-color` meta to the theme chosen in Settings, so the browser
+  bars follow it rather than the system's. iOS ignores the manifest at launch: its splash is an
+  `apple-touch-startup-image` per screen of `splashScreens` (`lib/splash.ts`), each prerendered at
+  build by `app/splash/[size]/route.tsx` (the icon on the dark background, through `next/og`); a
+  new iPhone screen size is a new row there. `InstallBanner` (`components/app-shell/`, ADR 0015)
+  tells a phone how to install: Share → Add to Home Screen on iOS, the browser menu's Install app
+  on Android (`installPlatform`, `lib/install.ts`), nothing on a desktop, when standalone, or once
+  dismissed. Playwright's default storage state dismisses it, so only `e2e/install.spec.ts` sees it.
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.
