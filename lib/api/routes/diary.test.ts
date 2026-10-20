@@ -13,6 +13,7 @@ import { createCaller } from '../../trpc/root.ts';
 import type { ApiServer, RouteContext, RouteParams } from '../handler.ts';
 import {
   addEntryRoute,
+  addMealRoute,
   copyMealRoute,
   diaryDayRoute,
   removeEntryRoute,
@@ -758,6 +759,105 @@ describe('DELETE /api/v1/diary/entries/{id}', () => {
 
     expect(await removeEntry(id, 'user-2')).toMatchObject({ status: 404 });
     expect(await labelsOn(date)).toMatchObject({ breakfast: ['Nutella'] });
+  });
+});
+
+describe('POST /api/v1/diary/meals', () => {
+  const addMeal = (body: unknown, userId = 'user-1') =>
+    call(addMealRoute)({
+      method: 'POST',
+      path: '/diary/meals',
+      body,
+      userId,
+    });
+
+  it('logs every item of a meal and answers the entries', async () => {
+    const recipeId = await oatsBowl();
+
+    const { status, body } = await addMeal({
+      date,
+      meal: 'dinner',
+      time: '20:00',
+      items: [
+        {
+          kind: 'food',
+          foodId: await nutellaId(),
+          portion: '15 g',
+          quantity: 2,
+        },
+        { kind: 'recipe', recipeId, amount: { servings: 1 } },
+        {
+          kind: 'quick',
+          label: 'Wine',
+          nutrients: { totals: { energy_kcal: 120 } },
+        },
+      ],
+    });
+
+    expect(status).toBe(201);
+    expect(body.entries).toMatchObject([
+      { kind: 'food', label: 'Nutella', portion: '15 g', time: '20:00' },
+      { kind: 'recipe', label: 'Oats bowl', portion: '1 serving' },
+      { kind: 'quick', label: 'Wine', nutrients: { energy_kcal: 120 } },
+    ]);
+    expect(await labelsOn(date)).toMatchObject({
+      dinner: ['Nutella', 'Oats bowl', 'Wine'],
+    });
+  });
+
+  it("answers 404 for another user's food, and logs nothing", async () => {
+    const { status, body } = await addMeal(
+      {
+        date,
+        meal: 'dinner',
+        items: [
+          {
+            kind: 'quick',
+            label: 'Wine',
+            nutrients: { totals: { energy_kcal: 120 } },
+          },
+          {
+            kind: 'food',
+            foodId: await ownFood(),
+            portion: '1 jar',
+            quantity: 1,
+          },
+        ],
+      },
+      'user-2',
+    );
+
+    expect(status).toBe(404);
+    expect(body.error.message).toContain('Item 2');
+    expect(await labelsOn(date, 'user-2')).toMatchObject({ dinner: [] });
+  });
+
+  it('answers 400 for a portion the food lacks', async () => {
+    const { status } = await addMeal({
+      date,
+      meal: 'dinner',
+      items: [
+        {
+          kind: 'food',
+          foodId: await nutellaId(),
+          portion: '1 bucket',
+          quantity: 1,
+        },
+      ],
+    });
+
+    expect(status).toBe(400);
+  });
+
+  it('refuses a read-only key', async () => {
+    const { status } = await call(addMealRoute)({
+      method: 'POST',
+      path: '/diary/meals',
+      body: { date, meal: 'dinner', items: [coffee] },
+      scopes: ['read'],
+    });
+
+    expect(status).toBe(403);
   });
 });
 

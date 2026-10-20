@@ -6,6 +6,7 @@ import {
   mealDraft,
   mealDraftToEntries,
   mealEstimateSchema,
+  previousEstimateSchema,
   type ResolvedMatches,
 } from './meal-estimate.ts';
 
@@ -302,5 +303,48 @@ describe('mealDraftToEntries', () => {
     expect(mealDraftToEntries(draftOf([bananaItem], nothing))).toEqual([
       { kind: 'quick', label: 'Banana', nutrients: { totals: {} } },
     ]);
+  });
+});
+
+describe('previousEstimateSchema', () => {
+  const draft = () =>
+    draftOf([
+      { ...bananaItem, portion: { label: '1 medium', quantity: 2 } },
+      { ...chiliItem, servings: null },
+      sauceItem,
+      { ...bananaItem, foodId: 'gone' },
+    ]);
+
+  it('takes a draft as mealDraft answers it, with the feedback trimmed', () => {
+    expect(
+      previousEstimateSchema.parse({
+        draft: draft(),
+        feedback: '  The rice was brown  ',
+      }),
+    ).toEqual({ draft: draft(), feedback: 'The rice was brown' });
+  });
+
+  it.each([
+    ['empty feedback', { draft: draft(), feedback: '  ' }],
+    [
+      'feedback over 500 characters',
+      { draft: draft(), feedback: 'a'.repeat(501) },
+    ],
+    [
+      'an item of an unknown kind',
+      { draft: { ...draft(), items: [{ kind: 'meal' }] }, feedback: 'More' },
+    ],
+    [
+      'a recipe amount of both servings and grams',
+      {
+        draft: {
+          ...draft(),
+          items: [{ ...draft().items[1], amount: { servings: 1, grams: 100 } }],
+        },
+        feedback: 'More',
+      },
+    ],
+  ])('refuses %s', (_, previous) => {
+    expect(previousEstimateSchema.safeParse(previous).success).toBe(false);
   });
 });

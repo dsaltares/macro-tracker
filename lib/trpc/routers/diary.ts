@@ -18,6 +18,7 @@ import {
   timeSchema,
   updateEntry,
 } from '../../services/diary.ts';
+import { logMeal, mealToLogSchema } from '../../services/meal.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 const entryNotFound = () => new TRPCError({ code: 'NOT_FOUND' });
@@ -153,6 +154,31 @@ export const diaryRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (!(await removeEntry(ctx, input))) {
         throw entryNotFound();
+      }
+    }),
+  addMeal: accountProcedure
+    .input(mealToLogSchema)
+    .mutation(async ({ ctx, input }) => {
+      const logged = await logMeal(ctx, input);
+      switch (logged.outcome) {
+        case 'food-not-found':
+        case 'recipe-not-found':
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Item ${logged.index + 1}'s food or recipe no longer exists`,
+          });
+        case 'portion-not-found':
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Item ${logged.index + 1}'s food has no portion with this label`,
+          });
+        case 'empty-recipe':
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Item ${logged.index + 1}'s recipe has no ingredients`,
+          });
+        case 'logged':
+          return logged.entries;
       }
     }),
   copyMeal: accountProcedure
