@@ -72,6 +72,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/recipes/` — `recipeNutrients(recipe, ingredients)` sums each ingredient's vector
+  per 100 g at its grams (filling energy from the macros, as `resolveEntry` does) into the total,
+  per serving and per 100 g over the cooked weight or else the ingredients' grams.
+  `canNest(parent, child)` is the one-level rule over `NestingFacts`, which the write reads.
+  `recipeAsFood` is the recipe as `resolveEntry` takes a food: the vector per 100 g and the
+  portions `1 serving` and `100 g`. Coverage on it is gated at 100%.
 - `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
   `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
   per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
