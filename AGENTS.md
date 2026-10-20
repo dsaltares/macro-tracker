@@ -236,6 +236,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   overrides are the manual mode's inputs, and are dropped when a derived goal is saved; every
   other override is a micro goal's field, empty for its default. Nutrient names are
   `nutrientNames` (`components/nutrients/`).
+- `lib/export/` — the export, session-authenticated route handlers in `app/api/export/`:
+  `diary.csv` (one row per entry: date, meal, time, label, grams and a column per canonical
+  nutrient) and `weights.csv`, both over an optional inclusive `from` and `to`, and `all.json`
+  (`exportAccount` in `lib/db/export.ts`: profile, goal settings, the caller's own foods, every
+  entry and every measurement). Each answers an attachment with `Cache-Control: no-store`, `401`
+  without a session and `400` on a bad range. The CSV encoding (RFC 4180, CRLF, numbers to four
+  decimals) is `lib/domain/export/csv.ts`; the routes prepend a byte order mark so spreadsheets
+  read UTF-8. `exportSchema` (`lib/domain/export/schema.ts`) is the JSON's contract, versioned by
+  `exportVersion`, for an import to parse. Recipes join it when they have a table.
+  `ExportSettings` (`components/settings/`) is Settings › Export: a date range and the three
+  downloads.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes

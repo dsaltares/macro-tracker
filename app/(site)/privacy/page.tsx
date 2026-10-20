@@ -529,9 +529,7 @@ export default function PrivacyPage() {
             Settings, and need nothing from us: export gives you everything you
             logged as CSV and JSON, and deleting your account removes your
             account record, your sign-in credentials, your sessions, your API
-            keys and everything you logged or created, at once. Deletion is
-            there now; until export is, email us and we will send you your data
-            by hand.
+            keys and everything you logged or created, at once.
           </p>
           <p>
             For everything else, email us at <strong>{supportEmail}</strong>{' '}

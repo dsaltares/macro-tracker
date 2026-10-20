@@ -20,11 +20,15 @@ describe('SettingsList', () => {
       'href',
       '/settings/food-sources',
     );
+    expect(screen.getByRole('link', { name: /^Export/ })).toHaveAttribute(
+      'href',
+      '/settings/export',
+    );
     expect(screen.getByRole('link', { name: /^Account/ })).toHaveAttribute(
       'href',
       '/settings/account',
     );
-    expect(screen.getAllByRole('link')).toHaveLength(4);
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getAllByText('Coming soon')).toHaveLength(1);
   });
 });

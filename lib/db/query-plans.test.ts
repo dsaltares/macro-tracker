@@ -9,6 +9,7 @@ import {
 } from './body-measurements.ts';
 import {
   diaryDayQuery,
+  diaryEntriesQuery,
   diaryEntryDeletion,
   diaryEntryQuery,
   diaryMealDeletion,
@@ -18,6 +19,7 @@ import {
   lastLoggedAmountsQuery,
   recentFoodsQuery,
 } from './diary.ts';
+import { ownedFoodsQuery } from './export.ts';
 import { lastSucceededFoodImportQuery } from './food-imports.ts';
 import { userPortionDeletion } from './food-portions.ts';
 import {
@@ -348,6 +350,22 @@ describe('query plans', () => {
       diaryDayQuery(db, 'u', '2026-10-20').compile(),
       'diary_entries',
     );
+  });
+
+  it("reads a user's diary entries over a range, or all of them, with a search", () => {
+    for (const range of [{}, { from: '2026-10-01', to: '2026-10-31' }]) {
+      expectSearch(
+        diaryEntriesQuery(db, 'u', range).compile(),
+        'diary_entries',
+      );
+    }
+  });
+
+  it("reads a user's own foods with their nutrients without a scan", () => {
+    expectNoScan(ownedFoodsQuery(db, 'u').compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
   });
 
   it("reads a user's diary entry by id with a search", () => {

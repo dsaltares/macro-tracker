@@ -12,13 +12,13 @@ describe('legalDocuments', () => {
 });
 
 describe('settingsSections', () => {
-  it('lists every section in order, with Profile, Goals, Food sources and Account live', () => {
+  it('lists every section in order, with every one but API keys live', () => {
     expect(settingsSections.map(({ label, href }) => [label, href])).toEqual([
       ['Profile', '/settings/profile'],
       ['Goals', '/settings/goals'],
       ['Food sources', '/settings/food-sources'],
       ['API keys', null],
-      ['Export', null],
+      ['Export', '/settings/export'],
       ['Account', '/settings/account'],
     ]);
   });
