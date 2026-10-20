@@ -69,7 +69,7 @@ a user's own. One table; `source` says where a row came from:
   first and SR Legacy's for any nutrient Foundation lacks. An FNDDS food that is just one of those
   lends it its portions; any other FNDDS food is a food of its own.
 - `user` — created by a user, by hand, from quick add, or from a label scan. Has an owner and is
-  visible only to them. May carry a barcode.
+  visible only to them. May carry a barcode, which no other of their live foods has.
 
 A **source adapter** streams one upstream dataset as `SourceFood` records
 (`lib/domain/foods/source-food.ts`): canonical nutrients per 100 g, whatever the upstream keys,
@@ -98,6 +98,12 @@ is stored as zero, and the food lists it among its traces so it can be shown as 
 
 `(source, source_id)` is the upsert key for reference foods. A reference food that disappears
 upstream is **archived**: hidden from search, still resolvable from the diary.
+
+A user's **foods** are their own foods that are not archived. They are typed from a label: the
+EU label per 100 g, or per serving with the serving's grams, which the app turns into per 100 g;
+salt for sodium; any other nutrient; and the food's own portions. Editing a food changes future
+entries only. A user **archives** a food they no longer want: it leaves their foods, search and
+barcode lookup, and stays resolvable from the diary.
 
 A **portion** is a named quantity in grams for one food ("1 serving = 30 g", "1 tbsp = 15 g").
 Every food has `100 g`, `1 g` and `1 ml`; a reference food may add its upstream serving; a user adds

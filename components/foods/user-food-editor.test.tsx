@@ -1,0 +1,316 @@
+import { screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  EditUserFood,
+  NewUserFood,
+  notEditable,
+} from '@/components/foods/user-food-editor';
+import { barcodeTaken, saveFailed } from '@/components/foods/user-food-form';
+import { findFood } from '@/lib/db/food-search';
+import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
+import {
+  aboveMaxPer100g,
+  portionLabelTaken,
+} from '@/lib/domain/foods/user-food';
+import { serveApi } from '@/test/api';
+import { router } from '@/test/next-navigation';
+import { renderUi } from '@/test/ui';
+
+vi.mock('next/navigation', () => import('@/test/next-navigation'));
+
+const api = serveApi({ signedInAs: 'user-1' });
+
+const seeding = (): FoodWriteContext => {
+  let ids = 0;
+  return {
+    nextId: () => `seed-${++ids}`,
+    now: () => new Date(Date.UTC(2026, 9, 19, 7)).toISOString(),
+  };
+};
+
+const seedOwnFood = () =>
+  insertFood(
+    api.database(),
+    {
+      source: 'user',
+      owner_user_id: 'user-1',
+      barcode: '3017620422003',
+      name: 'Hazelnut spread',
+      brand: 'Homemade',
+      quantity_label: '350 g',
+      nutrients: {
+        energy_kcal: 540,
+        fat: 31,
+        sodium: 43,
+        vitamin_e: 6.5,
+      },
+      portions: [{ label: '1 tsp', grams: 5 }],
+    },
+    seeding(),
+  );
+
+const ownFoods = () =>
+  api
+    .database()
+    .selectFrom('foods')
+    .select(['id', 'archived_at'])
+    .where('owner_user_id', '=', 'user-1')
+    .execute();
+
+const savedFood = async () => {
+  await vi.waitFor(() => expect(router.push).toHaveBeenCalledWith('/foods'));
+  const [own] = await ownFoods();
+  if (own === undefined) {
+    throw new Error('no food was saved');
+  }
+  const food = await findFood({ db: api.database(), userId: 'user-1' }, own.id);
+  if (food === null) {
+    throw new Error('the saved food cannot be read');
+  }
+  return food;
+};
+
+const renderNew = (barcode = '') =>
+  renderUi(<NewUserFood barcode={barcode} />, { wrap: api.wrap });
+
+const field = (label: string) => screen.getByLabelText(label);
+
+const allNutrients = () =>
+  screen.getByRole('button', { name: 'All nutrients' });
+
+describe('NewUserFood', () => {
+  it('saves the label per 100 g, salt as sodium', async () => {
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Granola');
+    await user.type(field('Energy (kcal)'), '450');
+    await user.type(field('Fat (g)'), '18');
+    await user.type(field('Salt (g)'), '0.5');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await savedFood()).toMatchObject({
+      source: 'user',
+      name: 'Granola',
+      brand: null,
+      barcode: null,
+      nutrients: { energy_kcal: 450, fat: 18, sodium: 200 },
+    });
+  });
+
+  it('converts amounts typed per serving to per 100 g', async () => {
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Protein bar');
+    await user.click(screen.getByRole('radio', { name: 'Per serving' }));
+    await user.type(field('Serving size (g)'), '60');
+    await user.type(field('Energy (kcal)'), '210');
+    await user.type(field('Protein (g)'), '20');
+    await user.type(field('Sugars (g)'), '1.5');
+    await user.type(field('Salt (g)'), '0.3');
+    await user.click(allNutrients());
+    await user.type(field('Fibre (g)'), '7');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect((await savedFood()).nutrients).toEqual({
+      energy_kcal: 350,
+      protein: 33.33,
+      sugars: 2.5,
+      fibre: 11.67,
+      sodium: 200,
+    });
+  });
+
+  it('asks for the serving size before converting', async () => {
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Protein bar');
+    await user.click(screen.getByRole('radio', { name: 'Per serving' }));
+    await user.type(field('Energy (kcal)'), '210');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText('Enter the serving size')).toBeVisible();
+    expect(await ownFoods()).toEqual([]);
+  });
+
+  it('refuses an amount 100 g cannot hold once converted', async () => {
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Butter');
+    await user.click(screen.getByRole('radio', { name: 'Per serving' }));
+    await user.type(field('Serving size (g)'), '10');
+    await user.type(field('Fat (g)'), '12');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText(aboveMaxPer100g('fat'))).toBeVisible();
+    expect(await ownFoods()).toEqual([]);
+  });
+
+  it('keeps every other nutrient behind All nutrients', async () => {
+    const { user } = renderNew();
+
+    expect(allNutrients()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByLabelText('Vitamin C (mg)')).not.toBeVisible();
+    expect(screen.queryByLabelText('Sodium (mg)')).toBeNull();
+    expect(screen.queryByLabelText('Energy (kcal)')).toBeVisible();
+
+    await user.click(allNutrients());
+
+    expect(allNutrients()).toHaveAttribute('aria-expanded', 'true');
+    for (const group of [
+      'Macros',
+      'Fats',
+      'Carbohydrates',
+      'Minerals',
+      'Vitamins',
+      'Other',
+    ]) {
+      expect(screen.getByRole('group', { name: group })).toBeVisible();
+    }
+    await user.type(field('Name'), 'Orange juice');
+    await user.type(field('Vitamin C (mg)'), '40');
+    await user.type(field('Caffeine (mg)'), '0');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect((await savedFood()).nutrients).toEqual({
+      vitamin_c: 40,
+      caffeine: 0,
+    });
+  });
+
+  it('opens All nutrients to show an error inside it', async () => {
+    const { user } = renderNew();
+
+    await user.click(allNutrients());
+    await user.type(field('Iron (mg)'), '-1');
+    await user.click(allNutrients());
+    await user.type(field('Name'), 'Spinach');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText('Enter zero or more')).toBeVisible();
+    expect(allNutrients()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('saves the portions listed, and refuses a label twice', async () => {
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Bread');
+    await user.click(screen.getByRole('button', { name: 'Add portion' }));
+    await user.type(field('Portion 1 label'), '1 slice');
+    await user.type(field('Portion 1 grams'), '35');
+    await user.click(screen.getByRole('button', { name: 'Add portion' }));
+    await user.type(field('Portion 2 label'), '1 slice');
+    await user.type(field('Portion 2 grams'), '50');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText(portionLabelTaken)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Remove portion 2' }));
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect((await savedFood()).portions).toEqual([
+      { id: expect.any(String), label: '1 slice', grams: 35, source: 'user' },
+      { label: '100 g', grams: 100 },
+      { label: '1 g', grams: 1 },
+      { label: '1 ml', grams: 1 },
+    ]);
+  });
+
+  it('starts from the barcode it is given, and refuses one already taken', async () => {
+    await seedOwnFood();
+    const { user } = renderNew('3017620422003');
+
+    expect(field('Barcode')).toHaveValue('3017620422003');
+    await user.type(field('Name'), 'Another spread');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText(barcodeTaken)).toBeVisible();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('says so when the food cannot be saved', async () => {
+    api.fails('food.create');
+    const { user } = renderNew();
+
+    await user.type(field('Name'), 'Granola');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await screen.findByText(saveFailed)).toBeVisible();
+  });
+});
+
+describe('EditUserFood', () => {
+  const renderEdit = (foodId: string) =>
+    renderUi(<EditUserFood foodId={foodId} />, { wrap: api.wrap });
+
+  it('fills in the food and saves the change', async () => {
+    const id = await seedOwnFood();
+    const { user } = renderEdit(id);
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('Hazelnut spread');
+    expect(field('Brand')).toHaveValue('Homemade');
+    expect(field('Pack size')).toHaveValue('350 g');
+    expect(field('Energy (kcal)')).toHaveValue(540);
+    expect(field('Salt (g)')).toHaveValue(0.11);
+    expect(allNutrients()).toHaveAttribute('aria-expanded', 'true');
+    expect(field('Vitamin E (mg)')).toHaveValue(6.5);
+    expect(field('Portion 1 label')).toHaveValue('1 tsp');
+
+    await user.clear(field('Energy (kcal)'));
+    await user.type(field('Energy (kcal)'), '520');
+    await user.clear(field('Vitamin E (mg)'));
+    await user.click(screen.getByRole('button', { name: 'Save food' }));
+
+    const food = await savedFood();
+    expect(food).toMatchObject({ name: 'Hazelnut spread' });
+    expect(food.nutrients).toEqual({ energy_kcal: 520, fat: 31, sodium: 43 });
+    expect(food.portions[0]).toMatchObject({ label: '1 tsp', grams: 5 });
+  });
+
+  it('saves the sodium of a changed salt', async () => {
+    const id = await seedOwnFood();
+    const { user } = renderEdit(id);
+
+    await user.clear(await screen.findByLabelText('Salt (g)'));
+    await user.type(field('Salt (g)'), '1.25');
+    await user.click(screen.getByRole('button', { name: 'Save food' }));
+
+    expect((await savedFood()).nutrients).toMatchObject({ sodium: 500 });
+  });
+
+  it('archives the food once confirmed', async () => {
+    const id = await seedOwnFood();
+    const { user } = renderEdit(id);
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Archive food' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Archive Hazelnut spread?',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    await vi.waitFor(() => expect(router.push).toHaveBeenCalledWith('/foods'));
+    expect(await ownFoods()).toEqual([{ id, archived_at: expect.any(String) }]);
+  });
+
+  it('does not edit a reference food', async () => {
+    const id = await insertFood(
+      api.database(),
+      {
+        source: 'off',
+        source_id: '3017620422003',
+        barcode: '3017620422003',
+        name: 'Nutella',
+        brand: 'Ferrero',
+        quantity_label: '400 g',
+        nutrients: { energy_kcal: 539 },
+        portions: [],
+      },
+      seeding(),
+    );
+    renderEdit(id);
+
+    expect(await screen.findByText(notEditable)).toBeVisible();
+    expect(screen.queryByLabelText('Name')).toBeNull();
+  });
+});
