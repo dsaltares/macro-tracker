@@ -6,8 +6,10 @@ import {
   notEditable,
 } from '@/components/foods/user-food-editor';
 import { barcodeTaken, saveFailed } from '@/components/foods/user-food-form';
+import { shrinkPhoto, uploadPhoto } from '@/components/label-scan/photo';
 import { findFood } from '@/lib/db/food-search';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
+import type { LabelReading } from '@/lib/domain/foods/label-reading';
 import {
   aboveMaxPer100g,
   portionLabelTaken,
@@ -17,6 +19,11 @@ import { router } from '@/test/next-navigation';
 import { renderUi } from '@/test/ui';
 
 vi.mock('next/navigation', () => import('@/test/next-navigation'));
+
+vi.mock('@/components/label-scan/photo', () => ({
+  shrinkPhoto: vi.fn(),
+  uploadPhoto: vi.fn(),
+}));
 
 const api = serveApi({ signedInAs: 'user-1' });
 
@@ -235,6 +242,98 @@ describe('NewUserFood', () => {
     await user.click(screen.getByRole('button', { name: 'Create food' }));
 
     expect(await screen.findByText(saveFailed)).toBeVisible();
+  });
+});
+
+const labelReading: LabelReading = {
+  productName: { value: 'Oat biscuits', confidence: 0.95 },
+  brand: { value: 'Mill Lane', confidence: 0.9 },
+  netQuantity: { value: '300 g', confidence: 0.9 },
+  servingSize: {
+    label: '2 biscuits',
+    amount: 25,
+    unit: 'g',
+    confidence: 0.8,
+  },
+  per100g: [
+    { nutrient: 'energy_kj', printed: '2010', unit: 'kJ', confidence: 0.9 },
+    { nutrient: 'fat', printed: '21', unit: 'g', confidence: 0.9 },
+    { nutrient: 'salt', printed: '0,5', unit: 'g', confidence: 0.9 },
+  ],
+  perServing: [],
+  notes: [],
+};
+
+describe('NewUserFood with label scanning', () => {
+  const photo = new File([new Uint8Array(16)], 'label.jpg', {
+    type: 'image/jpeg',
+  });
+
+  const renderScanning = (scanFirst = false) =>
+    renderUi(
+      <NewUserFood
+        barcode="5000159407236"
+        labelScanning
+        scanFirst={scanFirst}
+      />,
+      { wrap: api.wrap },
+    );
+
+  it('offers no scan while label scanning is off, even when asked to start with one', () => {
+    renderUi(<NewUserFood barcode="" scanFirst />, { wrap: api.wrap });
+
+    expect(field('Name')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Scan a label instead' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('starts with the camera when asked, and goes back to typing', async () => {
+    const { user } = renderScanning(true);
+
+    expect(
+      screen.getByRole('region', { name: 'Scan a label' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Type it in instead' }),
+    );
+
+    expect(field('Barcode')).toHaveValue('5000159407236');
+  });
+
+  it('fills the form from the label it reads, keeping the barcode, and saves it', async () => {
+    vi.mocked(shrinkPhoto).mockResolvedValue(photo);
+    vi.mocked(uploadPhoto).mockResolvedValue({
+      read: true,
+      reading: labelReading,
+    });
+    const { user } = renderScanning();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Scan a label instead' }),
+    );
+    await user.upload(screen.getByLabelText('Take a photo'), photo);
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('Oat biscuits');
+    expect(field('Brand')).toHaveValue('Mill Lane');
+    expect(field('Barcode')).toHaveValue('5000159407236');
+    expect(field('Energy (kcal)')).toHaveValue(480.4);
+    expect(field('Salt (g)')).toHaveValue(0.5);
+    expect(
+      screen.getByRole('button', { name: 'Scan the label again' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect(await savedFood()).toMatchObject({
+      name: 'Oat biscuits',
+      brand: 'Mill Lane',
+      barcode: '5000159407236',
+      quantityLabel: '300 g',
+      nutrients: { energy_kcal: 480.4, fat: 21, sodium: 200 },
+    });
   });
 });
 
