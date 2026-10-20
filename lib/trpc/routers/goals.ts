@@ -1,25 +1,21 @@
 import { z } from 'zod';
+import { isDate } from '../../domain/dates.ts';
+import { goalSettingsSchema } from '../../domain/goals/settings.ts';
 import {
   findGoalOn,
   findGoalSettings,
   saveGoalSettings,
-} from '../../db/goals.ts';
-import { isDate } from '../../domain/dates.ts';
-import { goalSettingsSchema } from '../../domain/goals/settings.ts';
+} from '../../services/goals.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 const dateInput = z.string().refine(isDate, { message: 'Not a date' });
 
 export const goalsRouter = router({
-  get: accountProcedure.query(({ ctx }) =>
-    findGoalSettings(ctx.db, ctx.caller.userId),
-  ),
+  get: accountProcedure.query(({ ctx }) => findGoalSettings(ctx)),
   set: accountProcedure
     .input(goalSettingsSchema)
-    .mutation(({ ctx, input }) =>
-      saveGoalSettings(ctx.db, ctx.caller.userId, input, ctx.now()),
-    ),
+    .mutation(({ ctx, input }) => saveGoalSettings(ctx, input)),
   forDate: accountProcedure
     .input(dateInput)
-    .query(({ ctx, input }) => findGoalOn(ctx.db, ctx.caller.userId, input)),
+    .query(({ ctx, input }) => findGoalOn(ctx, input)),
 });

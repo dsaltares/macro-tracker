@@ -281,8 +281,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `apiError(code, message)` for an expected one. Pages are `{ items, nextCursor }` with an opaque
   cursor (`pagination.ts`). Routes are in `routes/` and tested there with the real handler over
   `migratedDatabasePerTest()`; each `app/api/v1/**/route.ts` only wires one to `apiServer()`, and
-  `app/api/v1/[...path]` answers the envelope's `404` to any other path. `GET /api/v1/me` is the
-  key's account, profile and the key's name, prefix and scopes. `routes/foods.ts` is
+  `app/api/v1/[...path]` answers the envelope's `404` to any other path. A list reads one row past
+  its page through a `Slice` (`lib/db/slice.ts`, `sliceAt` and `pageOfSlice`). `GET /api/v1/me` is
+  the key's account, profile and the key's name, prefix and scopes. `routes/foods.ts` is
   `GET /api/v1/foods?q=&cursor=` (search, paged as `food.search`), `GET /api/v1/foods/{id}`,
   `GET /api/v1/foods/{id}/portions`, `GET /api/v1/foods/barcode/{ean}` (`400` on what is not an
   EAN-8, EAN-13 or UPC-A) and `POST /api/v1/foods` (`write`, a user food over `userFoodSchema`
@@ -297,6 +298,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
   /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`. Each entry goes out
   through `entryOf`, its portion label as `portion`.
+  `routes/body.ts` is
+  `GET|POST /api/v1/measurements` (`metric`, default `weight_kg`, `from`, `to`, 100 a page; a
+  `POST` answers `201` and replaces the date's weight) and `DELETE /api/v1/measurements/{id}`;
+  `routes/goals.ts` is `GET /api/v1/goals?date=` (`{ date, settings, goal }`, the goal `goals.forDate`
+  has, `null` without a profile or a weight) and `PUT /api/v1/goals` (the settings, as
+  `goals.set`); `routes/recipes.ts` is `GET /api/v1/recipes` (live recipes by name, 50 a page)
+  and `GET /api/v1/recipes/{id}` (as `recipe.get`, archived ones too); `routes/trends.ts` is
+  `GET /api/v1/trends?from&to` (as `trends.range`). Reads need `read`, writes `write`.
+  `test/rest.ts` is the routes' test client: `keyFor`, `call` and `app`, a tRPC caller over the
+  same database.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
   (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or
@@ -305,8 +316,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `FoodReadContext`, whose caller may be null, since the app searches signed out too.
   `diary.ts` is the diary day, adding a food, recipe or quick entry, updating and removing one,
   copying a meal, and the Zod schemas of the fields both surfaces take (`dateSchema`,
-  `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). A `lib/db/`
-  function moves behind a service when a REST route needs it too.
+  `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). `body.ts`
+  (with `measurementSchema`), `goals.ts`, `recipes.ts` (`listRecipes`, `findRecipe`) and
+  `trends.ts` (`trendRange`, with `trendRangeSchema`) are behind the `body`, `goals`, `recipe`
+  and `trends` procedures and their routes. A `lib/db/` function moves behind a service when a
+  REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest

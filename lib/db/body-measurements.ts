@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { BodyMetric } from '../domain/body/measurements.ts';
 import type { FoodWriteContext } from './foods.ts';
 import type { Database } from './schema.ts';
+import type { Slice } from './slice.ts';
 
 export type BodyMeasurement = {
   id: string;
@@ -65,7 +66,13 @@ export const listMeasurements = (
   db: Kysely<Database>,
   userId: string,
   range: MeasurementRange,
-): Promise<BodyMeasurement[]> => measurementsQuery(db, userId, range).execute();
+  slice?: Slice,
+): Promise<BodyMeasurement[]> => {
+  const query = measurementsQuery(db, userId, range);
+  return (
+    slice ? query.limit(slice.limit).offset(slice.offset) : query
+  ).execute();
+};
 
 export const latestMeasurementQuery = (
   db: Kysely<Database>,

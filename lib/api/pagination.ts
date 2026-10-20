@@ -38,3 +38,18 @@ export const pageOf = <Item>(
   items,
   nextCursor: nextOffset === null ? null : cursorOf(nextOffset),
 });
+
+export const sliceAt = (offset: number, pageSize: number) => ({
+  offset,
+  limit: pageSize + 1,
+});
+
+export const pageOfSlice = <Row, Item>(
+  rows: Row[],
+  { offset, limit }: { offset: number; limit: number },
+  item: (row: Row) => Item,
+): Page<Item> =>
+  pageOf(
+    rows.slice(0, limit - 1).map(item),
+    rows.length < limit ? null : offset + limit - 1,
+  );
