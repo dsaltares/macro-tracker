@@ -195,7 +195,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `diary_entries` keeps each entry's snapshot as a JSON object in `nutrients`, and its checks
   enforce the shape of each kind: only a food entry links a food, only a recipe entry a recipe,
   and only a quick entry has no quantity, portion or grams. Deleting a food clears `food_id` and
-  keeps the entry; `recipe_id` has no foreign key until recipes have a table. `diaryDay` reads a
+  keeps the entry; `recipe_id` has no foreign key, since a recipe is archived and only an account
+  deletion, which takes the entries too, deletes one. `diaryDay` reads a
   user's date on `(user_id, date)` and orders it by meal, then logging time. `logFood` reads the
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
@@ -212,6 +213,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   amount coming from SQLite's bare columns beside a lone `max(created_at)`, and hand them to
   `withLastLoggedAmounts` (`food-search.ts`), which reads the summaries search shows and falls back
   to one default portion. Meals and entry kinds are in `lib/domain/diary/entries.ts`.
+- `lib/db/recipes.ts` — recipes and their ingredients. `recipes` is one row per recipe, on
+  `users.id` with a cascade; `recipe_ingredients` keeps each ingredient's `grams`, `portion_label`
+  and `quantity` at a `position`, and links exactly one of `food_id` and `child_recipe_id`, never
+  the recipe itself. Both links cascade, and the one-level nesting rule is the write's, not a
+  constraint. `userRecipesQuery` lists a user's live recipes by name, `recipeQuery` reads one and
+  `recipeIngredientsQuery` its ingredients in order, ownership on each statement.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest

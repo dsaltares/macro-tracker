@@ -68,7 +68,7 @@ const giveEverything = async (userId: string) => {
     { source: 'ciqual', enabled: false },
     { source: 'cofid', enabled: true },
   ]);
-  await insertFood(
+  const ownFoodId = await insertFood(
     db,
     {
       source: 'user',
@@ -117,10 +117,60 @@ const giveEverything = async (userId: string) => {
     label: `${userId}'s spoon`,
     grams: 15,
   });
+  await giveRecipes(db, userId, ownFoodId);
+};
+
+const giveRecipes = async (
+  db: ReturnType<typeof database>,
+  userId: string,
+  ownFoodId: string,
+) => {
+  const recipe = (id: string, name: string) => ({
+    id,
+    user_id: userId,
+    name,
+    servings: 2,
+    cooked_weight_g: null,
+    notes: null,
+    archived_at: null,
+    created_at: now(),
+    updated_at: now(),
+  });
+  const ingredient = (
+    id: string,
+    recipeId: string,
+    link: { food_id: string } | { child_recipe_id: string },
+    position: number,
+  ) => ({
+    id,
+    recipe_id: recipeId,
+    food_id: null,
+    child_recipe_id: null,
+    ...link,
+    grams: 60,
+    portion_label: '1 bowl',
+    quantity: 1,
+    position,
+  });
+  const base = `${userId}-granola-bowl`;
+  const breakfast = `${userId}-breakfast`;
+  await db
+    .insertInto('recipes')
+    .values([recipe(base, 'Granola bowl'), recipe(breakfast, 'Breakfast')])
+    .execute();
+  await db
+    .insertInto('recipe_ingredients')
+    .values([
+      ingredient(`${base}-granola`, base, { food_id: ownFoodId }, 0),
+      ingredient(`${base}-nutella`, base, { food_id: referenceFoodId }, 1),
+      ingredient(`${breakfast}-bowl`, breakfast, { child_recipe_id: base }, 0),
+    ])
+    .execute();
 };
 
 const ownedRows = (userId: string) => {
   const ownFoods = sql`select id from foods where owner_user_id = ${userId}`;
+  const ownRecipes = sql`select id from recipes where user_id = ${userId}`;
   return {
     users: sql`id = ${userId}`,
     sessions: sql`user_id = ${userId}`,
@@ -134,6 +184,8 @@ const ownedRows = (userId: string) => {
     favourites: sql`user_id = ${userId}`,
     body_measurements: sql`user_id = ${userId}`,
     goals: sql`user_id = ${userId}`,
+    recipes: sql`user_id = ${userId}`,
+    recipe_ingredients: sql`recipe_id in (${ownRecipes})`,
   };
 };
 
