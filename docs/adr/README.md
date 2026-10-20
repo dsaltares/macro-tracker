@@ -24,6 +24,7 @@ order).
 | [0012](0012-manage-sign-in-methods-through-the-account-router.md) | Manage sign-in methods through the account router, keeping at least one in a single statement | Accepted | 2026-10-20 |
 | [0013](0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md) | Read labels through a provider-agnostic AI seam, and discard the photo | Accepted | 2026-10-20 |
 | [0014](0014-install-from-the-manifest-alone-with-no-service-worker.md) | Install from the manifest alone, with no service worker | Accepted | 2026-10-20 |
+| [0015](0015-prompt-install-with-an-inline-banner-behind-sign-in.md) | Prompt the install with an inline banner in the signed-in app | Accepted | 2026-10-20 |
 
 ## How to add one
 

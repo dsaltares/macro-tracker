@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { appBackground, siteName, siteShortName } from '../lib/brand.ts';
+import { splashScreens } from '../lib/splash.ts';
 import { signInAsDevUser } from './auth.ts';
 
 test('the manifest installs the app onto the diary', async ({
@@ -31,6 +32,53 @@ test('the manifest installs the app onto the diary', async ({
     expect(icon.status(), src).toBe(200);
     expect(icon.headers()['content-type'], src).toContain('image/');
   }
+});
+
+test('every iPhone and iPad has a splash screen of its exact size', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/sign-in');
+
+  const links = page.locator('link[rel="apple-touch-startup-image"]');
+  await expect(links).toHaveCount(splashScreens.length);
+
+  for (const href of await links.evaluateAll((all) =>
+    all.map((link) => link.getAttribute('href') ?? ''),
+  )) {
+    const splash = await request.get(href);
+    expect(splash.status(), href).toBe(200);
+    expect(splash.headers()['content-type'], href).toBe('image/png');
+  }
+  expect((await request.get('/splash/1x1')).status()).toBe(404);
+});
+
+test.describe('on a first launch in the browser', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('a phone is told how to install, until it says no', async ({
+    page,
+    isMobile,
+  }) => {
+    await signInAsDevUser(page);
+    const banner = page.getByRole('region', { name: `Install ${siteName}` });
+
+    if (!isMobile) {
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(banner).toBeHidden();
+      return;
+    }
+
+    await expect(banner).toContainText(
+      'Open the browser menu, then Install app',
+    );
+    await banner.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(banner).toBeHidden();
+
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(banner).toBeHidden();
+  });
 });
 
 test('no service worker is registered', async ({ page }) => {

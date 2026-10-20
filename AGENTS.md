@@ -518,7 +518,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   providers; `api.fails('<procedure>')` makes one procedure answer 500.
 - `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
   source; the PNGs are rendered from it. **No service worker**: nothing is cached on the device,
-  and `e2e/install.spec.ts` fails if one is registered (ADR 0014).
+  and `e2e/install.spec.ts` fails if one is registered (ADR 0014). The manifest and the meta
+  theme-color carry `lib/brand.ts`'s hex colours; `ThemeColor` (`components/theme-color.tsx`, in
+  the root layout) sets every `theme-color` meta to the theme chosen in Settings, so the browser
+  bars follow it rather than the system's. iOS ignores the manifest at launch: its splash is an
+  `apple-touch-startup-image` per screen of `splashScreens` (`lib/splash.ts`), each prerendered at
+  build by `app/splash/[size]/route.tsx` (the icon on the dark background, through `next/og`); a
+  new iPhone screen size is a new row there. `InstallBanner` (`components/app-shell/`, ADR 0015)
+  tells a phone how to install: Share → Add to Home Screen on iOS, the browser menu's Install app
+  on Android (`installPlatform`, `lib/install.ts`), nothing on a desktop, when standalone, or once
+  dismissed. Playwright's default storage state dismisses it, so only `e2e/install.spec.ts` sees it.
 - `components/ui/` is vendored shadcn (`base-mira`, stone, Tabler icons) and keeps whatever it
   ships. Add a component with `yarn shadcn add <name>`, then point any `cn` import it brings at
   `@/lib/utils`.

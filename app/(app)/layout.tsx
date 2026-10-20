@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BottomNav } from '@/components/app-shell/bottom-nav';
+import { InstallBanner } from '@/components/app-shell/install-banner';
 import { Sidebar } from '@/components/app-shell/sidebar';
 import { requireProfile } from '@/lib/auth/session';
 
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <Sidebar account={user} />
       <div className="mx-auto flex min-h-dvh max-w-md flex-col pb-16 md:max-w-2xl md:pb-0">
         {children}
+        <InstallBanner />
       </div>
       <BottomNav />
     </div>
