@@ -1,5 +1,5 @@
 import type { ColumnType, Generated } from 'kysely';
-import type { BodyMetric } from '../domain/body.ts';
+import type { BodyMetric } from '../domain/body/measurements.ts';
 import type { EntryKind, Meal } from '../domain/diary/entries.ts';
 import type {
   GenericSource,

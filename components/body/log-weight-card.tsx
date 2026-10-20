@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
 import { WeightForm } from '@/components/body/weight-form';
-import { formatWeight } from '@/lib/domain/body';
+import { formatWeight } from '@/lib/domain/body/measurements';
 import { formatDay } from '@/lib/domain/dates';
 import { useTRPC } from '@/lib/trpc/client';
 

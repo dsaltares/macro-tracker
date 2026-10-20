@@ -3,6 +3,8 @@ import {
   addDays,
   daysBetween,
   formatDay,
+  formatDayMonth,
+  formatMonthYear,
   isDate,
   localDateOf,
   today,
@@ -132,5 +134,23 @@ describe('formatDay', () => {
     ['2027-01-01', 'Fri, 1 Jan 2027'],
   ])('shows %s as %s', (date, shown) => {
     expect(formatDay(date)).toBe(shown);
+  });
+});
+
+describe('formatDayMonth', () => {
+  it.each([
+    ['2026-10-20', '20 Oct'],
+    ['2027-01-01', '1 Jan'],
+  ])('shows %s as %s', (date, shown) => {
+    expect(formatDayMonth(date)).toBe(shown);
+  });
+});
+
+describe('formatMonthYear', () => {
+  it.each([
+    ['2026-10-20', 'Oct 2026'],
+    ['2027-01-01', 'Jan 2027'],
+  ])('shows %s as %s', (date, shown) => {
+    expect(formatMonthYear(date)).toBe(shown);
   });
 });

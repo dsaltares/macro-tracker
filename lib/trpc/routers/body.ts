@@ -6,7 +6,7 @@ import {
   logMeasurement,
   removeMeasurement,
 } from '../../db/body-measurements.ts';
-import { bodyMetrics, weightKgSchema } from '../../domain/body.ts';
+import { bodyMetrics, weightKgSchema } from '../../domain/body/measurements.ts';
 import { isDate } from '../../domain/dates.ts';
 import { accountProcedure, router } from '../trpc.ts';
 

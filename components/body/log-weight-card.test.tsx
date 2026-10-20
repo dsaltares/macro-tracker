@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { LogWeightCard } from '@/components/body/log-weight-card';
 import { saveFailed } from '@/components/body/weight-form';
@@ -83,7 +83,11 @@ describe('LogWeightCard', () => {
       { wrap: api.wrap },
     );
 
-    expect(await screen.findByText('72.8 kg')).toBeInTheDocument();
+    expect(
+      await within(
+        screen.getByRole('region', { name: 'Weight log' }),
+      ).findByText('72.8 kg'),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('region', { name: 'Log weight' }),
     ).not.toBeInTheDocument();

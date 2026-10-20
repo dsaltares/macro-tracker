@@ -40,8 +40,11 @@ const savedWeights = async () =>
 
 const render = () => renderUi(<WeightLog />, { wrap: api.wrap });
 
+const weightLog = () =>
+  within(screen.getByRole('region', { name: 'Weight log' }));
+
 const shownRows = () =>
-  within(screen.getByRole('region', { name: 'Weight log' }))
+  weightLog()
     .getAllByRole('listitem')
     .map((row) => row.textContent);
 
@@ -90,7 +93,7 @@ describe('WeightLog', () => {
     await screen.findByText('No weights logged yet.');
     await enter(user, { day: yesterday, weight: '72.8' });
 
-    expect(await screen.findByText('72.8 kg')).toBeInTheDocument();
+    expect(await weightLog().findByText('72.8 kg')).toBeInTheDocument();
     expect(screen.getByText(formatDay(yesterday))).toBeInTheDocument();
     expect(await savedWeights()).toEqual([[yesterday, 72.8]]);
     expect(screen.getByLabelText('Weight (kg)')).toHaveValue(null);
@@ -100,11 +103,11 @@ describe('WeightLog', () => {
     await logWeight('user-1', today, 72.4);
     const { user } = render();
 
-    await screen.findByText('72.4 kg');
+    await weightLog().findByText('72.4 kg');
     await enter(user, { weight: '71.9' });
 
-    expect(await screen.findByText('71.9 kg')).toBeInTheDocument();
-    expect(screen.queryByText('72.4 kg')).not.toBeInTheDocument();
+    expect(await weightLog().findByText('71.9 kg')).toBeInTheDocument();
+    expect(weightLog().queryByText('72.4 kg')).not.toBeInTheDocument();
     expect(await savedWeights()).toEqual([[today, 71.9]]);
   });
 
@@ -131,7 +134,7 @@ describe('WeightLog', () => {
 
     await expect.poll(savedWeights).toEqual([['2026-10-19', 72.8]]);
     await expect.poll(() => screen.queryByText('Tue, 20 Oct 2026')).toBeNull();
-    expect(screen.getByText('72.8 kg')).toBeInTheDocument();
+    expect(weightLog().getByText('72.8 kg')).toBeInTheDocument();
   });
 
   it('says so when a weight cannot be removed, and keeps it', async () => {
@@ -146,7 +149,7 @@ describe('WeightLog', () => {
     );
 
     expect(await screen.findByText(removeFailed)).toBeInTheDocument();
-    expect(screen.getByText('72.4 kg')).toBeInTheDocument();
+    expect(weightLog().getByText('72.4 kg')).toBeInTheDocument();
   });
 
   it('says so when the weights cannot be loaded', async () => {

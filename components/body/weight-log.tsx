@@ -3,10 +3,11 @@
 import { IconTrash } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormError } from '@/components/auth/fields';
+import { WeightChart } from '@/components/body/weight-chart';
 import { WeightForm } from '@/components/body/weight-form';
 import { Button } from '@/components/ui/button';
 import { useToday } from '@/components/use-today';
-import { formatWeight } from '@/lib/domain/body';
+import { formatWeight } from '@/lib/domain/body/measurements';
 import { formatDay } from '@/lib/domain/dates';
 import { useTRPC } from '@/lib/trpc/client';
 
@@ -69,6 +70,9 @@ export function WeightLog() {
   return (
     <div className="flex flex-col gap-6">
       {today === null ? null : <WeightForm today={today} pickDate />}
+      {today !== null && weights.isSuccess ? (
+        <WeightChart weights={weights.data} today={today} />
+      ) : null}
       <section className="flex flex-col gap-3" aria-label="Weight log">
         {remove.isError ? <FormError>{removeFailed}</FormError> : null}
         {log()}

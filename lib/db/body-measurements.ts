@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { BodyMetric } from '../domain/body.ts';
+import type { BodyMetric } from '../domain/body/measurements.ts';
 import type { FoodWriteContext } from './foods.ts';
 import type { Database } from './schema.ts';
 

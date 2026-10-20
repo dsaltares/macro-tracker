@@ -203,9 +203,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
   first; `findLatestMeasurement` is the latest on or before an optional date, the read ADR 0011
   needs. The `body` router (`lib/trpc/routers/body.ts`) is these over the caller. Metrics and the
-  weight bounds (20 to 400 kg) are in `lib/domain/body.ts`. The day view shows `LogWeightCard`
-  (`components/body/`) on today until today has a weight; `/body`, linked from Trends, is
-  `WeightLog`.
+  weight bounds (20 to 400 kg) are in `lib/domain/body/measurements.ts`; `body/trend.ts` is the
+  trend weight (`weightTrend`, α = 0.1 a day, carried flat over days without a weight),
+  `weeklyRate` and the chart's `trendRanges`. Coverage on `lib/domain/body/` is gated at 100%. The
+  day view shows `LogWeightCard` (`components/body/`) on today until today has a weight; `/body`,
+  linked from Trends, is `WeightLog`, with `WeightChart` above the log: the weights and the trend
+  weight in Recharts (through shadcn's `components/ui/chart.tsx`) over 30 days, 90 days, a year or
+  all, hidden from screen readers behind a `figcaption` that sums it up.
 - `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
   object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
   profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
