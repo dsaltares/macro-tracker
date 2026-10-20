@@ -1,25 +1,18 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { findLatestMeasurement } from '../../db/body-measurements.ts';
+import { bodyMetrics } from '../../domain/body/measurements.ts';
+import { isDate } from '../../domain/dates.ts';
 import {
-  findLatestMeasurement,
   listMeasurements,
   logMeasurement,
+  measurementSchema,
   removeMeasurement,
-} from '../../db/body-measurements.ts';
-import { bodyMetrics, weightKgSchema } from '../../domain/body/measurements.ts';
-import { isDate } from '../../domain/dates.ts';
+} from '../../services/body.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 const dateInput = z.string().refine(isDate, { message: 'Not a date' });
 const metricInput = z.enum(bodyMetrics);
-
-const measurementInput = z.discriminatedUnion('metric', [
-  z.object({
-    date: dateInput,
-    metric: z.literal('weight_kg'),
-    value: weightKgSchema,
-  }),
-]);
 
 const rangeInput = z
   .object({
@@ -34,22 +27,18 @@ const rangeInput = z
 
 export const bodyRouter = router({
   log: accountProcedure
-    .input(measurementInput)
-    .mutation(({ ctx, input }) =>
-      logMeasurement(ctx.db, ctx.caller.userId, input, ctx),
-    ),
+    .input(measurementSchema)
+    .mutation(({ ctx, input }) => logMeasurement(ctx, input)),
   remove: accountProcedure
     .input(z.string().min(1))
     .mutation(async ({ ctx, input }) => {
-      if (!(await removeMeasurement(ctx.db, ctx.caller.userId, input))) {
+      if (!(await removeMeasurement(ctx, input))) {
         throw new TRPCError({ code: 'NOT_FOUND' });
       }
     }),
   list: accountProcedure
     .input(rangeInput)
-    .query(({ ctx, input }) =>
-      listMeasurements(ctx.db, ctx.caller.userId, input),
-    ),
+    .query(({ ctx, input }) => listMeasurements(ctx, input)),
   latest: accountProcedure
     .input(z.object({ metric: metricInput, onOrBefore: dateInput.optional() }))
     .query(({ ctx, input }) =>

@@ -4,15 +4,14 @@ import {
   addIngredient,
   archiveRecipe,
   createRecipe,
-  findRecipe,
   type IngredientWrite,
-  listRecipes,
   removeIngredient,
   reorderIngredients,
   updateIngredient,
   updateRecipe,
 } from '../../db/recipes.ts';
 import { recipeFieldsSchema } from '../../domain/recipes/recipe-fields.ts';
+import { findRecipe, listRecipes } from '../../services/recipes.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 const idInput = z.string().min(1);
@@ -53,11 +52,9 @@ const savedIngredient = (written: IngredientWrite) => {
 };
 
 export const recipeRouter = router({
-  list: accountProcedure.query(({ ctx }) =>
-    listRecipes(ctx.db, ctx.caller.userId),
-  ),
+  list: accountProcedure.query(({ ctx }) => listRecipes(ctx)),
   get: accountProcedure.input(idInput).query(async ({ ctx, input }) => {
-    const recipe = await findRecipe(ctx.db, ctx.caller.userId, input);
+    const recipe = await findRecipe(ctx, input);
     if (recipe === null) {
       throw notFound();
     }

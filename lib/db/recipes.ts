@@ -18,6 +18,7 @@ import type {
   RecipeIngredientsTable,
   RecipesTable,
 } from './schema.ts';
+import type { Slice } from './slice.ts';
 
 type Reader = Kysely<Database> | Transaction<Database>;
 
@@ -206,8 +207,19 @@ export const findRecipeFood = async (
 export const isEmptyRecipe = (recipe: RecipeAsFood) =>
   recipe.portions.some(({ grams }) => grams <= 0);
 
-export const listRecipes = async (db: Kysely<Database>, userId: string) =>
-  (await userRecipesQuery(db, userId).execute()).map(recipeSummary);
+export const listRecipes = async (
+  db: Kysely<Database>,
+  userId: string,
+  slice?: Slice,
+) => {
+  const query = userRecipesQuery(db, userId);
+  return (
+    await (slice
+      ? query.limit(slice.limit).offset(slice.offset)
+      : query
+    ).execute()
+  ).map(recipeSummary);
+};
 
 export const findRecipe = async (
   db: Kysely<Database>,

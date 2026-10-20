@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { cursorOf, cursorSchema, pageOf } from './pagination.ts';
+import {
+  cursorOf,
+  cursorSchema,
+  pageOf,
+  pageOfSlice,
+  sliceAt,
+} from './pagination.ts';
 
 describe('cursorSchema', () => {
   it('reads no cursor as the first page', () => {
@@ -35,5 +41,27 @@ describe('pageOf', () => {
 
   it('has no next cursor on the last page', () => {
     expect(pageOf(['a'], null)).toEqual({ items: ['a'], nextCursor: null });
+  });
+});
+
+describe('pageOfSlice', () => {
+  const slice = sliceAt(20, 2);
+
+  it('reads one row past the page to know there is another', () => {
+    expect(slice).toEqual({ offset: 20, limit: 3 });
+  });
+
+  it('pages the rows of a slice, dropping the row past the page', () => {
+    const page = pageOfSlice([1, 2, 3], slice, String);
+
+    expect(page.items).toEqual(['1', '2']);
+    expect(cursorSchema.parse(page.nextCursor)).toBe(22);
+  });
+
+  it('has no next cursor when the slice ends inside the page', () => {
+    expect(pageOfSlice([1, 2], slice, String)).toEqual({
+      items: ['1', '2'],
+      nextCursor: null,
+    });
   });
 });
