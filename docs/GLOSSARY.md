@@ -7,6 +7,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | Term | Meaning | See |
 |---|---|---|
 | account | A user with a confirmed address. Only an account has a session and owns data. | [Accounts](DOMAIN.md#accounts), [ADR 0006](adr/0006-sessions-only-for-a-confirmed-address.md) |
+| account deletion | Removing a user and everything they own in one statement, confirmed by typing the address, then signing out. Also how consent is withdrawn. | [Accounts](DOMAIN.md#accounts), [ADR 0010](adr/0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md) |
 | activity level | Sedentary, light, moderate, active or very active, each a TDEE multiplier from 1.2 to 1.9. | [Body and goals](DOMAIN.md#body-and-goals) |
 | API client | Anything that calls the REST API under `/api/v1` with an API key, never a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | API key | A user's named bearer credential, scoped `read` or `write`, stored hashed, shown once, revocable. A user may have several. | [API](DOMAIN.md#api) |
@@ -51,6 +52,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | search | Every word of a query against name and brand, the last as a prefix, diacritics ignored. A user's own foods first; archived foods never. | [Foods](DOMAIN.md#foods) |
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |
 | session | What the app holds once a confirmed user signs in. The caller of every tRPC procedure that needs an account. | [Accounts](DOMAIN.md#accounts) |
+| settings | Where an account changes its profile, goals, source preferences, API keys, export and the account itself. | [Accounts](DOMAIN.md#accounts) |
 | snapshot | The nutrient vector a diary entry resolved to when logged. Editing the food or recipe changes future entries only. | [Diary](DOMAIN.md#diary), [ADR 0003](adr/0003-diary-entries-snapshot-their-nutrients.md) |
 | source | Where a food row came from: `off`, `ciqual`, `cofid`, `usda` or `user`. | [Foods](DOMAIN.md#foods) |
 | source adapter | Streams one upstream dataset as `SourceFood` records for the importer. | [Foods](DOMAIN.md#foods) |

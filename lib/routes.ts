@@ -1,7 +1,10 @@
 export const routes = {
   home: '/',
   onboarding: '/onboarding',
+  settings: '/settings',
   profile: '/settings/profile',
+  foodSources: '/settings/food-sources',
+  account: '/settings/account',
   signIn: '/sign-in',
   signUp: '/sign-up',
   verify: '/verify',

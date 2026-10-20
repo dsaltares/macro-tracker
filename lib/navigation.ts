@@ -25,3 +25,42 @@ export const legalDocuments: readonly LegalDocument[] = [
   terms,
   cookiePolicy,
 ];
+
+export type SettingsSection = {
+  label: string;
+  description: string;
+  href: string | null;
+};
+
+export const settingsSections: readonly SettingsSection[] = [
+  {
+    label: 'Profile',
+    description: 'Sex, date of birth, height and activity',
+    href: routes.profile,
+  },
+  {
+    label: 'Goals',
+    description: 'Your energy and nutrient targets',
+    href: null,
+  },
+  {
+    label: 'Food sources',
+    description: 'Which food tables your search includes',
+    href: routes.foodSources,
+  },
+  {
+    label: 'API keys',
+    description: 'Log food from other apps and scripts',
+    href: null,
+  },
+  {
+    label: 'Export',
+    description: 'Everything you logged, as CSV and JSON',
+    href: null,
+  },
+  {
+    label: 'Account',
+    description: 'Your address, and deleting your account',
+    href: routes.account,
+  },
+];

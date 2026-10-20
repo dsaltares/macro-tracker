@@ -35,6 +35,7 @@ const everyMigration = [
   '0007-food-import-history',
   '0008-terms-accepted',
   '0009-profiles',
+  '0010-account-deletion',
 ];
 
 const everyTable = [
@@ -106,10 +107,44 @@ describe.each(targets)('migrations %s', (_, url) => {
     expect(await search('nutella')).toEqual(['Nutella']);
   });
 
+  it('keeps the source preferences of existing users across the rebuild, both ways, and drops the rest', async () => {
+    const preferences = () =>
+      db
+        .selectFrom('food_source_preferences')
+        .select(['user_id', 'source', 'enabled', 'position'])
+        .orderBy('user_id')
+        .execute();
+    await migrateToLatest(db);
+    await migrateDown(db);
+    await db
+      .insertInto('users')
+      .values({ id: 'user-1', name: 'user-1', email: 'user-1@example.test' })
+      .execute();
+    await db
+      .insertInto('food_source_preferences')
+      .values([
+        { user_id: 'user-1', source: 'usda', enabled: 0, position: 2 },
+        { user_id: 'gone', source: 'usda', enabled: 1, position: 0 },
+      ])
+      .execute();
+    const kept = [
+      { user_id: 'user-1', source: 'usda', enabled: 0, position: 2 },
+    ];
+
+    await migrateToLatest(db);
+    expect(await preferences()).toEqual(kept);
+
+    await migrateDown(db);
+    expect(await preferences()).toEqual(kept);
+  });
+
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
     const beforeProfiles = everyTable.filter((table) => table !== 'profiles');
+
+    expect(await migrateDown(db)).toEqual(['0010-account-deletion']);
+    expect(await tableNames(db)).toEqual(everyTable);
 
     expect(await migrateDown(db)).toEqual(['0009-profiles']);
     expect(await tableNames(db)).toEqual(beforeProfiles);
@@ -130,7 +165,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0009-profiles']);
+    expect(await migrateToLatest(db)).toEqual(['0010-account-deletion']);
   });
 
   it('reads back what is written to meta', async () => {

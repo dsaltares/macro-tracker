@@ -18,6 +18,12 @@ What a user logs about their food and weight is health data, so signing up recor
 **consent**: agreeing to the terms and acknowledging the privacy policy, with the time they did,
 before an account exists. A later change to those documents does not ask again.
 
+**Settings** is where an account changes what it told the app: its profile, its goals, its source
+preferences, its API keys, an export, and the account itself. **Deleting the account** is
+confirmed by typing its address, and removes the user and everything they own (sessions, sign-in
+credentials, profile, source preferences, their own foods and portions) in one statement, then
+signs them out. Withdrawing consent is deleting the account.
+
 ## Nutrients
 
 A **nutrient** is one entry in the canonical list in `lib/domain/nutrition/nutrients.ts`: a key,

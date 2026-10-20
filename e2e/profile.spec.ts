@@ -38,15 +38,15 @@ test('a new account is sent to onboarding until it has a profile', async ({
   await expect(page).toHaveURL('/');
 });
 
-test('someone changes their profile from the account menu', async ({
-  page,
-}) => {
+test('someone changes their profile from settings', async ({ page }) => {
   await confirmed(page);
   await completeOnboarding(page);
   await expect(page).toHaveURL('/');
 
   await page.getByRole('button', { name: 'Account' }).click();
-  await page.getByRole('menuitem', { name: 'Profile' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await expect(page).toHaveURL('/settings');
+  await page.getByRole('link', { name: /^Profile/ }).click();
   await expect(page).toHaveURL('/settings/profile');
   await ready(page, 'Save profile');
   await expect(page.getByLabel('Height (cm)')).toHaveValue('168');

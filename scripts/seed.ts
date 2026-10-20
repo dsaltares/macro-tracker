@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { devUser } from '../lib/auth/dev-user.ts';
+import { refusedInProduction, seedDevUser } from '../lib/auth/seed-dev-user.ts';
 import { foodImportWorkDir } from '../lib/data/import-foods.ts';
 import { seedFoods } from '../lib/data/seed-foods.ts';
 import { createDatabase } from '../lib/db/client.ts';
@@ -6,17 +8,35 @@ import { migrateToLatest } from '../lib/db/migrator.ts';
 import { databaseUrl } from '../lib/db/url.ts';
 import { getLogger } from '../lib/logger.ts';
 
+const now = () => new Date().toISOString();
+
+const seedUser = async (db: ReturnType<typeof createDatabase>) => {
+  const { created } = await seedDevUser({
+    db,
+    now,
+    nextId: () => randomUUID(),
+  });
+  console.log(
+    created
+      ? `Seeded ${devUser.email}, password ${devUser.password}`
+      : `${devUser.email} is already there`,
+  );
+};
+
 const run = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    console.error(refusedInProduction);
+    process.exitCode = 1;
+    return;
+  }
   const db = createDatabase();
   try {
     await migrateToLatest(db);
+    await seedUser(db);
     const seed = await seedFoods({
       db,
-      clock: {
-        now: () => new Date().toISOString(),
-        nextId: () => randomUUID(),
-      },
-      logger: getLogger('seed-foods'),
+      clock: { now, nextId: () => randomUUID() },
+      logger: getLogger('seed'),
       signal: new AbortController().signal,
       workDir: foodImportWorkDir(),
     });
