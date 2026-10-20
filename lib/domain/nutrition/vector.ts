@@ -50,6 +50,16 @@ export const kcalFromMacros = (vector: NutrientVector): number | undefined => {
     : contributions.reduce((kcal, contribution) => kcal + contribution, 0);
 };
 
+export const withEnergy = (vector: NutrientVector): NutrientVector => {
+  if (vector.energy_kcal !== undefined) {
+    return vector;
+  }
+  const fromMacros = kcalFromMacros(vector);
+  return fromMacros === undefined
+    ? vector
+    : { ...vector, energy_kcal: fromMacros };
+};
+
 export const kJ = (kcal: number) => kcal * kJPerKcal;
 
 export const kcal = (kJ: number) => kJ / kJPerKcal;

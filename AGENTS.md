@@ -63,6 +63,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   and `ageOn`. `profileSchemaOn(today)` adds the age bound (16 to 120), which needs a today, so
   the form passes the local day and `profile.upsert` checks it against the server's.
   `lib/db/profiles.ts` reads and saves it, one row per user keyed on `user_id`.
+- `lib/domain/dates.ts` — dates as `YYYY-MM-DD`. `localDateOf(instant)` is the browser's day;
+  `today(clock, timeZone)` is the day of `clock.now()` in a time zone. `addDays`, `daysBetween`
+  and `isDate` work at UTC midnight, so a change of clocks never moves a day.
+- `lib/domain/diary/entries.ts` — the meals in order and the entry kinds; `resolveEntry(food,
+  portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
+  the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
+  `lib/domain/diary/` is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
