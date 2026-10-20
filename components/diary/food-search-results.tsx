@@ -1,7 +1,14 @@
 'use client';
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { type ReactNode, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import {
+  type ComponentProps,
+  type ReactNode,
+  useCallback,
+  useRef,
+  useState,
+} from 'react';
 import { FormError } from '@/components/auth/fields';
 import { SourceBadge } from '@/components/foods/source-badge';
 import { Button } from '@/components/ui/button';
@@ -58,13 +65,15 @@ export function FoodRow({
   food,
   onSelect,
   action,
+  className,
+  ...item
 }: {
   food: FoodSummary;
   onSelect: () => void;
   action?: ReactNode;
-}) {
+} & Omit<ComponentProps<'li'>, 'onSelect'>) {
   return (
-    <li className="flex items-center">
+    <li {...item} className={cn('flex items-center', className)}>
       <button
         type="button"
         onClick={onSelect}
@@ -113,11 +122,43 @@ export function Message({ children }: { children: string }) {
   );
 }
 
+const VirtualFoodList = dynamic(
+  () =>
+    import('@/components/diary/virtual-food-list').then(
+      ({ VirtualFoodList }) => VirtualFoodList,
+    ),
+  { ssr: false, loading: ResultsSkeleton },
+);
+
 export function FoodSearchResults({
   query,
   onSelectFood,
 }: {
   query: string;
+  onSelectFood: (food: FoodSummary) => void;
+}) {
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+
+  return (
+    <div ref={setScrollElement} className="min-h-0 flex-1 overflow-y-auto">
+      {scrollElement === null ? null : (
+        <SearchResults
+          query={query}
+          scrollElement={scrollElement}
+          onSelectFood={onSelectFood}
+        />
+      )}
+    </div>
+  );
+}
+
+function SearchResults({
+  query,
+  scrollElement,
+  onSelectFood,
+}: {
+  query: string;
+  scrollElement: HTMLElement;
   onSelectFood: (food: FoodSummary) => void;
 }) {
   const trpc = useTRPC();
@@ -168,15 +209,11 @@ export function FoodSearchResults({
 
   return (
     <div className="flex flex-col">
-      <ul className="flex flex-col divide-y">
-        {foods.map((food) => (
-          <FoodRow
-            key={food.id}
-            food={food}
-            onSelect={() => onSelectFood(food)}
-          />
-        ))}
-      </ul>
+      <VirtualFoodList
+        foods={foods}
+        scrollElement={scrollElement}
+        onSelectFood={onSelectFood}
+      />
       {search.hasNextPage ? (
         <div key={search.data.pages.length} ref={sentinel} className="p-4">
           <Button

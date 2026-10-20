@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { portionTaken } from '@/components/diary/entry-form';
 import { addAgainFailed, foodListFailed } from '@/components/diary/food-lists';
 import {
@@ -278,6 +278,31 @@ describe('FoodSearchSheet', () => {
     expect(
       within(sheet()).queryByRole('button', { name: 'Load more' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders only the results in view, each saying where it is among them', async () => {
+    const viewport = vi
+      .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+      .mockReturnValue(300);
+    onTestFinished(() => viewport.mockRestore());
+    await seedApples(searchPageSize);
+    const { user } = render();
+
+    await screen.findByRole('dialog', { name: 'Add to lunch' });
+    await searchFor(user, 'apple');
+
+    const first = await within(sheet()).findByRole('button', {
+      name: 'Apple 1 52 kcal / 100 g USDA',
+    });
+    const rendered = within(sheet()).getAllByRole('button', {
+      name: /^Apple/,
+    });
+    expect(rendered.length).toBeLessThan(searchPageSize);
+    expect(first.closest('li')).toHaveAttribute(
+      'aria-setsize',
+      String(searchPageSize),
+    );
+    expect(first.closest('li')).toHaveAttribute('aria-posinset', '1');
   });
 
   it('opens the chosen food, and goes back to the same results', async () => {

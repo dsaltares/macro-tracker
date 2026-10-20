@@ -21,6 +21,16 @@ const stubBrowserApisTheDomImplementationMayLack = () => {
   Element.prototype.releasePointerCapture ??= () => {};
 };
 
+const viewportHeight = 10_000;
+
+const giveEveryElementTheHeightOfAViewport = () => {
+  Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+    configurable: true,
+    get: () => viewportHeight,
+  });
+};
+
 stubBrowserApisTheDomImplementationMayLack();
+giveEveryElementTheHeightOfAViewport();
 
 afterEach(cleanup);

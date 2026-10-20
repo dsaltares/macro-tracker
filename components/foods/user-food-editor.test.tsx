@@ -315,7 +315,7 @@ describe('NewUserFood with label scanning', () => {
     const { user } = renderScanning(true);
 
     expect(
-      screen.getByRole('region', { name: 'Scan a label' }),
+      await screen.findByRole('region', { name: 'Scan a label' }),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
 

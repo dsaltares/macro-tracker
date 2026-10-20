@@ -141,7 +141,7 @@ function ChooseStep({
             Recipes
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="foods" className="min-h-0 overflow-y-auto">
+        <TabsContent value="foods" className="flex min-h-0 flex-col">
           <FoodSearchResults
             query={debouncedQuery}
             onSelectFood={(food) =>
