@@ -74,7 +74,9 @@ export const tab = (page: Page, name: string) =>
 
 export const signedInAs = async (page: Page, email: string) => {
   await tab(page, 'Settings').click();
-  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+  await expect(
+    page.getByText(email, { exact: true }).filter({ visible: true }),
+  ).toBeVisible();
 };
 
 export const signOut = async (page: Page) => {

@@ -1,23 +1,10 @@
 'use client';
 
-import {
-  IconChartLine,
-  IconNotebook,
-  IconSettings,
-  IconToolsKitchen2,
-} from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { tabIcon } from '@/components/app-shell/tab-icons';
 import { appTabs, isActiveTab } from '@/lib/navigation';
-import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
-
-const tabIcons: Record<string, typeof IconNotebook> = {
-  [routes.diary]: IconNotebook,
-  [routes.foods]: IconToolsKitchen2,
-  [routes.trends]: IconChartLine,
-  [routes.settings]: IconSettings,
-};
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -25,11 +12,11 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 border-t bg-background pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
+      className="fixed inset-x-0 bottom-0 z-30 border-t md:hidden bg-background pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
     >
       <ul className="mx-auto grid h-16 max-w-md grid-cols-4">
         {appTabs.map((tab) => {
-          const Icon = tabIcons[tab.href] ?? IconNotebook;
+          const Icon = tabIcon(tab.href);
           const active = isActiveTab(pathname, tab);
           return (
             <li key={tab.href}>

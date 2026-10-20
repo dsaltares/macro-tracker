@@ -19,7 +19,7 @@ export default async function SettingsPage() {
         </h2>
         <ThemeSetting />
       </section>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 md:hidden">
         <p className="text-sm">
           Signed in as <span className="font-medium">{user.email}</span>
         </p>

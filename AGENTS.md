@@ -232,16 +232,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   mounted in `root.ts`. Components call them through `useTRPC()` and TanStack Query;
   `TRPCReactProvider` sits in the root layout. `accountProcedure` answers `UNAUTHORIZED` without a
   caller and hands the procedure a non-null one.
-- `app/(app)/` — the app shell (`components/app-shell/`), behind `requireProfile`: the bottom
-  navigation (`BottomNav`, the tabs of `appTabs` in `lib/navigation.ts`: Diary, Foods, Trends,
-  Settings, the current one marked `aria-current="page"`), the footer, and safe-area padding,
-  centred at `max-w-md` on every screen. Each page renders `AppPage`, whose `TopBar` takes the
+- `app/(app)/` — the app shell (`components/app-shell/`), behind `requireProfile`: the tabs of
+  `appTabs` in `lib/navigation.ts` (Diary, Foods, Trends, Settings, the current one marked
+  `aria-current="page"`), the footer, and safe-area padding. Below `md` the tabs are the bottom
+  navigation (`BottomNav`) and the content is `max-w-md`; from `md` they are a `Sidebar` that also
+  shows the account and Sign out, and the content widens to `max-w-2xl`. Both are labelled
+  `Main`, and only one is ever displayed. Each page renders `AppPage`, whose `TopBar` takes the
   page's `title` (the `h1`) and optional `start` and `end` contents. `loading.tsx` is a skeleton
   of a page; `error.tsx` renders `PageError` with a retry. `/` redirects to `/diary`.
 - `app/(app)/settings/` — `/settings` lists `settingsSections` (`lib/navigation.ts`), each a live page
   or *Coming soon* until its milestone fills it; every section page renders in `SettingsPage`
   (`components/settings/`), whose top bar links back. The settings page also holds the theme
-  (`ThemeSetting`) and signing out. Food sources edits the source preferences through
+  (`ThemeSetting`), and below `md` the account and Sign out. Food sources edits the source preferences through
   `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
