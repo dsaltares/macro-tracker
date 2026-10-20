@@ -1,3 +1,4 @@
+import type { DatedWeight } from '../body/trend.ts';
 import type { NutrientVector } from '../nutrition/vector.ts';
 import type { Profile } from '../profile.ts';
 import { derivedGoal, type GoalWarning } from './derived.ts';
@@ -69,3 +70,23 @@ export const goalOn = (
   settings.mode === 'manual'
     ? manualGoal(profile, weightKg, date, settings)
     : derivedGoalWithMicros(profile, weightKg, date, settings);
+
+export type DatedGoal = { date: string; goal: Goal | null };
+
+export const goalsOn = (
+  profile: Profile,
+  weights: readonly DatedWeight[],
+  dates: readonly string[],
+  settings: GoalSettings,
+): DatedGoal[] => {
+  const oldestFirst = weights.toSorted((a, b) => a.date.localeCompare(b.date));
+  return dates.map((date) => ({
+    date,
+    goal: goalOn(
+      profile,
+      oldestFirst.findLast((weight) => weight.date <= date)?.value ?? null,
+      date,
+      settings,
+    ),
+  }));
+};

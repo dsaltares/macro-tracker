@@ -5,6 +5,7 @@ import { foodRouter } from './routers/food.ts';
 import { goalsRouter } from './routers/goals.ts';
 import { healthRouter } from './routers/health.ts';
 import { profileRouter } from './routers/profile.ts';
+import { trendsRouter } from './routers/trends.ts';
 import { createCallerFactory, router } from './trpc.ts';
 
 export const appRouter = router({
@@ -15,6 +16,7 @@ export const appRouter = router({
   goals: goalsRouter,
   health: healthRouter,
   profile: profileRouter,
+  trends: trendsRouter,
 });
 
 export type AppRouter = typeof appRouter;

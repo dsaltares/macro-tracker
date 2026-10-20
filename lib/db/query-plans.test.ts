@@ -12,6 +12,7 @@ import {
   diaryEntryDeletion,
   diaryEntryQuery,
   diaryMealDeletion,
+  diaryRangeQuery,
   favouriteDeletion,
   favouritesQuery,
   frequentFoodsQuery,
@@ -309,6 +310,13 @@ describe('query plans', () => {
   it("reads a user's day of diary entries with a search", () => {
     expectSearch(
       diaryDayQuery(db, 'u', '2026-10-20').compile(),
+      'diary_entries',
+    );
+  });
+
+  it("reads a user's diary entries over a range of dates with a search", () => {
+    expectSearch(
+      diaryRangeQuery(db, 'u', '2026-10-01', '2026-10-31').compile(),
       'diary_entries',
     );
   });

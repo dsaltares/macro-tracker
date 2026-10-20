@@ -84,6 +84,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `goalOn(profile, weightKg, date, settings)` (`goal.ts`) is the goal vector for a date: the micro
   defaults at the goal's kcal, the derived energy and macros (none without a weight) or a manual
   goal's own, then the overrides. Coverage on it is gated at 100%.
+- `lib/domain/trends/aggregations.ts` — the trends over a range of dates: `dailyTotals` per date,
+  flagging the dates with no entries, `trendDays` adding each date's `rollingAverage` over the
+  seven ending on it (the entries read from `rollingWindowStart(from)`), `adherence` within 10% of
+  the kcal goal and `nutrientAverages`, every average over the logged days alone. `goalsOn`
+  (`lib/domain/goals/goal.ts`) is the goal on each date of a range from one read of the weights.
+  `lib/db/trends.ts` puts them over `diarySnapshots` (`lib/db/diary.ts`) and `findGoalsOver`
+  (`lib/db/goals.ts`); the `trends` router is `range` and `nutrients` (`{ from, to }`, at most
+  `maxTrendRangeDays`) over the caller. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to

@@ -9,11 +9,13 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | account | A user with a confirmed address. Only an account has a session and owns data. | [Accounts](DOMAIN.md#accounts), [ADR 0006](adr/0006-sessions-only-for-a-confirmed-address.md) |
 | account deletion | Removing a user and everything they own in one statement, confirmed by typing the address, then signing out. Also how consent is withdrawn. | [Accounts](DOMAIN.md#accounts), [ADR 0010](adr/0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md) |
 | activity level | Sedentary, light, moderate, active or very active, each a TDEE multiplier from 1.2 to 1.9. | [Body and goals](DOMAIN.md#body-and-goals) |
+| adherence | The share of logged days with a kcal goal whose energy is within 10% of it either way. None without one such day. | [Trends](DOMAIN.md#trends) |
 | age band | The EFSA adult age group a dietary reference value applies to: 18–24, 25–50, 51–70 or 71+. An account of 16 or 17 is in the youngest. | [Body and goals](DOMAIN.md#body-and-goals) |
 | API client | Anything that calls the REST API under `/api/v1` with an API key, never a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | API key | A user's named bearer credential, scoped `read` or `write`, stored hashed, shown once, revocable. A user may have several. | [API](DOMAIN.md#api) |
 | app | The installable PWA, which talks tRPC with a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | archived | A reference food that a later full import no longer saw: hidden from search, still resolvable from the diary. Never deleted. | [Foods](DOMAIN.md#foods) |
+| average | A nutrient's daily totals over the logged days of a range, divided by their number, read against the average goal of those days. | [Trends](DOMAIN.md#trends) |
 | barcode | An EAN-8 or EAN-13; a UPC-A is normalised to EAN-13 with a leading zero. | [Foods](DOMAIN.md#foods) |
 | BMR | Basal metabolic rate: Mifflin-St Jeor over the profile, the latest weight and the age on the date. | [Body and goals](DOMAIN.md#body-and-goals) |
 | body measurement | A user, a date, a metric and a value. Only `weight_kg` in v1. | [Body and goals](DOMAIN.md#body-and-goals) |
@@ -22,6 +24,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | confirmed address | An email address whose owner followed the link mailed to it. Required before a session. | [Accounts](DOMAIN.md#accounts) |
 | copying a meal | Adding a copy of each of a meal's entries, snapshots as they are, to another date and meal. The originals stay. | [Diary](DOMAIN.md#diary) |
 | cooked weight | A recipe's optional weight in grams once cooked. | [Recipes](DOMAIN.md#recipes) |
+| daily totals | A date's day totals within a trend range, flagged when the date is not a logged day. | [Trends](DOMAIN.md#trends) |
 | date | The user's local calendar day as `YYYY-MM-DD`. Never a timestamp. | [Diary](DOMAIN.md#diary) |
 | day totals | The sum of a day's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
 | default portion | A food's first own portion, or `100 g` when it has none. What search shows beside a food. | [Foods](DOMAIN.md#foods) |
@@ -42,6 +45,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | importer | The in-server job that upserts what source adapters stream and archives what a run no longer sees. | [Foods](DOMAIN.md#foods) |
 | ingredient | A food or a recipe, with grams, in a recipe's ordered list. | [Recipes](DOMAIN.md#recipes) |
 | last logged amount | The portion and quantity of a food's latest food entry, or one default portion when there is none or that portion is gone. What one tap logs again. | [Diary](DOMAIN.md#diary) |
+| logged day | A date with at least one diary entry. Only logged days count in an average or in adherence. | [Trends](DOMAIN.md#trends) |
 | manual goal | A goal with explicit targets instead of derived ones. | [Body and goals](DOMAIN.md#body-and-goals) |
 | meal | `breakfast`, `lunch`, `dinner` or `snack`. Fixed. | [Diary](DOMAIN.md#diary) |
 | meal totals | The sum of a meal's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
@@ -60,6 +64,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | recipe entry | A diary entry for a recipe: a number of servings or grams. | [Diary](DOMAIN.md#diary) |
 | reference food | A food from a `source` other than `user`, written only by the importer. Upserted on `(source, source_id)`. | [Foods](DOMAIN.md#foods) |
 | reset link | A mailed link to choose a new password; works once, expires in an hour, signs out every session. | [Accounts](DOMAIN.md#accounts) |
+| rolling average | The average over the logged days of the seven ending on a date, reaching back before the range. | [Trends](DOMAIN.md#trends) |
 | search | Every word of a query against name and brand, the last as a prefix, diacritics ignored. A user's own foods first; archived foods never. | [Foods](DOMAIN.md#foods) |
 | servings | How many portions a recipe yields. | [Recipes](DOMAIN.md#recipes) |
 | session | What the app holds once a confirmed user signs in. The caller of every tRPC procedure that needs an account. | [Accounts](DOMAIN.md#accounts) |

@@ -102,6 +102,32 @@ export const diaryDay = async (
     .map(diaryEntry)
     .toSorted(inDayOrder);
 
+export const diaryRangeQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  from: string,
+  to: string,
+) =>
+  db
+    .selectFrom('diary_entries')
+    .select(['date', 'nutrients'])
+    .where('user_id', '=', userId)
+    .where('date', '>=', from)
+    .where('date', '<=', to);
+
+export const diarySnapshots = async (
+  db: Kysely<Database>,
+  userId: string,
+  from: string,
+  to: string,
+) =>
+  (await diaryRangeQuery(db, userId, from, to).execute()).map(
+    ({ date, nutrients }) => ({
+      date,
+      nutrients: JSON.parse(nutrients) as NutrientVector,
+    }),
+  );
+
 export const insertDiaryEntry = async (
   db: Kysely<Database>,
   userId: string,

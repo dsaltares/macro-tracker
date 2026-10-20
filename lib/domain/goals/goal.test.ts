@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Profile } from '../profile.ts';
 import { derivedGoal } from './derived.ts';
 import { defaultMicroGoals } from './drv.ts';
-import { goalOn } from './goal.ts';
+import { goalOn, goalsOn } from './goal.ts';
 import { defaultGoalSettings, type GoalSettings } from './settings.ts';
 
 const date = '2026-10-20';
@@ -106,5 +106,28 @@ describe('goalOn', () => {
       nutrients: { protein: 1.6 * 65 },
       warnings: [],
     });
+  });
+});
+
+describe('goalsOn', () => {
+  it('is the goal on each date from the latest weight on or before it, whatever order the weights come in', () => {
+    const weights = [
+      { date: '2026-10-21', value: 64 },
+      { date: '2026-10-19', value: 66 },
+    ];
+    const dates = ['2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21'];
+
+    expect(goalsOn(female, weights, dates, derived)).toEqual([
+      { date: '2026-10-18', goal: null },
+      { date: '2026-10-19', goal: goalOn(female, 66, '2026-10-19', derived) },
+      { date: '2026-10-20', goal: goalOn(female, 66, '2026-10-20', derived) },
+      { date: '2026-10-21', goal: goalOn(female, 64, '2026-10-21', derived) },
+    ]);
+  });
+
+  it('has a manual goal on every date, with or without a weight', () => {
+    expect(goalsOn(female, [], ['2026-10-20'], manual)).toEqual([
+      { date: '2026-10-20', goal: goalOn(female, null, '2026-10-20', manual) },
+    ]);
   });
 });
