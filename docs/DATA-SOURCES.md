@@ -62,6 +62,17 @@ to this page. The last two sections are where the default micro goals come from.
   <https://fdc.nal.usda.gov>.
 - **Adapter:** `lib/data/sources/usda/`
 
+## Label photos
+
+- **What:** the photos of nutrition labels in `test/fixtures/labels/`, which the label reader is
+  measured against. Test fixtures only: the app never serves them. Each is the uploaded photo,
+  downscaled to at most 1,600 px and stripped of its metadata; its JSON links the product and the
+  original photo.
+- **Where:** product photos of [Open Food Facts](https://world.openfoodfacts.org).
+- **Licence:** [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/), and the downscaled
+  copies stay under it.
+- **Attribution:** © Open Food Facts contributors.
+
 ## EFSA dietary reference values
 
 - **What:** the defaults of the micro goals ([`DOMAIN.md`](DOMAIN.md) § Body and goals), in

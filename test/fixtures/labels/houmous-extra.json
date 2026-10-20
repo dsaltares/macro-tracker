@@ -1,0 +1,74 @@
+{
+  "source": "https://world.openfoodfacts.org/product/3292070005161",
+  "photo": "https://images.openfoodfacts.org/images/products/329/207/000/5161/29.jpg",
+  "reading": {
+    "productName": {
+      "value": "Houmous extra",
+      "confidence": 1
+    },
+    "brand": null,
+    "netQuantity": {
+      "value": "175 g",
+      "confidence": 1
+    },
+    "servingSize": null,
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "1309",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "317",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "26.8",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "2,6",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "8,7",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "0,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "6,9",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "1,16",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "6,15",
+        "unit": "g",
+        "confidence": 1
+      }
+    ],
+    "perServing": [],
+    "notes": []
+  }
+}

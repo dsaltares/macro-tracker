@@ -1,0 +1,200 @@
+{
+  "source": "https://world.openfoodfacts.org/product/3175680011480",
+  "photo": "https://images.openfoodfacts.org/images/products/317/568/001/1480/90.jpg",
+  "reading": {
+    "productName": null,
+    "brand": null,
+    "netQuantity": null,
+    "servingSize": {
+      "label": "1 biscuit",
+      "amount": 11.5,
+      "unit": "g",
+      "confidence": 1
+    },
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "1961",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "467",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "18",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "2,0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "64",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "17",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "10",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "0,38",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "4,6",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_e",
+        "printed": "8,5",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "thiamin",
+        "printed": "0,39",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "niacin",
+        "printed": "3,7",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_b6",
+        "printed": "0,38",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "folate",
+        "printed": "58,3",
+        "unit": "µg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "magnesium",
+        "printed": "144",
+        "unit": "mg",
+        "confidence": 1
+      }
+    ],
+    "perServing": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "228",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "54",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "2,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "0,2",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "7,4",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "2,0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "1,2",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "0,05",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "0,5",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_e",
+        "printed": "0,98",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "thiamin",
+        "printed": "0,04",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "niacin",
+        "printed": "0,43",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_b6",
+        "printed": "0,04",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "folate",
+        "printed": "6,7",
+        "unit": "µg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "magnesium",
+        "printed": "16,6",
+        "unit": "mg",
+        "confidence": 1
+      }
+    ],
+    "notes": []
+  }
+}
