@@ -378,6 +378,27 @@ describe('DiaryDay', () => {
     expect(meal('Breakfast')).toHaveTextContent('162 kcal');
   });
 
+  it('opens the food search for the meal whose add button was tapped', async () => {
+    const { user } = render();
+
+    await user.click(
+      await within(
+        await screen.findByRole('region', { name: 'Dinner' }),
+      ).findByRole('button', { name: 'Add to dinner' }),
+    );
+
+    const sheet = await screen.findByRole('dialog', { name: 'Add to dinner' });
+    expect(
+      within(sheet).getByRole('searchbox', { name: 'Search foods' }),
+    ).toBeInTheDocument();
+
+    await user.click(within(sheet).getByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+  });
+
   it('asks for a weight on today only, until today has one', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 20, 12));

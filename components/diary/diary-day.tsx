@@ -9,11 +9,13 @@ import { LogWeightCard } from '@/components/body/log-weight-card';
 import { DayNavigation } from '@/components/diary/day-navigation';
 import { DayTotals } from '@/components/diary/day-totals';
 import { EditEntryDialog } from '@/components/diary/edit-entry-dialog';
+import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { MealSection } from '@/components/diary/meal-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToday } from '@/components/use-today';
 import type { DiaryEntry } from '@/lib/db/diary';
 import { isDate } from '@/lib/domain/dates';
+import type { Meal } from '@/lib/domain/diary/entries';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'This day could not be loaded.';
@@ -39,6 +41,7 @@ function Day({ date }: { date: string }) {
   const trpc = useTRPC();
   const day = useQuery(trpc.diary.day.queryOptions(date));
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
+  const [adding, setAdding] = useState<Meal | null>(null);
 
   if (day.isPending) {
     return <DaySkeleton />;
@@ -57,9 +60,11 @@ function Day({ date }: { date: string }) {
           entries={entries}
           totals={totals}
           onSelectEntry={setEditing}
+          onAdd={() => setAdding(meal)}
         />
       ))}
       <EditEntryDialog entry={editing} onClose={() => setEditing(null)} />
+      <FoodSearchSheet meal={adding} onClose={() => setAdding(null)} />
     </>
   );
 }

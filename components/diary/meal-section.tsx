@@ -49,11 +49,13 @@ export function MealSection({
   entries,
   totals,
   onSelectEntry,
+  onAdd,
 }: {
   meal: Meal;
   entries: readonly DiaryEntry[];
   totals: NutrientVector;
   onSelectEntry: (entry: DiaryEntry) => void;
+  onAdd: () => void;
 }) {
   const headingId = useId();
   const name = mealNames[meal];
@@ -74,7 +76,7 @@ export function MealSection({
             </p>
           ) : null}
         </div>
-        <Button variant="ghost" size="icon" className="size-11" disabled>
+        <Button variant="ghost" size="icon" className="size-11" onClick={onAdd}>
           <IconPlus className="size-5" />
           <span className="sr-only">Add to {name.toLowerCase()}</span>
         </Button>
