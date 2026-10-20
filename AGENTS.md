@@ -176,7 +176,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   enforce the shape of each kind: only a food entry links a food, only a recipe entry a recipe,
   and only a quick entry has no quantity, portion or grams. Deleting a food clears `food_id` and
   keeps the entry; `recipe_id` has no foreign key until recipes have a table. `diaryDay` reads a
-  user's date on `(user_id, date)` and orders it by meal, then logging time. Adding a favourite
+  user's date on `(user_id, date)` and orders it by meal, then logging time. `logFood` reads the
+  food through the same visibility as `food.get` and resolves the portion by label among the ones
+  it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
+  a quantity or portion change, keeping the logged weight of a portion the food no longer has;
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
+  (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
   reads the food through the same visibility as `food.get`. Meals and entry kinds are in
   `lib/domain/diary/entries.ts`.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
