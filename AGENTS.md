@@ -6,6 +6,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 ## Commands
 
 - `yarn dev` — `yarn db:seed`, then the dev server on 3014 · `yarn build` · `yarn start`
+- `yarn bundle:budget [dist-dir]` — after `yarn build`, each route's first-load JS, gzipped (the
+  root chunks and every chunk its client reference manifest lists, `scripts/bundle-size.ts`),
+  failing when one is over `firstLoadBudgetKb` (`scripts/bundle-budget.ts`). CI runs it after the
+  build. `yarn bundle:analyze` is Next's interactive analyzer, for finding what a chunk holds
 - `yarn typecheck` · `yarn lint` · `yarn format`
 - `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
   both. `vitest run --project ui <path>` narrows to one file.
@@ -207,7 +211,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
   FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
   `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
-  time. A user food is visible only through `owner_user_id` on the statement; user portions only
+  time. Every search logs its match, cursor, rows and milliseconds at debug level, which
+  production's `info` level leaves out. A user food is visible only through `owner_user_id` on the statement; user portions only
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
   subquery on the same statement.
@@ -332,7 +337,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   day view shows `LogWeightCard` (`components/body/`) on today until today has a weight; `/body`,
   linked from Trends, is `WeightLog`, with `WeightChart` above the log: the weights and the trend
   weight in Recharts (through shadcn's `components/ui/chart.tsx`) over 30 days, 90 days, a year or
-  all, hidden from screen readers behind a `figcaption` that sums it up.
+  all, hidden from screen readers behind a `figcaption` that sums it up. Recharts is only ever in
+  a module loaded by `next/dynamic` (`weight-trend-chart.tsx`, `components/trends/trend-charts.tsx`),
+  `ChartSkeleton` holding its place, so no page's first load carries it; the summaries are not.
 - `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
   object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
   profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
@@ -470,7 +477,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
   view, and the Recent, Frequent, Favourites, All and Recipes tabs, typing moving to All unless on
-  Recipes, which filters `recipe.list` by name. The first three are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
+  Recipes, which filters `recipe.list` by name. The All results are virtualised
+  (`VirtualFoodList`, `@tanstack/react-virtual`, loaded by `next/dynamic`) in a scroll container
+  of their own, each row carrying `aria-setsize` and `aria-posinset`. The sheet itself is loaded
+  by `next/dynamic`, so the day view's first load leaves it out. The first three are
+  `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
   date and meal in one tap, leaving the sheet open. Choosing a food
   opens `FoodStep` in the same sheet, which reads it with `food.get` and logs it with
   `diary.addFood`. Choosing a recipe opens `RecipeStep` (`recipe-step.tsx`), which reads it with
@@ -494,7 +505,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food* carry the sheet's `date` and `meal`; saving the new food comes back to
   `/diary?date=&meal=&food=` (`addToDiaryHref`), which opens the sheet on `FoodStep` for that food
   and drops `meal` and `food` from the address once the sheet closes.
-  `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
+  Once a day has loaded, `diary.day` and `goals.forDate` of the days either side are prefetched,
+  so stepping a day renders from cache with no skeleton; `e2e/day-view.spec.ts` holds that under
+  100 ms. `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
   what tests read), and links to `/diary/nutrients`, `NutrientPanel`: every nutrient of the `date`,
@@ -524,7 +537,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`nutrientNames`), and the portions. Amounts typed per serving are scaled to 100 g and rounded
   to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
   it did not touch. Editing also archives, once confirmed. While label scanning is on, a new food
-  offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, whose reading
+  offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, loaded by
+  `next/dynamic`, whose reading
   fills the form through `labelReadingToFood`, keeping the barcode. Each field the reading is
   unsure of is highlighted (`TextField`'s `warning`), a nutrient with what the label printed,
   until it is edited, under a notice listing the reading's notes.
@@ -602,7 +616,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   - `*.test.tsx` — Vitest `ui` project, `environment: 'happy-dom'`. React Testing Library and
     `@testing-library/user-event`, through `renderUi` from `test/ui.tsx`, which wraps the app's
     providers and hands back a `user`: everything a user does to a component and everything it
-    says back. Query by role, label and text — never by class, inline style or a fragment of
+    says back. happy-dom lays nothing out, so `test/dom-setup.ts` gives every element a
+    `clientHeight` of 10,000 px for a virtualised list to fill; a test of what scrolls out of view
+    spies on it. Query by role, label and text — never by class, inline style or a fragment of
     markup. A component that calls tRPC renders with `renderUi(ui, { wrap: api.wrap })` over
     `serveApi()` from `test/api.tsx`.
   - `*.eval.ts` — Vitest `real-ai` project, `environment: 'node'`, run only by

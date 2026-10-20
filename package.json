@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "yarn db:seed && next dev --port 3014",
     "build": "next build",
+    "bundle:budget": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/bundle-budget.ts",
+    "bundle:analyze": "next experimental-analyze",
     "start": "next start --port 3014",
     "typecheck": "tsc --noEmit",
     "lint": "biome check",
@@ -47,6 +49,7 @@
     "@tabler/icons-react": "3.46.0",
     "@tailwindcss/postcss": "4.3.3",
     "@tanstack/react-query": "5.103.1",
+    "@tanstack/react-virtual": "3.14.21",
     "@trpc/client": "11.19.0",
     "@trpc/server": "11.19.0",
     "@trpc/tanstack-react-query": "11.19.0",

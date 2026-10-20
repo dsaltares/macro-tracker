@@ -8,6 +8,7 @@ import {
 import { matchExpression, searchPageSize } from '../domain/foods/search.ts';
 import type { PortionSource, Source } from '../domain/foods/sources.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
+import { getLogger } from '../logger.ts';
 import { nutrientsOf, nutrientVector } from './foods.ts';
 import type { Database } from './schema.ts';
 
@@ -308,6 +309,29 @@ const searchPage = async (
   };
 };
 
+const logger = getLogger('food-search');
+
+const toTenthOfAMillisecond = (ms: number) => Math.round(ms * 10) / 10;
+
+const timed = async <Row>(
+  match: string | null,
+  cursor: number,
+  run: () => Promise<Row[]>,
+) => {
+  const started = performance.now();
+  const rows = await run();
+  logger.debug(
+    {
+      match,
+      cursor,
+      rows: rows.length,
+      ms: toTenthOfAMillisecond(performance.now() - started),
+    },
+    'food search',
+  );
+  return rows;
+};
+
 export const searchFoods = async (
   reader: FoodReader,
   { query, cursor }: { query: string; cursor: number },
@@ -316,12 +340,9 @@ export const searchFoods = async (
   if (match === null) {
     return { foods: [], nextCursor: null };
   }
-  const rows = await searchQuery(
-    reader.db,
-    reader.userId,
-    match,
-    cursor,
-  ).execute();
+  const rows = await timed(match, cursor, () =>
+    searchQuery(reader.db, reader.userId, match, cursor).execute(),
+  );
   return searchPage(reader, rows, cursor);
 };
 
@@ -330,12 +351,10 @@ export const listUserFoods = async (
   userId: string,
   { query, cursor }: { query: string; cursor: number },
 ): Promise<FoodSearchPage> => {
-  const rows = await userFoodsQuery(
-    db,
-    userId,
-    matchExpression(query),
-    cursor,
-  ).execute();
+  const match = matchExpression(query);
+  const rows = await timed(match, cursor, () =>
+    userFoodsQuery(db, userId, match, cursor).execute(),
+  );
   return searchPage({ db, userId }, rows, cursor);
 };
 

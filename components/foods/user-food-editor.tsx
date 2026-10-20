@@ -2,6 +2,7 @@
 
 import { IconScan } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormError } from '@/components/auth/fields';
@@ -9,7 +10,6 @@ import {
   UserFoodForm,
   type UserFoodSubmission,
 } from '@/components/foods/user-food-form';
-import { LabelCapture } from '@/components/label-scan/label-capture';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,6 +29,17 @@ import {
 import { addToDiaryHref, type DiaryMeal, routes } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 import { isConflict } from '@/lib/trpc/failure';
+
+const LabelCapture = dynamic(
+  () =>
+    import('@/components/label-scan/label-capture').then(
+      ({ LabelCapture }) => LabelCapture,
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-36 w-full" />,
+  },
+);
 
 export const foodLoadFailed = 'This food could not be loaded.';
 

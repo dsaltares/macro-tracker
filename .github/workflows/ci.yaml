@@ -28,6 +28,8 @@ jobs:
       - run: corepack enable
       - run: yarn install --immutable
       - run: yarn ${{ matrix.task }}
+      - if: matrix.task == 'build'
+        run: yarn bundle:budget
 
   e2e:
     runs-on: ubuntu-latest

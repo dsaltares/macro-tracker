@@ -1,13 +1,14 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
 import {
   parseAsString,
   parseAsStringLiteral,
   useQueryState,
   useQueryStates,
 } from 'nuqs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
 import { FormError } from '@/components/auth/fields';
 import { LogWeightCard } from '@/components/body/log-weight-card';
@@ -15,15 +16,23 @@ import { dateParser } from '@/components/diary/date-param';
 import { DayNavigation } from '@/components/diary/day-navigation';
 import { DayTotals } from '@/components/diary/day-totals';
 import { EditEntryDialog } from '@/components/diary/edit-entry-dialog';
-import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { MealSection } from '@/components/diary/meal-section';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToday } from '@/components/use-today';
 import type { DiaryEntry } from '@/lib/db/diary';
+import { addDays } from '@/lib/domain/dates';
 import { type Meal, meals } from '@/lib/domain/diary/entries';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'This day could not be loaded.';
+
+const FoodSearchSheet = dynamic(
+  () =>
+    import('@/components/diary/food-search-sheet').then(
+      ({ FoodSearchSheet }) => FoodSearchSheet,
+    ),
+  { ssr: false },
+);
 
 function DaySkeleton() {
   return (
@@ -44,6 +53,23 @@ const addingParsers = {
 
 type CreatedFood = { meal: Meal; foodId: string };
 
+const adjacentDays = (date: string) => [addDays(date, -1), addDays(date, 1)];
+
+function usePrefetchAdjacentDays(date: string, loaded: boolean) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!loaded) {
+      return;
+    }
+    for (const day of adjacentDays(date)) {
+      void queryClient.prefetchQuery(trpc.diary.day.queryOptions(day));
+      void queryClient.prefetchQuery(trpc.goals.forDate.queryOptions(day));
+    }
+  }, [date, loaded, queryClient, trpc]);
+}
+
 function Day({
   date,
   created,
@@ -58,6 +84,7 @@ function Day({
   const goal = useQuery(trpc.goals.forDate.queryOptions(date));
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
   const [adding, setAdding] = useState<Meal | null>(created?.meal ?? null);
+  usePrefetchAdjacentDays(date, day.isSuccess && goal.isSuccess);
 
   if (day.isPending || goal.isPending) {
     return <DaySkeleton />;

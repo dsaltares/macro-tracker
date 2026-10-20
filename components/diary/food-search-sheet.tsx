@@ -149,7 +149,7 @@ function SearchStep({
             />
           </TabsContent>
         ))}
-        <TabsContent value="all" className="min-h-0 overflow-y-auto">
+        <TabsContent value="all" className="flex min-h-0 flex-col">
           <FoodSearchResults
             query={debouncedQuery}
             onSelectFood={onSelectFood}
