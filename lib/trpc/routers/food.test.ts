@@ -252,9 +252,15 @@ describe('food.get', () => {
       quantityLabel: '400 g',
       archived: false,
       portions: [
-        { label: '15 g', grams: 15 },
+        {
+          id: expect.any(String),
+          label: '15 g',
+          grams: 15,
+          source: 'upstream',
+        },
         { label: '100 g', grams: 100 },
         { label: '1 g', grams: 1 },
+        { label: '1 ml', grams: 1 },
       ],
     });
     expect(food.nutrients).toMatchObject({
@@ -284,9 +290,10 @@ describe('food.get', () => {
     expect(await as('user-1').food.get(id)).toMatchObject({
       source: 'user',
       portions: [
-        { label: '1 tsp', grams: 5 },
+        { label: '1 tsp', grams: 5, source: 'user' },
         { label: '100 g', grams: 100 },
         { label: '1 g', grams: 1 },
+        { label: '1 ml', grams: 1 },
       ],
     });
     await expect(as('user-2').food.get(id)).rejects.toMatchObject({
@@ -297,37 +304,213 @@ describe('food.get', () => {
     });
   });
 
-  it('shows a user the portions they added to a reference food, and no one else', async () => {
-    const id = await idOf('nutella');
-    await database()
-      .insertInto('food_portions')
-      .values({
-        id: 'portion-1',
-        food_id: id,
-        label: '1 slice of toast',
-        grams: 20,
-        source: 'user',
-        user_id: 'user-1',
-        position: 1,
-      })
-      .execute();
-
-    const labelsFor = async (userId: string | null) =>
-      (await as(userId).food.get(id)).portions.map(({ label }) => label);
-
-    expect(await labelsFor('user-1')).toEqual([
-      '15 g',
-      '1 slice of toast',
-      '100 g',
-      '1 g',
-    ]);
-    expect(await labelsFor('user-2')).toEqual(['15 g', '100 g', '1 g']);
-  });
-
   it('answers not found for a food that does not exist', async () => {
     await expect(anonymous().food.get('missing')).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+  });
+});
+
+const labelsOf = async (id: string, userId: string | null) =>
+  (await as(userId).food.get(id)).portions.map(({ label }) => label);
+
+describe('food.addPortion', () => {
+  it('adds a portion to a reference food that only its user sees', async () => {
+    const id = await idOf('nutella');
+
+    const portion = await as('user-1').food.addPortion({
+      foodId: id,
+      label: '1 slice of toast',
+      grams: 20,
+    });
+
+    expect(portion).toEqual({
+      id: expect.any(String),
+      label: '1 slice of toast',
+      grams: 20,
+      source: 'user',
+    });
+    expect(await labelsOf(id, 'user-1')).toEqual([
+      '15 g',
+      '1 slice of toast',
+      '100 g',
+      '1 g',
+      '1 ml',
+    ]);
+    expect(await labelsOf(id, 'user-2')).toEqual([
+      '15 g',
+      '100 g',
+      '1 g',
+      '1 ml',
+    ]);
+    expect(await labelsOf(id, null)).toEqual(['15 g', '100 g', '1 g', '1 ml']);
+  });
+
+  it('makes the first portion of a food without any its default', async () => {
+    const id = await idOf('apple pulp');
+    const user = as('user-1');
+
+    await user.food.addPortion({ foodId: id, label: '1 apple', grams: 150 });
+    await user.food.addPortion({ foodId: id, label: '1 slice', grams: 20 });
+
+    expect(await labelsOf(id, 'user-1')).toEqual([
+      '1 apple',
+      '1 slice',
+      '100 g',
+      '1 g',
+      '1 ml',
+    ]);
+    const { foods } = await user.food.search({ query: 'apple pulp' });
+    expect(foods[0]?.defaultPortion).toEqual({ label: '1 apple', grams: 150 });
+  });
+
+  it('trims the label', async () => {
+    const id = await idOf('nutella');
+
+    expect(
+      await as('user-1').food.addPortion({
+        foodId: id,
+        label: '  1 tbsp ',
+        grams: 15,
+      }),
+    ).toMatchObject({ label: '1 tbsp' });
+  });
+
+  it('lets two users name their portions of a food alike', async () => {
+    const id = await idOf('nutella');
+
+    await as('user-1').food.addPortion({
+      foodId: id,
+      label: '1 tbsp',
+      grams: 15,
+    });
+    await as('user-2').food.addPortion({
+      foodId: id,
+      label: '1 tbsp',
+      grams: 18,
+    });
+
+    expect((await as('user-2').food.get(id)).portions[1]).toMatchObject({
+      label: '1 tbsp',
+      grams: 18,
+    });
+  });
+
+  it('refuses a label the food already shows its user', async () => {
+    const id = await idOf('nutella');
+    const user = as('user-1');
+    await user.food.addPortion({ foodId: id, label: '1 scoop', grams: 32 });
+
+    for (const label of ['1 scoop', '15 g', '100 g', '1 ml']) {
+      await expect(
+        user.food.addPortion({ foodId: id, label, grams: 10 }),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+    }
+  });
+
+  it("adds to the user's own food, and not to anyone else's", async () => {
+    const id = await userFood();
+
+    await as('user-1').food.addPortion({
+      foodId: id,
+      label: '1 jar',
+      grams: 400,
+    });
+
+    expect(await labelsOf(id, 'user-1')).toContain('1 jar');
+    await expect(
+      as('user-2').food.addPortion({ foodId: id, label: '1 jar', grams: 400 }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('answers not found for a food that does not exist', async () => {
+    await expect(
+      as('user-1').food.addPortion({
+        foodId: 'missing',
+        label: '1 jar',
+        grams: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('refuses an empty label or a weight that is not positive', async () => {
+    const id = await idOf('nutella');
+    const user = as('user-1');
+
+    for (const input of [
+      { label: '  ', grams: 10 },
+      { label: 'x'.repeat(61), grams: 10 },
+      { label: '1 scoop', grams: 0 },
+      { label: '1 scoop', grams: -5 },
+    ]) {
+      await expect(
+        user.food.addPortion({ foodId: id, ...input }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+  });
+
+  it('refuses anyone not signed in', async () => {
+    await expect(
+      anonymous().food.addPortion({
+        foodId: await idOf('nutella'),
+        label: '1 scoop',
+        grams: 32,
+      }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+describe('food.removePortion', () => {
+  it("removes a user's portion", async () => {
+    const id = await idOf('nutella');
+    const user = as('user-1');
+    const { id: portionId } = await user.food.addPortion({
+      foodId: id,
+      label: '1 scoop',
+      grams: 32,
+    });
+
+    await user.food.removePortion(portionId);
+
+    expect(await labelsOf(id, 'user-1')).toEqual([
+      '15 g',
+      '100 g',
+      '1 g',
+      '1 ml',
+    ]);
+  });
+
+  it("never removes another user's portion", async () => {
+    const id = await idOf('nutella');
+    const { id: portionId } = await as('user-1').food.addPortion({
+      foodId: id,
+      label: '1 scoop',
+      grams: 32,
+    });
+
+    await expect(
+      as('user-2').food.removePortion(portionId),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(await labelsOf(id, 'user-1')).toContain('1 scoop');
+  });
+
+  it('never removes an upstream portion', async () => {
+    const id = await idOf('nutella');
+    const [upstream] = (await anonymous().food.get(id)).portions;
+    if (!upstream || !('id' in upstream)) {
+      throw new Error('Nutella has no upstream portion');
+    }
+
+    await expect(
+      as('user-1').food.removePortion(upstream.id),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(await labelsOf(id, null)).toContain('15 g');
+  });
+
+  it('refuses anyone not signed in', async () => {
+    await expect(
+      anonymous().food.removePortion('portion-1'),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
 

@@ -81,10 +81,11 @@ is stored as zero, and the food lists it among its traces so it can be shown as 
 upstream is **archived**: hidden from search, still resolvable from the diary.
 
 A **portion** is a named quantity in grams for one food ("1 serving = 30 g", "1 tbsp = 15 g").
-Every food has `100 g` and `1 g`; a reference food may add its upstream serving; a user adds their
-own, to their foods or to a reference food, and only they see them. A food's **default portion**
-is the first of its own portions, or `100 g` when it has none. Millilitres are grams unless a food
-declares a density.
+Every food has `100 g`, `1 g` and `1 ml`; a reference food may add its upstream serving; a user adds
+their own, to their foods or to a reference food, and only they see them. A food never shows one
+user two portions with the same label. A food's **default portion** is the first of its own
+portions, or `100 g` when it has none. Millilitres are grams unless a food declares a density, and
+no food declares one yet. A quantity of a portion weighs the portion's grams times the quantity.
 
 A **barcode** is an EAN-8 or EAN-13 (UPC-A is normalised to EAN-13 by a leading zero). Lookup
 order: the caller's own foods, reference foods, live Open Food Facts, then the miss flow.

@@ -28,6 +28,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn data:off` — stream the real Open Food Facts export through the adapter without writing
   anything, and print what it kept, the bytes, wall time and peak memory. An optional URL argument
   reads another export
+- `yarn data:cofid-sample [url-or-path]` — rebuild `test/fixtures/cofid/sample.xlsx`, the trimmed
+  CoFID workbook the adapter's tests read, from the real one: its three header rows and the foods
+  whose codes `scripts/cofid-sample.ts` lists
 - `yarn data:usda` — download the three USDA FoodData Central archives and read them through the
   adapter without writing anything, and print the foods, portions, wall time and peak memory
 - `yarn db:copy-down` — replace the local database and `.env` with production's, straight over
@@ -76,6 +79,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   foods, cut verbatim from the release (CRLF and BOM, so `.gitattributes` exempts them). A new
   edition is a new dataset DOI in `ciqualDatasetDoi`. Every source's attribution is in
   `docs/DATA-SOURCES.md`, which the footer links to.
+  `cofid/workbook.ts` downloads the CoFID 2021 workbook (4.6 MB, read whole with
+  `read-excel-file`) and joins its Proximates, Inorganics and Vitamins sheets on the food code;
+  `cofid/mapping.ts` is its column table, whose test fails on any column of those sheets that is
+  neither mapped nor ignored.
   `usda/fooddata-central.ts` downloads the Foundation, SR Legacy and FNDDS CSV archives (zips of a
   few MB, read in memory by `usda/zip.ts` and `usda/csv.ts`; the release is in the URL, so a new
   USDA release is a change to `usdaDatasetUrls`). Foods are keyed `ndb:<NDB number>` and
@@ -133,6 +140,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
   subquery on the same statement.
+  `food-portions.ts` adds and removes a user's portions: an add reads the food through the same
+  visibility as `food.get` and refuses a label the food already shows that user; a remove deletes
+  only on `source = 'user'` and the caller's `user_id`. `food.get` returns stored portions with
+  their `id` and `source`, the standard ones without.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
