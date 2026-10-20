@@ -1,6 +1,5 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { setImmediate } from 'node:timers/promises';
 import type { Kysely } from 'kysely';
 import type { Logger } from 'pino';
 import {
@@ -51,6 +50,13 @@ const referenceFood = (food: SourceFood): ReferenceFoodInput => ({
   portions: food.portions,
 });
 
+// Not `setImmediate` from `node:timers/promises`: outside a request, Next.js 16's patch of it
+// falls back to itself and overflows the stack.
+const nextTurn = () =>
+  new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+
 const reasonOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
@@ -88,7 +94,7 @@ export const launchFoodImport = async ({
     counts.inserted += written.inserted;
     counts.updated += written.updated;
     await recordFoodImportProgress(db, run.id, counts);
-    await setImmediate();
+    await nextTurn();
   };
 
   const importSource = async (source: FoodSource, context: SourceContext) => {
