@@ -275,7 +275,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   either way and opens the native date picker; `diary.day` fills the day totals card (energy and
   macros, the rest of the EU label behind *More nutrients*) and the four meals. Tapping an entry
   opens `EditEntryDialog`, which sends `diary.update` only the fields that changed, since a
-  quantity or portion re-resolves the snapshot, or deletes it.
+  quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
+  `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
+  pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
+  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. Choosing a food
+  opens `FoodStep` in the same sheet. Source badges are `SourceBadge` (`components/foods/`).
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
