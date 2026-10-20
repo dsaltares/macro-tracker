@@ -1,0 +1,134 @@
+{
+  "source": "https://world.openfoodfacts.org/product/3045140105502",
+  "photo": "https://images.openfoodfacts.org/images/products/304/514/010/5502/128.jpg",
+  "reading": {
+    "productName": null,
+    "brand": {
+      "value": "Milka",
+      "confidence": 1
+    },
+    "netQuantity": {
+      "value": "100 g",
+      "confidence": 1
+    },
+    "servingSize": {
+      "label": null,
+      "amount": 16.7,
+      "unit": "g",
+      "confidence": 1
+    },
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "2251",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "539",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "31",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "19",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "57",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "55",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "6,5",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "0,28",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "2,3",
+        "unit": "g",
+        "confidence": 1
+      }
+    ],
+    "perServing": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "376",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "90",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "5,2",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "3,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "9,5",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "9,2",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "1,1",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "salt",
+        "printed": "0,05",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "0,4",
+        "unit": "g",
+        "confidence": 1
+      }
+    ],
+    "notes": []
+  }
+}

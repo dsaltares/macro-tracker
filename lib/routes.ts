@@ -18,6 +18,7 @@ export const routes = {
   exportDiary: '/api/export/diary.csv',
   exportWeights: '/api/export/weights.csv',
   exportAll: '/api/export/all.json',
+  labelScan: '/api/label-scan',
   signIn: '/sign-in',
   signUp: '/sign-up',
   verify: '/verify',
@@ -33,6 +34,20 @@ export const diaryHref = (date: string | null) =>
 
 export const nutrientsHref = (date: string) =>
   `${routes.nutrients}?date=${date}`;
+
+export const newFoodHref = ({
+  barcode,
+  scanLabel = false,
+}: {
+  barcode?: string;
+  scanLabel?: boolean;
+}) => {
+  const params = new URLSearchParams([
+    ...(barcode === undefined ? [] : [['barcode', barcode]]),
+    ...(scanLabel ? [['scan', 'label']] : []),
+  ]);
+  return params.size === 0 ? routes.newFood : `${routes.newFood}?${params}`;
+};
 
 export const foodRoute = (id: string) =>
   `${routes.foods}/${encodeURIComponent(id)}`;

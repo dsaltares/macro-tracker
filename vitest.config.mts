@@ -31,6 +31,16 @@ export default defineConfig({
           setupFiles: ['./test/dom-setup.ts'],
         },
       },
+      {
+        extends: true,
+        test: {
+          ...shared,
+          name: 'real-ai',
+          environment: 'node',
+          include: ['**/*.eval.ts'],
+          testTimeout: 600_000,
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
@@ -48,6 +58,7 @@ export default defineConfig({
         'lib/domain/goals/**': { 100: true },
         'lib/domain/body/**': { 100: true },
         'lib/domain/trends/**': { 100: true },
+        'lib/domain/recipes/**': { 100: true },
       },
     },
   },

@@ -1,5 +1,6 @@
 'use client';
 
+import { IconScan } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -8,6 +9,7 @@ import {
   UserFoodForm,
   type UserFoodSubmission,
 } from '@/components/foods/user-food-form';
+import { LabelCapture } from '@/components/label-scan/label-capture';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,6 +22,10 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Food } from '@/lib/db/food-search';
+import {
+  type LabelFood,
+  labelReadingToFood,
+} from '@/lib/domain/foods/label-reading';
 import { routes } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 import { isConflict } from '@/lib/trpc/failure';
@@ -40,22 +46,69 @@ function useAfterSave() {
   };
 }
 
-export function NewUserFood({ barcode }: { barcode: string }) {
+export function NewUserFood({
+  barcode,
+  labelScanning = false,
+  scanFirst = false,
+}: {
+  barcode: string;
+  labelScanning?: boolean;
+  scanFirst?: boolean;
+}) {
   const trpc = useTRPC();
   const afterSave = useAfterSave();
   const create = useMutation(
     trpc.food.create.mutationOptions({ onSuccess: afterSave }),
   );
+  const [scanning, setScanning] = useState(labelScanning && scanFirst);
+  const [label, setLabel] = useState<LabelFood | null>(null);
+
+  if (scanning) {
+    return (
+      <div className="flex flex-col gap-3">
+        <LabelCapture
+          onRead={(reading) => {
+            setLabel(labelReadingToFood(reading));
+            setScanning(false);
+          }}
+        />
+        <Button
+          variant="ghost"
+          size="lg"
+          className="h-11"
+          onClick={() => setScanning(false)}
+        >
+          Type it in instead
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <UserFoodForm
-      barcode={barcode}
-      submit="Create food"
-      saving={create.isPending || create.isSuccess}
-      failed={create.isError && !isConflict(create.error)}
-      conflict={create.isError && isConflict(create.error)}
-      onSave={(food: UserFoodSubmission) => create.mutate(food)}
-    />
+    <div className="flex flex-col gap-6">
+      {labelScanning ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-11"
+          onClick={() => setScanning(true)}
+        >
+          <IconScan className="size-5" />
+          {label === null ? 'Scan a label instead' : 'Scan the label again'}
+        </Button>
+      ) : null}
+      <UserFoodForm
+        key={label === null ? 'typed' : 'scanned'}
+        label={label}
+        barcode={barcode}
+        submit="Create food"
+        saving={create.isPending || create.isSuccess}
+        failed={create.isError && !isConflict(create.error)}
+        conflict={create.isError && isConflict(create.error)}
+        onSave={(food: UserFoodSubmission) => create.mutate(food)}
+      />
+    </div>
   );
 }
 

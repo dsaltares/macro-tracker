@@ -21,6 +21,7 @@ import { type Choice, ChoiceField } from '@/components/profile/choice-field';
 import { Button } from '@/components/ui/button';
 import type { Food } from '@/lib/db/food-search';
 import { normaliseBarcode } from '@/lib/domain/foods/barcode';
+import type { LabelFood } from '@/lib/domain/foods/label-reading';
 import {
   aboveMaxPer100g,
   invalidBarcode,
@@ -225,31 +226,61 @@ const emptyValues = (barcode: string): UserFoodFormValues => ({
   portions: [],
 });
 
-const valuesOf = (food: Food): UserFoodFormValues => {
-  const { sodium: _sodium, ...per100g } = roundedVector(food.nutrients);
+const per100gValues = (
+  nutrients: NutrientVector,
+): Pick<
+  UserFoodFormValues,
+  'basis' | 'servingGrams' | 'salt' | 'nutrients'
+> => {
+  const { sodium: _sodium, ...per100g } = roundedVector(nutrients);
   return {
-    name: food.name,
-    brand: food.brand ?? '',
-    barcode: food.barcode ?? '',
-    quantityLabel: food.quantityLabel ?? '',
     basis: 'per_100g',
     servingGrams: undefined,
     salt:
-      food.nutrients.sodium === undefined
+      nutrients.sodium === undefined
         ? undefined
-        : roundEntered(salt(food.nutrients.sodium)),
+        : roundEntered(salt(nutrients.sodium)),
     nutrients: per100g as UserFoodFormValues['nutrients'],
-    portions: food.portions.flatMap((portion) =>
-      'source' in portion
-        ? [{ label: portion.label, grams: portion.grams }]
-        : [],
-    ),
   };
 };
 
-const hasOtherNutrients = (food: Food | null) =>
-  food !== null &&
-  otherNutrients.some(({ key }) => food.nutrients[key] !== undefined);
+const valuesOf = (food: Food): UserFoodFormValues => ({
+  name: food.name,
+  brand: food.brand ?? '',
+  barcode: food.barcode ?? '',
+  quantityLabel: food.quantityLabel ?? '',
+  ...per100gValues(food.nutrients),
+  portions: food.portions.flatMap((portion) =>
+    'source' in portion ? [{ label: portion.label, grams: portion.grams }] : [],
+  ),
+});
+
+const valuesOfLabel = (
+  label: LabelFood,
+  barcode: string,
+): UserFoodFormValues => ({
+  name: label.name ?? '',
+  brand: label.brand ?? '',
+  barcode,
+  quantityLabel: label.quantityLabel ?? '',
+  ...per100gValues(label.nutrients),
+  portions: label.portions,
+});
+
+const defaultValuesOf = (
+  food: Food | null,
+  label: LabelFood | null,
+  barcode: string,
+) => {
+  if (food !== null) {
+    return valuesOf(food);
+  }
+  return label === null ? emptyValues(barcode) : valuesOfLabel(label, barcode);
+};
+
+const hasOtherNutrients = (nutrients: NutrientVector | undefined) =>
+  nutrients !== undefined &&
+  otherNutrients.some(({ key }) => nutrients[key] !== undefined);
 
 const optionalNumber = (value: unknown) =>
   value === '' || value === null || value === undefined
@@ -268,6 +299,7 @@ const labelOf = (key: NutrientKey) =>
 
 export function UserFoodForm({
   food = null,
+  label = null,
   barcode = '',
   submit,
   onSave,
@@ -277,6 +309,7 @@ export function UserFoodForm({
   children,
 }: {
   food?: Food | null;
+  label?: LabelFood | null;
   barcode?: string;
   submit: string;
   saving: boolean;
@@ -286,7 +319,9 @@ export function UserFoodForm({
   children?: ReactNode;
 }) {
   const [interactive, setInteractive] = useState(false);
-  const [expanded, setExpanded] = useState(() => hasOtherNutrients(food));
+  const [expanded, setExpanded] = useState(() =>
+    hasOtherNutrients((food ?? label)?.nutrients),
+  );
   const allNutrientsId = useId();
   const {
     register,
@@ -296,7 +331,7 @@ export function UserFoodForm({
     formState: { errors, dirtyFields },
   } = useForm<UserFoodFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: food === null ? emptyValues(barcode) : valuesOf(food),
+    defaultValues: defaultValuesOf(food, label, barcode),
     mode: 'onTouched',
   });
   const portions = useFieldArray({ control, name: 'portions' });

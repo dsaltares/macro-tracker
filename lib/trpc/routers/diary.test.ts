@@ -82,6 +82,23 @@ const ownFood = () =>
 
 const date = '2026-10-20';
 
+const oatsBowl = async () => {
+  const foodId = await ownFood();
+  const recipeId = await as('user-1').recipe.create({
+    name: 'Oats bowl',
+    servings: 2,
+    cookedWeightG: null,
+    notes: null,
+  });
+  await as('user-1').recipe.addIngredient({
+    recipeId,
+    ingredient: { kind: 'food', foodId },
+    portion: '1 jar',
+    quantity: 2,
+  });
+  return recipeId;
+};
+
 const logNutella = async (
   overrides: Partial<
     Parameters<ReturnType<typeof as>['diary']['addFood']>[0]
@@ -362,6 +379,130 @@ describe('diary.addQuick', () => {
         nutrients: { totals: { protein: -1 } },
       }),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});
+
+describe('diary.addRecipe', () => {
+  it('logs servings of a recipe as a snapshot of its vector per serving', async () => {
+    const recipeId = await oatsBowl();
+
+    expect(
+      await as('user-1').diary.addRecipe({
+        date,
+        meal: 'breakfast',
+        recipeId,
+        servings: 1.5,
+      }),
+    ).toMatchObject({
+      kind: 'recipe',
+      recipeId,
+      foodId: null,
+      label: 'Oats bowl',
+      portionLabel: '1 serving',
+      quantity: 1.5,
+      grams: 375,
+      nutrients: {
+        energy_kcal: 510,
+        protein: 18.75,
+        carbohydrate: 75,
+        fat: 15,
+      },
+    });
+  });
+
+  it('logs grams of a recipe', async () => {
+    const recipeId = await oatsBowl();
+
+    expect(
+      await as('user-1').diary.addRecipe({
+        date,
+        meal: 'lunch',
+        recipeId,
+        grams: 150,
+        time: '13:00',
+      }),
+    ).toMatchObject({
+      portionLabel: '100 g',
+      quantity: 1.5,
+      grams: 150,
+      time: '13:00',
+      nutrients: { energy_kcal: 204 },
+    });
+  });
+
+  it('refuses both servings and grams, or neither', async () => {
+    const recipeId = await oatsBowl();
+    const user = as('user-1');
+
+    await expect(
+      user.diary.addRecipe({
+        date,
+        meal: 'lunch',
+        recipeId,
+        servings: 1,
+        grams: 100,
+      } as never),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      user.diary.addRecipe({ date, meal: 'lunch', recipeId } as never),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  it("answers not found for an archived recipe or another user's", async () => {
+    const recipeId = await oatsBowl();
+
+    await expect(
+      as('user-2').diary.addRecipe({
+        date,
+        meal: 'lunch',
+        recipeId,
+        servings: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+    await as('user-1').recipe.archive(recipeId);
+
+    await expect(
+      as('user-1').diary.addRecipe({
+        date,
+        meal: 'lunch',
+        recipeId,
+        servings: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('refuses a recipe without ingredients', async () => {
+    const recipeId = await as('user-1').recipe.create({
+      name: 'Nothing',
+      servings: 1,
+      cookedWeightG: null,
+      notes: null,
+    });
+
+    await expect(
+      as('user-1').diary.addRecipe({
+        date,
+        meal: 'lunch',
+        recipeId,
+        servings: 1,
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  it('re-resolves a recipe entry from the current recipe on a quantity change', async () => {
+    const recipeId = await oatsBowl();
+    const { id } = await as('user-1').diary.addRecipe({
+      date,
+      meal: 'breakfast',
+      recipeId,
+      servings: 1,
+    });
+
+    expect(await as('user-1').diary.update({ id, quantity: 2 })).toMatchObject({
+      grams: 500,
+      nutrients: { energy_kcal: 680 },
+    });
   });
 });
 
@@ -774,5 +915,39 @@ describe('snapshots', () => {
     const [entry] =
       (await as('user-1').diary.day(date)).meals[0]?.entries ?? [];
     expect(entry).toEqual(logged);
+  });
+
+  it('leave a logged recipe entry alone when an ingredient is edited afterwards', async () => {
+    const recipeId = await oatsBowl();
+    const logged = await as('user-1').diary.addRecipe({
+      date,
+      meal: 'dinner',
+      recipeId,
+      servings: 1,
+    });
+    const [ingredient] = (await as('user-1').recipe.get(recipeId)).ingredients;
+    if (!ingredient) {
+      throw new Error('the oats bowl has no oats');
+    }
+
+    await as('user-1').recipe.updateIngredient({
+      id: ingredient.id,
+      quantity: 4,
+    });
+    await as('user-1').recipe.update({
+      id: recipeId,
+      name: 'Big oats bowl',
+      servings: 1,
+      cookedWeightG: null,
+      notes: null,
+    });
+
+    const [entry] =
+      (await as('user-1').diary.day(date)).meals[2]?.entries ?? [];
+    expect(entry).toEqual(logged);
+    expect(
+      (await as('user-1').recipe.get(recipeId)).nutrients.perServing
+        .energy_kcal,
+    ).toBe(1360);
   });
 });

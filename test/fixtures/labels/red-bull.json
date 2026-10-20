@@ -1,0 +1,95 @@
+{
+  "source": "https://world.openfoodfacts.org/product/9002490100070",
+  "photo": "https://images.openfoodfacts.org/images/products/900/249/010/0070/3.jpg",
+  "reading": {
+    "productName": null,
+    "brand": null,
+    "netQuantity": {
+      "value": "250 ml",
+      "confidence": 1
+    },
+    "servingSize": null,
+    "per100g": [
+      {
+        "nutrient": "energy_kj",
+        "printed": "192",
+        "unit": "kJ",
+        "confidence": 1
+      },
+      {
+        "nutrient": "energy_kcal",
+        "printed": "45",
+        "unit": "kcal",
+        "confidence": 1
+      },
+      {
+        "nutrient": "protein",
+        "printed": "0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "carbohydrate",
+        "printed": "11",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sugars",
+        "printed": "11",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fat",
+        "printed": "0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "saturated_fat",
+        "printed": "0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "fibre",
+        "printed": "0",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "sodium",
+        "printed": "0,04",
+        "unit": "g",
+        "confidence": 1
+      },
+      {
+        "nutrient": "niacin",
+        "printed": "8",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "pantothenic_acid",
+        "printed": "2",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_b6",
+        "printed": "2",
+        "unit": "mg",
+        "confidence": 1
+      },
+      {
+        "nutrient": "vitamin_b12",
+        "printed": "2",
+        "unit": "µg",
+        "confidence": 1
+      }
+    ],
+    "perServing": [],
+    "notes": []
+  }
+}

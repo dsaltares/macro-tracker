@@ -233,8 +233,13 @@ the upper limits most used, then the nutrients with no percentage, so deficienci
 
 A **recipe** has a name, a number of **servings**, an optional **cooked weight** in grams and
 ordered **ingredients**, each a food or another recipe with grams. A recipe can contain a recipe,
-but that one cannot contain another (one level). Its nutrient vector per serving and per 100 g
-are computed from its ingredients' current values; logging it snapshots the result.
+but that one cannot contain another (one level): a recipe cannot contain itself, one that
+contains a recipe, or a recipe at all once another recipe contains it. Its total is the sum of
+its ingredients' current values at their grams; per serving it is the total over the servings,
+and per 100 g the total over its cooked weight, or over the sum of its ingredients' grams without
+one. A cooked weight so changes the vector per 100 g but never the one per serving. Logged, a
+recipe is a food with that vector per 100 g and two portions, `1 serving` (its weight over its
+servings) and `100 g`; logging it snapshots the result.
 
 ## API
 

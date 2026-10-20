@@ -9,6 +9,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `yarn typecheck` · `yarn lint` · `yarn format`
 - `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
   both. `vitest run --project ui <path>` narrows to one file.
+- `yarn test:real-ai` — the `real-ai` project: the label reader against the photos in
+  `test/fixtures/labels/` through the real model of `AI_PROVIDER`, `AI_MODEL` and `AI_API_KEY`
+  (read from `.env`), printing a table of each photo's fields read right, and failing under 90% on
+  the EU mandatory fields per 100 g. Skipped without a key, never run by `yarn test`, `yarn
+  test:watch` or CI, and every run costs money
 - `yarn test:e2e` — Playwright against a production build of its own (`next build` then
   `next start`, in `.next-e2e` on 3015), never a server already running; `E2E_PORT` moves it when
   another worktree holds 3015. `yarn test:e2e:dev` runs it against `next dev` instead, for hot
@@ -72,6 +77,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/recipes/` — `recipeNutrients(recipe, ingredients)` sums each ingredient's vector
+  per 100 g at its grams (filling energy from the macros, as `resolveEntry` does) into the total,
+  per serving and per 100 g over the cooked weight or else the ingredients' grams.
+  `canNest(parent, child)` is the one-level rule over `NestingFacts`, which the write reads.
+  `recipeAsFood` is the recipe as `resolveEntry` takes a food: the vector per 100 g and the
+  portions `1 serving` and `100 g`. Coverage on it is gated at 100%.
 - `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
   `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
   per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
@@ -94,7 +105,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `lib/db/trends.ts` puts them over `diaryEntries` (`lib/db/diary.ts`) and `findGoalsOver`
   (`lib/db/goals.ts`); the `trends` router is `range` and `nutrients` (`{ from, to }`, at most
   `maxTrendRangeDays`) over the caller; `nutrients` also counts each nutrient's `daysWithData`.
-  Coverage on it is gated at 100%. `/trends/nutrients`, linked from Trends, is `NutrientReport`
+  Coverage on it is gated at 100%. `/trends/nutrients`, linked from the Trends summary, is `NutrientReport`
   (`components/nutrients/`): `trends.nutrients` over the last 7, 30 or 90 days or the last year,
   through `nutrientProgress`, by group or sorted by `byShare` (`lib/domain/goals/progress.ts`).
   It shares its rows with the nutrient panel (`nutrient-rows.tsx`), adding a note of the days with data.
@@ -232,7 +243,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   and `quantity` at a `position`, and links exactly one of `food_id` and `child_recipe_id`, never
   the recipe itself. Both links cascade, and the one-level nesting rule is the write's, not a
   constraint. `userRecipesQuery` lists a user's live recipes by name, `recipeQuery` reads one and
-  `recipeIngredientsQuery` its ingredients in order, ownership on each statement.
+  `recipeIngredientsQuery` its ingredients in order, ownership on each statement. `findRecipe`
+  resolves each ingredient from its current food (`findFood`) or recipe (`findRecipeFood`, the
+  recipe as `recipeAsFood` with its name) into the recipe's nutrients; `recipeFieldsSchema`
+  (`lib/domain/recipes/recipe-fields.ts`) is what a create or update takes. Every write is on the
+  caller's live recipe. `addIngredient` resolves the grams from a portion label among the ones the
+  food or nested recipe shows, appends it, and refuses a nested recipe `canNest` refuses, over
+  nesting facts read in the same transaction, or one without ingredients; `updateIngredient`
+  re-resolves the grams, keeping the saved weight of a portion the food no longer has;
+  `reorderIngredients` takes every ingredient id exactly once. The `recipe` router
+  (`lib/trpc/routers/recipe.ts`) is these over the caller. `logRecipe` (`diary.addRecipe`, servings
+  or grams) snapshots `recipeAsFood` at `1 serving` or `100 g`, and `updateDiaryEntry`
+  re-resolves a recipe entry from the current recipe the way it does a food entry.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -324,13 +346,29 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `rejected`, `rate-limited`, `unavailable`) with a message, never the SDK's error, whose request
   holds the photo. The photo is never written or logged. `resolveLanguageModel` (`model.ts`) reads
   `AI_PROVIDER` (`openai`), `AI_MODEL` and `AI_API_KEY`, `null` without a key;
-  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The schema
+  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The prompt is
+  tuned against `label-evals/`: `fixtures.ts` reads `test/fixtures/labels/`, a photo of a real
+  label beside a JSON of its source and the `LabelReading` expected of it, transcribed by hand
+  from the photo, never from the source's data; `score.ts` compares a reading to it field by field,
+  amounts by value whatever the decimal separator or unit. The schema
   sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
   answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
   `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
   per 100 g winning over those per serving, the first of a nutrient read twice winning.
+- `lib/label-scan/route.ts` — `POST /api/label-scan`, a route handler, not tRPC, since the body is
+  bytes. `labelScanRoute({ readLabel, resolveCaller, logger })` answers `401` without a session,
+  `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
+  again while reading the body), `415` for anything but a JPEG or WebP by its leading bytes, and
+  otherwise the `LabelReading` or the reader's failure, logged without the photo. The route in
+  `app/api/label-scan/` only wires it to the server.
+- `components/label-scan/` — `LabelCapture`: *Take a photo* (a file input with
+  `capture="environment"`) or *Choose a photo*, shrunk in the browser to 1,600 px on the long edge
+  as WebP, JPEG where the browser cannot encode WebP (`shrinkPhoto`, `photo.ts`), sent with
+  `XMLHttpRequest` for its upload progress (`uploadPhoto`), then *Reading the label…*, handing the
+  reading to `onRead`. A failure that may pass offers *Try again* with the same photo; every failure
+  offers another. Tests mock `photo.ts`, which needs a real canvas.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,
@@ -380,7 +418,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
-  *Scan the label* on a miss.
+  *Scan the label* on a miss, the last two linking to `/foods/new` with the barcode
+  (`newFoodHref`), the last starting it with the camera.
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
@@ -396,13 +435,23 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   requests); `detector.test.ts` fails until a `barcode-detector` upgrade copies the new
   `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm` there. Component tests fake the camera
   and the detector with `fakeCamera` (`test/camera.ts`).
+- `app/(app)/trends/` — `TrendsOverview` (`components/trends/`): range chips (7, 30 or 90 days
+  ending today, 30 by default) over `trends.range`, kept on screen while the next range loads. A
+  summary (the averages of energy and the macros over the logged days, adherence and the weekly
+  rate of the trend weight in the range, and a link to the nutrient report), then, with a logged day in the range, the Energy chart
+  (daily kcal bars, the goal as a dashed step line, the rolling average) and the Macros chart
+  (protein, carbohydrate and fat stacked, coloured per theme through `ChartConfig`'s `theme`), and
+  the Weight section: `WeightTrendFigure` (`components/body/weight-chart.tsx`) over the range and a
+  link to `/body`. Each chart is hidden from screen readers behind a `figcaption` that sums it up.
 - `app/(app)/foods/` — `UserFoods` (`components/foods/`), the user's foods with a search box,
   each linking to `/foods/[id]`, and *New food* to `/foods/new` (`?barcode=` fills the barcode).
   Both pages render `UserFoodForm` through `NewUserFood` and `EditUserFood`: name, brand,
   barcode, pack size, the EU label with salt, the rest of the canon behind *All nutrients*
   (`nutrientNames`), and the portions. Amounts typed per serving are scaled to 100 g and rounded
   to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
-  it did not touch. Editing also archives, once confirmed.
+  it did not touch. Editing also archives, once confirmed. While label scanning is on, a new food
+  offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, whose reading
+  fills the form through `labelReadingToFood`, keeping the barcode.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
@@ -446,7 +495,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - A **date** is the user's local day as a `YYYY-MM-DD` string, never a `Date` or a timestamp.
 - **No `console`.** Log through pino: `getLogger('<module>')` from `lib/logger.ts`. Biome enforces
   this everywhere except `scripts/`, which are CLIs and print.
-- **Three kinds of test, and the extension picks the kind.** All three live next to what they
+- **Four kinds of test, and the extension picks the kind.** All four live next to what they
   cover, except the end-to-end ones.
   - `*.test.ts` — Vitest `unit` project, `environment: 'node'`. Pure logic, and the modules that
     own I/O driven for real against an in-memory database: `migratedDatabasePerTest()` from
@@ -458,6 +507,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
     says back. Query by role, label and text — never by class, inline style or a fragment of
     markup. A component that calls tRPC renders with `renderUi(ui, { wrap: api.wrap })` over
     `serveApi()` from `test/api.tsx`.
+  - `*.eval.ts` — Vitest `real-ai` project, `environment: 'node'`, run only by
+    `yarn test:real-ai`: measurements against a paid model, which print what they measured and
+    may use `console`.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and

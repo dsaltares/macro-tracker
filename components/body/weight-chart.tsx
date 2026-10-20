@@ -39,7 +39,7 @@ const daysShownAsMonths = 180;
 
 const toTenth = (kg: number) => Math.round(kg * 10) / 10;
 
-type PointsShown = {
+export type PointsShown = {
   points: readonly TrendPoint[];
   first: TrendPoint;
   last: TrendPoint;
@@ -113,9 +113,38 @@ export function WeightChart({
   );
 }
 
-function TrendSummary({ points, first, last }: PointsShown) {
+function TrendSummary(shown: PointsShown) {
+  const rate = weeklyRate(shown.points);
+
+  return (
+    <>
+      <dl className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-muted-foreground text-sm">Trend weight</dt>
+          <dd className="font-semibold text-xl tabular-nums">
+            {formatWeight(shown.last.trend)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <dt className="text-muted-foreground text-sm">Weekly rate</dt>
+          {rate === null ? (
+            <dd className="text-muted-foreground text-sm">
+              Needs a week of weights
+            </dd>
+          ) : (
+            <dd className="font-semibold text-xl tabular-nums">
+              {formatWeeklyRate(rate)}
+            </dd>
+          )}
+        </div>
+      </dl>
+      <WeightTrendFigure {...shown} />
+    </>
+  );
+}
+
+export function WeightTrendFigure({ points, first, last }: PointsShown) {
   const summaryId = useId();
-  const rate = weeklyRate(points);
   const formatTick =
     daysBetween(first.date, last.date) > daysShownAsMonths
       ? formatMonthYear
@@ -133,87 +162,65 @@ function TrendSummary({ points, first, last }: PointsShown) {
   ];
 
   return (
-    <>
-      <dl className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-muted-foreground text-sm">Trend weight</dt>
-          <dd className="font-semibold text-xl tabular-nums">
-            {formatWeight(last.trend)}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-muted-foreground text-sm">Weekly rate</dt>
-          {rate === null ? (
-            <dd className="text-muted-foreground text-sm">
-              Needs a week of weights
-            </dd>
-          ) : (
-            <dd className="font-semibold text-xl tabular-nums">
-              {formatWeeklyRate(rate)}
-            </dd>
-          )}
-        </div>
-      </dl>
-      <figure className="m-0" aria-labelledby={summaryId}>
-        <figcaption id={summaryId} className="sr-only">
-          {chartSummary({ points, first, last })}
-        </figcaption>
-        <ChartContainer
-          aria-hidden
-          config={chartConfig}
-          className="aspect-auto h-56 w-full"
+    <figure className="m-0" aria-labelledby={summaryId}>
+      <figcaption id={summaryId} className="sr-only">
+        {chartSummary({ points, first, last })}
+      </figcaption>
+      <ChartContainer
+        aria-hidden
+        config={chartConfig}
+        className="aspect-auto h-56 w-full"
+      >
+        <LineChart
+          accessibilityLayer={false}
+          data={rows}
+          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
-          <LineChart
-            accessibilityLayer={false}
-            data={rows}
-            margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-          >
-            <XAxis
-              dataKey="day"
-              type="number"
-              domain={['dataMin', 'dataMax']}
-              tickFormatter={(day: number) =>
-                formatTick(addDays(first.date, day))
-              }
-              tickLine={false}
-              axisLine={false}
-              minTickGap={24}
-            />
-            <YAxis
-              domain={kilogramDomain}
-              allowDecimals={false}
-              tickLine={false}
-              axisLine={false}
-              width={32}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(_, payload) => {
-                    const date = payload[0]?.payload?.date;
-                    return typeof date === 'string' ? formatDay(date) : null;
-                  }}
-                />
-              }
-            />
-            <Line
-              dataKey="weight"
-              stroke="none"
-              dot={{ r: 2.5, fill: 'var(--color-weight)', strokeWidth: 0 }}
-              activeDot={{ r: 4, fill: 'var(--color-weight)' }}
-              isAnimationActive={false}
-            />
-            <Line
-              dataKey="trend"
-              type="monotone"
-              stroke="var(--color-trend)"
-              strokeWidth={2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ChartContainer>
-      </figure>
-    </>
+          <XAxis
+            dataKey="day"
+            type="number"
+            domain={['dataMin', 'dataMax']}
+            tickFormatter={(day: number) =>
+              formatTick(addDays(first.date, day))
+            }
+            tickLine={false}
+            axisLine={false}
+            minTickGap={24}
+          />
+          <YAxis
+            domain={kilogramDomain}
+            allowDecimals={false}
+            tickLine={false}
+            axisLine={false}
+            width={32}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={(_, payload) => {
+                  const date = payload[0]?.payload?.date;
+                  return typeof date === 'string' ? formatDay(date) : null;
+                }}
+              />
+            }
+          />
+          <Line
+            dataKey="weight"
+            stroke="none"
+            dot={{ r: 2.5, fill: 'var(--color-weight)', strokeWidth: 0 }}
+            activeDot={{ r: 4, fill: 'var(--color-weight)' }}
+            isAnimationActive={false}
+          />
+          <Line
+            dataKey="trend"
+            type="monotone"
+            stroke="var(--color-trend)"
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ChartContainer>
+    </figure>
   );
 }

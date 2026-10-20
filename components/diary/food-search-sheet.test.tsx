@@ -798,11 +798,11 @@ describe('FoodSearchSheet', () => {
       ).toBeInTheDocument();
       expect(camera.track.stop).toHaveBeenCalled();
       expect(
-        within(region).getByRole('button', { name: 'Create food' }),
-      ).toBeDisabled();
+        within(region).getByRole('link', { name: 'Create food' }),
+      ).toHaveAttribute('href', '/foods/new?barcode=8412345678905');
       expect(
-        within(region).getByRole('button', { name: 'Scan the label' }),
-      ).toBeDisabled();
+        within(region).getByRole('link', { name: 'Scan the label' }),
+      ).toHaveAttribute('href', '/foods/new?barcode=8412345678905&scan=label');
 
       await user.click(
         within(region).getByRole('button', { name: 'Search by name' }),
