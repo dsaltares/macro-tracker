@@ -1,6 +1,12 @@
 import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  diaryDayQuery,
+  diaryEntryDeletion,
+  favouriteDeletion,
+  favouritesQuery,
+} from './diary.ts';
 import { lastSucceededFoodImportQuery } from './food-imports.ts';
 import { userPortionDeletion } from './food-portions.ts';
 import {
@@ -255,5 +261,42 @@ describe('query plans', () => {
 
   it("reads a user's profile by its key", () => {
     expectSearch(profileQuery(db, 'u').compile(), 'profiles');
+  });
+
+  it("reads a user's day of diary entries with a search", () => {
+    expectSearch(
+      diaryDayQuery(db, 'u', '2026-10-20').compile(),
+      'diary_entries',
+    );
+  });
+
+  it("removes a user's diary entry by id with a search", () => {
+    expectSearch(diaryEntryDeletion(db, 'u', 'e').compile(), 'diary_entries');
+  });
+
+  it("clears a deleted food's link from the diary with a search", () => {
+    expectSearch(
+      db
+        .updateTable('diary_entries')
+        .set({ food_id: null })
+        .where('food_id', '=', 'f')
+        .compile(),
+      'diary_entries',
+    );
+  });
+
+  it("reads a user's favourites without a scan", () => {
+    expectNoScan(favouritesQuery(db, 'u').compile(), ['favourites']);
+  });
+
+  it("removes a user's favourite with a search", () => {
+    expectSearch(favouriteDeletion(db, 'u', 'f').compile(), 'favourites');
+  });
+
+  it("drops a deleted food's favourites with a search", () => {
+    expectSearch(
+      db.deleteFrom('favourites').where('food_id', '=', 'f').compile(),
+      'favourites',
+    );
   });
 });

@@ -164,6 +164,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   visibility as `food.get` and refuses a label the food already shows that user; a remove deletes
   only on `source = 'user'` and the caller's `user_id`. `food.get` returns stored portions with
   their `id` and `source`, the standard ones without.
+- `lib/db/diary.ts` — diary entries and favourites (ADR [0003](docs/adr/0003-diary-entries-snapshot-their-nutrients.md)).
+  `diary_entries` keeps each entry's snapshot as a JSON object in `nutrients`, and its checks
+  enforce the shape of each kind: only a food entry links a food, only a recipe entry a recipe,
+  and only a quick entry has no quantity, portion or grams. Deleting a food clears `food_id` and
+  keeps the entry; `recipe_id` has no foreign key until recipes have a table. `diaryDay` reads a
+  user's date on `(user_id, date)` and orders it by meal, then logging time. Adding a favourite
+  reads the food through the same visibility as `food.get`. Meals and entry kinds are in
+  `lib/domain/diary/entries.ts`.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes

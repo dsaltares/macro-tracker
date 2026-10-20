@@ -1,4 +1,5 @@
 import type { ColumnType, Generated } from 'kysely';
+import type { EntryKind, Meal } from '../domain/diary/entries.ts';
 import type {
   GenericSource,
   PortionSource,
@@ -138,6 +139,30 @@ export type ProfilesTable = {
   updated_at: string;
 };
 
+export type DiaryEntriesTable = {
+  id: string;
+  user_id: string;
+  date: string;
+  meal: Meal;
+  time: string | null;
+  kind: EntryKind;
+  food_id: string | null;
+  recipe_id: string | null;
+  label: string;
+  quantity: number | null;
+  portion_label: string | null;
+  grams: number | null;
+  nutrients: string;
+  created_at: ColumnType<string, string, never>;
+  updated_at: string;
+};
+
+export type FavouritesTable = {
+  user_id: string;
+  food_id: string;
+  created_at: string;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -151,4 +176,6 @@ export type Database = {
   accounts: AccountsTable;
   verifications: VerificationsTable;
   profiles: ProfilesTable;
+  diary_entries: DiaryEntriesTable;
+  favourites: FavouritesTable;
 };

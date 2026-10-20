@@ -115,6 +115,9 @@ re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
 
+A **favourite** is a food a user has marked to find again quickly. It is theirs alone, and goes
+when the food does.
+
 ## Body and goals
 
 A **profile** is sex (female or male, what the energy and reference value equations take), date
