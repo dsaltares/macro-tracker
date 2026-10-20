@@ -5,7 +5,11 @@ import { addFavourite, insertDiaryEntry } from '../../db/diary.ts';
 import { insertFood } from '../../db/foods.ts';
 import type { Profile } from '../../domain/profile.ts';
 import { createCaller } from '../root.ts';
-import { wrongConfirmation } from './account.ts';
+import {
+  lastSignInMethod,
+  passwordAlreadySet,
+  wrongConfirmation,
+} from './account.ts';
 
 const database = migratedDatabasePerTest();
 
@@ -207,6 +211,148 @@ describe('account.delete', () => {
   it('needs an account', async () => {
     await expect(
       as(null).account.delete({ email: 'user-1@example.test' }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+const providersOf = async (userId: string) =>
+  (
+    await database()
+      .selectFrom('accounts')
+      .select('provider_id')
+      .where('user_id', '=', userId)
+      .orderBy('provider_id')
+      .execute()
+  ).map(({ provider_id }) => provider_id);
+
+const connectGoogle = (userId: string) =>
+  database()
+    .insertInto('accounts')
+    .values({
+      id: `${userId}-google`,
+      user_id: userId,
+      account_id: `${userId}-google-subject`,
+      provider_id: 'google',
+    })
+    .execute();
+
+const dropPassword = (userId: string) =>
+  database()
+    .deleteFrom('accounts')
+    .where('user_id', '=', userId)
+    .where('provider_id', '=', 'credential')
+    .execute();
+
+const newPassword = {
+  password: 'lentils-and-rice-forever',
+  confirmPassword: 'lentils-and-rice-forever',
+};
+
+describe('account.signInMethods', () => {
+  it("lists the caller's methods, and nobody else's", async () => {
+    await connectGoogle('user-2');
+
+    expect(await as('user-1').account.signInMethods()).toEqual({
+      password: true,
+      google: false,
+    });
+    expect(await as('user-2').account.signInMethods()).toEqual({
+      password: true,
+      google: true,
+    });
+  });
+
+  it('needs an account', async () => {
+    await expect(as(null).account.signInMethods()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
+describe('account.setPassword', () => {
+  it('adds a password to an account with only Google', async () => {
+    await connectGoogle('user-1');
+    await dropPassword('user-1');
+
+    await as('user-1').account.setPassword(newPassword);
+
+    expect(await providersOf('user-1')).toEqual(['credential', 'google']);
+    expect(
+      await database()
+        .selectFrom('accounts')
+        .select(['account_id', 'password'])
+        .where('user_id', '=', 'user-1')
+        .where('provider_id', '=', 'credential')
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ account_id: 'user-1', password: expect.stringMatching(/:/) });
+  });
+
+  it('refuses an account that has a password already, and keeps it', async () => {
+    await expect(
+      as('user-1').account.setPassword(newPassword),
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: passwordAlreadySet,
+    });
+    expect(
+      await database()
+        .selectFrom('accounts')
+        .select('password')
+        .where('user_id', '=', 'user-1')
+        .execute(),
+    ).toEqual([{ password: 'hashed' }]);
+  });
+
+  it('holds the password to the sign-up rules', async () => {
+    await dropPassword('user-1');
+    await connectGoogle('user-1');
+
+    await expect(
+      as('user-1').account.setPassword({
+        password: 'short',
+        confirmPassword: 'short',
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    expect(await providersOf('user-1')).toEqual(['google']);
+  });
+
+  it('needs an account', async () => {
+    await expect(
+      as(null).account.setPassword(newPassword),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+describe('account.disconnect', () => {
+  it("disconnects one of the caller's methods, and nobody else's", async () => {
+    await connectGoogle('user-1');
+    await connectGoogle('user-2');
+
+    await as('user-1').account.disconnect({ method: 'password' });
+
+    expect(await providersOf('user-1')).toEqual(['google']);
+    expect(await providersOf('user-2')).toEqual(['credential', 'google']);
+  });
+
+  it('refuses to disconnect the last method', async () => {
+    await expect(
+      as('user-1').account.disconnect({ method: 'password' }),
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: lastSignInMethod,
+    });
+    expect(await providersOf('user-1')).toEqual(['credential']);
+  });
+
+  it('does nothing to a method that is not connected', async () => {
+    await as('user-1').account.disconnect({ method: 'google' });
+
+    expect(await providersOf('user-1')).toEqual(['credential']);
+  });
+
+  it('needs an account', async () => {
+    await expect(
+      as(null).account.disconnect({ method: 'google' }),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });

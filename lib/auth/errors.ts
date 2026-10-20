@@ -23,7 +23,7 @@ const codeMessages: Record<string, string> = {
   EMAIL_NOT_VERIFIED:
     'Confirm your email address before signing in. The link is in your inbox.',
   [usesGoogleCode]:
-    'This account signs in with Google. Use the Continue with Google button.',
+    'This account signs in with Google. Use the Continue with Google button, then set a password in Settings › Account if you want one.',
   PASSWORD_TOO_SHORT: 'That password is too short.',
   PASSWORD_TOO_LONG: 'That password is too long.',
   [termsNotAccepted]: termsRequired,
@@ -60,3 +60,18 @@ const googleCodeMessages: Record<string, string> = {
 export const googleErrorMessage = (code: string) =>
   googleCodeMessages[code] ??
   'Signing in with Google did not finish. Try again in a moment.';
+
+const googleLinkCodeMessages: Record<string, string> = {
+  email_does_not_match:
+    'That Google account has a different address from this one. Connect the Google account that uses this address.',
+  access_denied:
+    'Connecting Google was cancelled. Try again when you are ready.',
+  unable_to_link_account:
+    'Google has not confirmed that address, so it cannot be connected.',
+  account_already_linked_to_different_user:
+    'That Google account already signs in to another account.',
+};
+
+export const googleLinkErrorMessage = (code: string) =>
+  googleLinkCodeMessages[code] ??
+  'Connecting Google did not finish. Try again in a moment.';

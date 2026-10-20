@@ -2,7 +2,7 @@
 
 The reference foods come from these open datasets. Each one is imported as published, mapped to
 the nutrient canon ([`DOMAIN.md`](DOMAIN.md) § Foods), and attributed here; the app's footer links
-to this page.
+to this page. The last two sections are where the default micro goals come from.
 
 ## Open Food Facts
 
@@ -61,3 +61,29 @@ to this page.
 - **Attribution:** U.S. Department of Agriculture, Agricultural Research Service. FoodData Central.
   <https://fdc.nal.usda.gov>.
 - **Adapter:** `lib/data/sources/usda/`
+
+## EFSA dietary reference values
+
+- **What:** the defaults of the micro goals ([`DOMAIN.md`](DOMAIN.md) § Body and goals), in
+  `lib/domain/goals/drv.ts`: the adult values for every mineral and vitamin, and fibre, sodium and chloride: the
+  population reference intake where EFSA sets one, otherwise the adequate intake, or the safe and
+  adequate intake for sodium and chloride, which the app treats as upper limits. Zinc is the value
+  for a phytate intake of 600 mg a day; a woman's iron is the premenopausal value to 50 and the
+  postmenopausal one from 51. Pregnancy and lactation are not modelled.
+- **Where:** the EFSA DRV Finder, <https://multimedia.efsa.europa.eu/drvs/index.htm>, read from
+  its data file
+  <https://multimedia.efsa.europa.eu/drvs/assets/data/languages/en/data.json> (last modified
+  2026-07-21) on 2026-10-20. Each value links its scientific opinion there.
+- **Licence:** EFSA content may be reproduced provided the source is acknowledged.
+- **Attribution:** European Food Safety Authority (EFSA). Dietary Reference Values for the EU, DRV
+  Finder. <https://www.efsa.europa.eu/en/interactive-pages/drvs>.
+
+## Dietary reference values EFSA does not set
+
+EFSA gives no number for saturated fat and sugars ("as low as possible within a nutritionally
+adequate diet") and no dietary reference value for chromium. These come from:
+
+- **Saturated fat**, an upper limit of 10% of energy: World Health Organization, *Saturated fatty
+  acid and trans-fatty acid intake for adults and children: WHO guideline* (2023).
+- **Sugars**, an upper limit of 90 g, and **chromium**, a target of 40 µg: the reference intakes of
+  Regulation (EU) No 1169/2011, Annex XIII.

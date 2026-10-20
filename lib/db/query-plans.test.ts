@@ -5,6 +5,7 @@ import { accountDeletion } from './accounts.ts';
 import {
   diaryDayQuery,
   diaryEntryDeletion,
+  diaryEntryQuery,
   favouriteDeletion,
   favouritesQuery,
 } from './diary.ts';
@@ -23,6 +24,11 @@ import {
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import type { Database } from './schema.ts';
+import {
+  passwordCreation,
+  signInMethodDisconnection,
+  signInMethodsQuery,
+} from './sign-in-methods.ts';
 
 const sqlite = new SQLite(':memory:');
 const db = new Kysely<Database>({
@@ -290,6 +296,19 @@ describe('query plans', () => {
     );
   });
 
+  it("reads a user's diary entry by id with a search", () => {
+    expectSearch(diaryEntryQuery(db, 'u', 'e').compile(), 'diary_entries');
+  });
+
+  it("reads one meal of a user's day with a search", () => {
+    expectSearch(
+      diaryDayQuery(db, 'u', '2026-10-20')
+        .where('meal', '=', 'lunch')
+        .compile(),
+      'diary_entries',
+    );
+  });
+
   it("removes a user's diary entry by id with a search", () => {
     expectSearch(diaryEntryDeletion(db, 'u', 'e').compile(), 'diary_entries');
   });
@@ -318,5 +337,26 @@ describe('query plans', () => {
       db.deleteFrom('favourites').where('food_id', '=', 'f').compile(),
       'favourites',
     );
+  });
+
+  it("lists a user's sign-in methods without a scan", () => {
+    expectNoScan(signInMethodsQuery(db, 'u').compile(), ['accounts']);
+  });
+
+  it('sets a password without a scan', () => {
+    expectNoScan(
+      passwordCreation(db, 'u', {
+        id: 'a',
+        passwordHash: 'h',
+        now: 't',
+      }).compile(),
+      ['accounts'],
+    );
+  });
+
+  it('disconnects a sign-in method without a scan', () => {
+    expectNoScan(signInMethodDisconnection(db, 'u', 'google').compile(), [
+      'accounts',
+    ]);
   });
 });

@@ -15,6 +15,7 @@ export const {
   signIn,
   signUp,
   signOut,
+  linkSocial,
   useSession,
   requestPasswordReset,
   resetPassword,

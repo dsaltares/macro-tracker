@@ -13,6 +13,9 @@ replaced by following a **reset link**, which signs out every session.
 A user may also sign in with **Google**, whose confirmation of the address stands in for the
 mailed link. A Google sign-in on an address that already has a user attaches to that user, so it
 lands in the same diary; an account with only Google has no password until one is set.
+Password and Google are the account's **sign-in methods**. Settings lists them; an account can
+connect Google (on the same address only), set a password if it has none, and disconnect either,
+but never the last one, so it can always sign in.
 
 What a user logs about their food and weight is health data, so signing up records their
 **consent**: agreeing to the terms and acknowledging the privacy policy, with the time they did,
@@ -136,14 +139,30 @@ else, and is sent back to it until a profile exists; after that the profile is e
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
 The **trend weight** is an exponential moving average over the log.
 
-**BMR** is Mifflin-St Jeor over profile and latest weight. **TDEE** is BMR times the activity
-multiplier. A **goal** is either *derived* — a weekly rate target in kg (negative to lose), a
-protein target in g per kg of body weight, a fat share of energy, carbohydrate as the remainder —
-or *manual*, with explicit targets. Either way the result is a **goal vector**: a target per
-nutrient, computed for a date from what the user weighed and had set then. Micro targets default to
-EFSA dietary reference values by sex and age, each overridable.
+**BMR** is Mifflin-St Jeor over profile and latest weight, with the age on the date. **TDEE** is
+BMR times the activity multiplier. A **goal** is either *derived* — a weekly rate target in kg
+(negative to lose), a protein target in g per kg of body weight, a fat share of energy,
+carbohydrate as the remainder — or *manual*, with explicit targets. A derived goal's kcal target is
+TDEE plus the weekly rate at 7,700 kcal per kg, spread over seven days; its fibre is 14 g per
+1,000 kcal. Either way the result is a **goal vector**: a target per nutrient, computed live for a
+date from the latest weight on or before it, never stored (ADR
+[0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
 
-Goals **warn, never block**: an aggressive deficit shows a warning, and still saves.
+The **micro goals** default to **dietary reference values**: EFSA's population reference intake
+where it has one, otherwise its adequate intake, by sex and **age band** (18–24, 25–50, 51–70, 71+;
+an account of 16 or 17 is in the youngest), each overridable. Thiamin and niacin are set per MJ and
+scale with the day's kcal target. Every goal is a **target** to reach or an **upper limit** to stay
+under, and the two are coloured differently. The upper limits are saturated fat (10% of energy),
+sugars (90 g), sodium (2 g) and chloride (3.1 g). Where EFSA sets no number, the goal comes from
+another body: saturated fat from the WHO, sugars and chromium from the EU reference intakes (Reg.
+1169/2011, Annex XIII). Zinc assumes a moderate phytate intake (600 mg a day), and a woman's iron
+drops from 16 to 11 mg at 51, EFSA's postmenopausal value. Sources and retrieval are in
+[`DATA-SOURCES.md`](DATA-SOURCES.md).
+
+Goals **warn, never block**: an aggressive goal shows a warning, and still saves. A derived goal
+warns when its kcal target is under 1,200 for a woman or 1,500 for a man, when its weekly rate is
+over 1 kg either way, and when protein and fat leave no energy for carbohydrate, which is then
+zero.
 
 ## Recipes
 

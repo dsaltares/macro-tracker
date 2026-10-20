@@ -1,24 +1,18 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { TRPCClientError } from '@trpc/client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { submitButtonClass } from '@/components/auth/auth-form';
 import { FormError, TextField } from '@/components/auth/fields';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/lib/auth/client';
-import { somethingWentWrong } from '@/lib/auth/errors';
 import { routes } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
+import { failureOf } from '@/lib/trpc/failure';
 
 const sameAddress = (typed: string, email: string) =>
   typed.trim().toLowerCase() === email.toLowerCase();
-
-const failureOf = (error: unknown) =>
-  error instanceof TRPCClientError && error.data?.code === 'BAD_REQUEST'
-    ? error.message
-    : somethingWentWrong;
 
 export function DeleteAccount({ email }: { email: string }) {
   const trpc = useTRPC();

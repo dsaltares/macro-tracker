@@ -2,7 +2,7 @@ import type { NutrientKey } from './nutrients.ts';
 
 export type NutrientVector = Partial<Record<NutrientKey, number>>;
 
-const kcalPerGram = {
+export const kcalPerGram = {
   protein: 4,
   carbohydrate: 4,
   fat: 9,
