@@ -313,6 +313,25 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `GET /api/v1/trends?from&to` (as `trends.range`). Reads need `read`, writes `write`.
   `test/rest.ts` is the routes' test client: `keyFor`, `call` and `app`, a tRPC caller over the
   same database.
+  Every route also declares its `method`, `path` (OpenAPI style, `/foods/{id}`), `operationId`,
+  `summary`, `description`, an `output` Zod schema its `handle` must return, the `errors` it can
+  throw (each an `apiFailure(code, message)`, thrown as `failure()` and listed as itself) and an
+  `example` of its params, input and response, which `apiHandler` exposes as `endpoint`.
+  `lib/api/schemas.ts` holds the response schemas the routes share, each with an `id` in its
+  meta so the document refers to it as a component. `lib/api/endpoints.ts` lists every route;
+  `openApiDocument(endpoints, { serverUrl })` (`openapi.ts`) turns them into the OpenAPI 3.1
+  document with Zod 4's `toJSONSchema`, request schemas in input mode and responses in output
+  mode, the common errors on every operation and the route's own after them. `GET
+  /api/v1/openapi.json` (`routes/openapi.ts`, no key needed) serves it, cached; `openapi.test.ts`
+  validates it, checks every example against its schema, and fails when an
+  `app/api/v1/**/route.ts` method has no operation or an operation no route. `/api/docs`
+  (`docs.ts`) is Scalar over it, with the proxy, telemetry and hosted fonts off so the page makes
+  no third-party request; the page is the bare markup Scalar's README shows, since its head
+  manager trips over a `<noscript>` and leaves the loading skeleton. Its bundle is read from
+  `node_modules/@scalar/api-reference` at request time and served at `/api/docs/scalar.js` with
+  an ETag, which `next.config.ts` traces into the standalone output.
+  `docs/API.md` is the hand-written guide: a key, a curl per endpoint, the envelope, pages and a
+  note for agents; its examples are the routes' examples, so change both together.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
   (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or
@@ -657,6 +676,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `docs/adr/` — decisions that are expensive to reverse, with alternatives and a revisit trigger.
   Read [the index](docs/adr/README.md) before changing data flow, persistence, the API, auth or
   deployment, and add a record in the same change when you take a decision of that kind.
+- `docs/API.md` — the REST API for API keys: creating a key, a curl for each endpoint, the error
+  envelope, pagination and a note for agents. A new or changed route changes it in the same
+  change, and the route's `example` with it.
 - `docs/DEPLOY.md` — the image, the Docker workflow and `.github/deploy/deploy.sh`, their secrets,
   and the homelab compose entry. The image carries `scripts/backup-database.ts` and the
   `lib/db/` files it imports; a new import there needs a `COPY` in the `Dockerfile`.

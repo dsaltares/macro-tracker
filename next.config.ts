@@ -3,6 +3,11 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['read-excel-file'],
+  outputFileTracingIncludes: {
+    '/api/docs/scalar.js': [
+      './node_modules/@scalar/api-reference/dist/browser/standalone.js',
+    ],
+  },
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   headers: async () => [
     {

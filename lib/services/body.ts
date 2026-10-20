@@ -8,14 +8,12 @@ import {
 } from '../db/body-measurements.ts';
 import type { Slice } from '../db/slice.ts';
 import { weightKgSchema } from '../domain/body/measurements.ts';
-import { isDate } from '../domain/dates.ts';
+import { dateSchema } from '../domain/dates.ts';
 import type { ServiceContext } from './context.ts';
-
-const dateInput = z.string().refine(isDate, { message: 'Not a date' });
 
 export const measurementSchema = z.discriminatedUnion('metric', [
   z.object({
-    date: dateInput,
+    date: dateSchema,
     metric: z.literal('weight_kg'),
     value: weightKgSchema,
   }),

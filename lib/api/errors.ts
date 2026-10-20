@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-const apiErrorStatuses = {
+export const apiErrorStatuses = {
   MISSING_API_KEY: 401,
   INVALID_API_KEY: 401,
   REVOKED_API_KEY: 401,
@@ -12,6 +12,8 @@ const apiErrorStatuses = {
 } as const;
 
 export type ApiErrorCode = keyof typeof apiErrorStatuses;
+
+export const apiErrorCodes = Object.keys(apiErrorStatuses) as ApiErrorCode[];
 
 export type ApiIssue = { path: (string | number)[]; message: string };
 
@@ -25,6 +27,11 @@ type ThrownApiError = Error & { apiError: ApiError };
 
 export const apiError = (code: ApiErrorCode, message: string): ThrownApiError =>
   Object.assign(new Error(message), { apiError: { code, message } });
+
+export type ApiFailure = ApiError & (() => ThrownApiError);
+
+export const apiFailure = (code: ApiErrorCode, message: string): ApiFailure =>
+  Object.assign(() => apiError(code, message), { code, message });
 
 export const apiErrorOf = (thrown: unknown): ApiError | null =>
   thrown instanceof Error && 'apiError' in thrown

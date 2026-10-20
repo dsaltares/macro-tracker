@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type Clock = { now: () => string };
 
 const twoDigits = (value: number) => String(value).padStart(2, '0');
@@ -20,6 +22,11 @@ const fromUtcMidnight = (milliseconds: number) =>
 
 export const isDate = (value: string) =>
   datePattern.test(value) && fromUtcMidnight(utcMidnight(value)) === value;
+
+export const dateSchema = z
+  .string()
+  .refine(isDate, { message: 'Not a date' })
+  .meta({ format: 'date', description: 'A day as YYYY-MM-DD.' });
 
 export const today = (clock: Clock, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en', {
