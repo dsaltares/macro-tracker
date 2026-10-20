@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { favouriteFoods, toggleFavourite } from '../../db/diary.ts';
 import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
 import {
   type FoodReader,
@@ -74,6 +75,23 @@ export const foodRouter = router({
     .mutation(async ({ ctx, input }) => {
       await setFoodSourcePreferences(ctx.db, ctx.caller.userId, input);
       return listFoodSources(ctx.db, ctx.caller.userId);
+    }),
+  favourites: accountProcedure.query(({ ctx }) =>
+    favouriteFoods(ctx.db, ctx.caller.userId),
+  ),
+  toggleFavourite: accountProcedure
+    .input(z.string().min(1))
+    .mutation(async ({ ctx, input }) => {
+      const toggled = await toggleFavourite(
+        ctx.db,
+        ctx.caller.userId,
+        input,
+        ctx.now,
+      );
+      if (toggled.outcome === 'food-not-found') {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+      return { favourite: toggled.outcome === 'added' };
     }),
   addPortion: accountProcedure
     .input(portionInput)

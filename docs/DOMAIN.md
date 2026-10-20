@@ -128,6 +128,12 @@ food, a recipe or re-importing reference data changes future entries only.
 A **favourite** is a food a user has marked to find again quickly. It is theirs alone, and goes
 when the food does.
 
+A user's **recent foods** are the last 30 foods they logged, each once, last logged first. Their
+**frequent foods** are the 30 they logged most often over the 90 days up to a date, ties going to
+the one logged last. Recent foods, frequent foods and favourites each carry the food's **last
+logged amount**, the portion and quantity of its latest food entry, so one tap logs it again; a
+food never logged, or whose portion is gone, carries one of its default portion.
+
 ## Body and goals
 
 A **profile** is sex (female or male, what the energy and reference value equations take), date

@@ -196,8 +196,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
   a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
-  reads the food through the same visibility as `food.get`. Meals and entry kinds are in
-  `lib/domain/diary/entries.ts`.
+  reads the food through the same visibility as `food.get`; `toggleFavourite` removes it or adds
+  it in one transaction, `food.toggleFavourite` over the caller. `recentFoods` (`diary.recentFoods`),
+  `frequentFoods` (`diary.frequentFoods`, the 90 days up to a date) and `favouriteFoods`
+  (`food.favourites`) group the caller's food entries by food, the last logged amount coming from
+  SQLite's bare columns beside a lone `max(created_at)`, and hand them to `withLastLoggedAmounts`
+  (`food-search.ts`), which reads the summaries search shows and falls back to one default portion.
+  Meals and entry kinds are in `lib/domain/diary/entries.ts`.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -298,8 +303,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
-  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. Choosing a food
-  opens `FoodStep` in the same sheet. Source badges are `SourceBadge` (`components/foods/`).
+  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. The first three
+  are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
+  date and meal in one tap. Choosing a food opens `FoodStep` in the same sheet, whose star toggles
+  the favourite. Source badges are `SourceBadge` (`components/foods/`).
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app

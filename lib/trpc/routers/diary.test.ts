@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import { importFoods } from '../../data/import-foods.ts';
 import { createFixtureSource } from '../../data/sources/fixture.ts';
+import { foodListLength, frequentFoodsDays } from '../../db/diary.ts';
 import { type FoodWriteContext, insertFood } from '../../db/foods.ts';
 import { createCaller } from '../root.ts';
 
@@ -53,13 +54,15 @@ const as = (userId: string | null) =>
     ...clock,
   });
 
-const nutellaId = async () => {
-  const [food] = (await as(null).food.search({ query: 'nutella' })).foods;
+const idOf = async (query: string) => {
+  const [food] = (await as(null).food.search({ query })).foods;
   if (!food) {
-    throw new Error('the fixture has no Nutella');
+    throw new Error(`the fixture has no ${query}`);
   }
   return food.id;
 };
+
+const nutellaId = () => idOf('nutella');
 
 const ownFood = () =>
   insertFood(
@@ -516,6 +519,151 @@ describe('diary.copyMeal', () => {
       }),
     ).toEqual([]);
     expect(await labelsOn('2026-10-21')).toMatchObject({ breakfast: [] });
+  });
+});
+
+const logOn = async (
+  day: string,
+  foodId: string,
+  portion: string,
+  quantity: number,
+) =>
+  as('user-1').diary.addFood({
+    date: day,
+    meal: 'lunch',
+    foodId,
+    portion,
+    quantity,
+  });
+
+const lastLogged = (
+  foods: Awaited<ReturnType<ReturnType<typeof as>['diary']['recentFoods']>>,
+) =>
+  foods.map(({ name, portion, quantity }) => ({
+    name,
+    portion: portion.label,
+    quantity,
+  }));
+
+describe('diary.recentFoods', () => {
+  it('is each food once, last logged first, with the portion and quantity it was last logged with', async () => {
+    const juiceId = await idOf('orange juice');
+    const oatsId = await ownFood();
+    await logNutella({ portion: '100 g', quantity: 1 });
+    await logOn('2026-10-01', juiceId, '100 g', 2);
+    await logOn('2026-10-19', await nutellaId(), '15 g', 3);
+    await logOn(date, oatsId, '1 jar', 0.5);
+    await as('user-1').diary.addQuick(coffee);
+
+    expect(lastLogged(await as('user-1').diary.recentFoods())).toEqual([
+      { name: 'Overnight oats', portion: '1 jar', quantity: 0.5 },
+      { name: 'Nutella', portion: '15 g', quantity: 3 },
+      { name: 'Orange juice', portion: '100 g', quantity: 2 },
+    ]);
+  });
+
+  it('carries what search shows of each food', async () => {
+    await logNutella();
+
+    const [nutella] = await as('user-1').diary.recentFoods();
+    expect(nutella).toMatchObject({
+      id: await nutellaId(),
+      name: 'Nutella',
+      source: 'off',
+      energyKcal: 539,
+      defaultPortion: { label: '15 g', grams: 15 },
+    });
+  });
+
+  it('falls back to one default portion when the last logged one is gone', async () => {
+    const oatsId = await ownFood();
+    const portion = await as('user-1').food.addPortion({
+      foodId: oatsId,
+      label: '1 bowl',
+      grams: 300,
+    });
+    await logOn(date, oatsId, '1 bowl', 2);
+    await as('user-1').food.removePortion(portion.id);
+
+    expect(lastLogged(await as('user-1').diary.recentFoods())).toEqual([
+      { name: 'Overnight oats', portion: '1 jar', quantity: 1 },
+    ]);
+  });
+
+  it('leaves out a food that was deleted', async () => {
+    const oatsId = await ownFood();
+    await logOn(date, oatsId, '1 jar', 1);
+    await database().deleteFrom('foods').where('id', '=', oatsId).execute();
+
+    expect(await as('user-1').diary.recentFoods()).toEqual([]);
+  });
+
+  it(`keeps the last ${foodListLength}`, async () => {
+    const context = { ...clock };
+    for (let index = 0; index <= foodListLength; index++) {
+      const foodId = await insertFood(
+        database(),
+        {
+          source: 'user',
+          owner_user_id: 'user-1',
+          barcode: null,
+          name: `Food ${index}`,
+          brand: null,
+          quantity_label: null,
+          nutrients: { energy_kcal: 100 },
+          portions: [],
+        },
+        context,
+      );
+      await logOn(date, foodId, '100 g', 1);
+    }
+
+    const recent = await as('user-1').diary.recentFoods();
+    expect(recent).toHaveLength(foodListLength);
+    expect(recent[0]?.name).toBe(`Food ${foodListLength}`);
+    expect(recent.map(({ name }) => name)).not.toContain('Food 0');
+  });
+
+  it("never shows another user's foods", async () => {
+    await logNutella();
+
+    expect(await as('user-2').diary.recentFoods()).toEqual([]);
+    await expect(as(null).diary.recentFoods()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
+  });
+});
+
+describe('diary.frequentFoods', () => {
+  it(`counts each food over the ${frequentFoodsDays} days to the date, most logged first, then last logged`, async () => {
+    const juiceId = await idOf('orange juice');
+    const oatsId = await ownFood();
+    const nutella = await nutellaId();
+    await logOn('2026-07-22', juiceId, '100 g', 1);
+    await logOn('2026-07-22', juiceId, '100 g', 1);
+    await logOn('2026-07-22', juiceId, '100 g', 1);
+    await logOn('2026-07-23', oatsId, '1 jar', 1);
+    await logOn('2026-10-01', oatsId, '1 jar', 2);
+    await logOn('2026-10-02', nutella, '15 g', 1);
+    await logOn('2026-10-03', nutella, '100 g', 2);
+    await logOn('2026-10-21', juiceId, '100 g', 1);
+
+    expect(lastLogged(await as('user-1').diary.frequentFoods(date))).toEqual([
+      { name: 'Nutella', portion: '100 g', quantity: 2 },
+      { name: 'Overnight oats', portion: '1 jar', quantity: 2 },
+    ]);
+  });
+
+  it('refuses something that is not a date', async () => {
+    await expect(
+      as('user-1').diary.frequentFoods('yesterday'),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  it("never counts another user's entries", async () => {
+    await logNutella();
+
+    expect(await as('user-2').diary.frequentFoods(date)).toEqual([]);
   });
 });
 

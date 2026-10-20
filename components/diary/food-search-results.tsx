@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { type ReactNode, useCallback, useRef } from 'react';
 import { FormError } from '@/components/auth/fields';
 import { SourceBadge } from '@/components/foods/source-badge';
 import { Button } from '@/components/ui/button';
@@ -28,18 +28,20 @@ const detailsOf = ({ brand, quantityLabel }: FoodSummary) =>
 export function FoodRow({
   food,
   onSelect,
+  action,
 }: {
   food: FoodSummary;
   onSelect: () => void;
+  action?: ReactNode;
 }) {
   const details = detailsOf(food);
 
   return (
-    <li>
+    <li className="flex items-center">
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted"
+        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-2 text-left hover:bg-muted"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate font-medium">{food.name}</span>
@@ -56,11 +58,12 @@ export function FoodRow({
           <SourceBadge source={food.source} />
         </span>
       </button>
+      {action}
     </li>
   );
 }
 
-function ResultsSkeleton() {
+export function ResultsSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="flex flex-col gap-2 p-4">
       <Skeleton className="h-12 w-full" />
@@ -88,7 +91,7 @@ function useWhenVisible(onVisible: () => void) {
   }, []);
 }
 
-function Message({ children }: { children: string }) {
+export function Message({ children }: { children: string }) {
   return (
     <p className="px-4 py-6 text-center text-muted-foreground text-sm">
       {children}

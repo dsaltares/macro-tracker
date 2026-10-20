@@ -3,8 +3,10 @@ import { z } from 'zod';
 import {
   copyDiaryMeal,
   diaryDay,
+  frequentFoods,
   insertDiaryEntry,
   logFood,
+  recentFoods,
   removeDiaryEntry,
   updateDiaryEntry,
 } from '../../db/diary.ts';
@@ -59,6 +61,12 @@ export const diaryRouter = router({
       totals: dayTotals(entries),
     };
   }),
+  recentFoods: accountProcedure.query(({ ctx }) =>
+    recentFoods(ctx.db, ctx.caller.userId),
+  ),
+  frequentFoods: accountProcedure
+    .input(dateInput)
+    .query(({ ctx, input }) => frequentFoods(ctx.db, ctx.caller.userId, input)),
   addFood: accountProcedure
     .input(
       z.object({
