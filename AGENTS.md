@@ -235,7 +235,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   meal of a date. `logQuickEntry`
   logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
   in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
-  (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
+  (`lib/trpc/routers/diary.ts`) is these over the caller, through `lib/services/diary.ts` wherever
+  `/api/v1` has the same behaviour. Adding a favourite
   reads the food through the same visibility as `food.get`; `food.setFavourite`
   (`{ foodId, favourite }`, idempotent) is it over the caller. `recentFoods`
   (`diary.recentFoods`), `frequentFoods` (`diary.frequentFoods`, the 90 days up to a date) and
@@ -289,14 +290,23 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `CONFLICT` on a barcode the caller's foods already have). Every food carries
   `canonicalNutrients`: each canonical nutrient key in canon order, `null` where unknown. A
   portion is `{ id, label, grams, source }`, a standard one with `id: null` and
-  `source: 'standard'`.
+  `source: 'standard'`. The diary is `routes/diary.ts`:
+  `GET /api/v1/diary/{date}` (`read`) is the day as `diary.day` has it; `POST
+  /api/v1/diary/entries` (`write`, `201`) takes a `kind` of `food`, `recipe` (servings or grams)
+  or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
+  and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
+  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`. Each entry goes out
+  through `entryOf`, its portion label as `portion`.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
   (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or
   barcode, the nutrients of a page of foods and creating a user food, behind `food.search`,
   `food.get`, `food.byBarcode`, `food.create` and the foods routes; its reads take a
-  `FoodReadContext`, whose caller may be null, since the app searches signed out too. A `lib/db/` function moves behind a
-  service when a REST route needs it too.
+  `FoodReadContext`, whose caller may be null, since the app searches signed out too.
+  `diary.ts` is the diary day, adding a food, recipe or quick entry, updating and removing one,
+  copying a meal, and the Zod schemas of the fields both surfaces take (`dateSchema`,
+  `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). A `lib/db/`
+  function moves behind a service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
