@@ -38,3 +38,14 @@ export const addDays = (date: string, days: number) =>
 
 export const daysBetween = (from: string, to: string) =>
   Math.round((utcMidnight(to) - utcMidnight(from)) / millisecondsPerDay);
+
+const dayFormat = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+export const formatDay = (date: string) =>
+  dayFormat.format(new Date(utcMidnight(date)));

@@ -148,6 +148,13 @@ TDEE plus the weekly rate at 7,700 kcal per kg, spread over seven days; its fibr
 date from the latest weight on or before it, never stored (ADR
 [0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
 
+The **goal settings** are one per account: the mode, the weekly rate, protein in g per kg and the
+fat share, which default to a derived goal at 0 kg a week, 1.6 g per kg and 30% of energy, and the
+**overrides**, an explicit target per nutrient. An override wins over the goal vector's value for
+that nutrient only, in either mode. A manual goal is its overrides over the micro defaults at its
+own kcal target, so it needs one and no weight; a derived goal needs a weight on or before the
+date, and there is none before the first.
+
 The **micro goals** default to **dietary reference values**: EFSA's population reference intake
 where it has one, otherwise its adequate intake, by sex and **age band** (18–24, 25–50, 51–70, 71+;
 an account of 16 or 17 is in the youngest), each overridable. Thiamin and niacin are set per MJ and

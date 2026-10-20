@@ -80,7 +80,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   UI words. `drv.ts` is the table of dietary reference values by sex and age band, sourced in
   `docs/DATA-SOURCES.md`; `defaultMicroGoals(profile, date, kcal)` reads it into a vector, scaling
   the values per MJ or share of energy by `kcal`, and `goalKind(key)` says whether a nutrient's
-  goal is a `target` or an `upper` limit. Coverage on it is gated at 100%.
+  goal is a `target` or an `upper` limit. `settings.ts` is the goal settings' schema and defaults;
+  `goalOn(profile, weightKg, date, settings)` (`goal.ts`) is the goal vector for a date: the micro
+  defaults at the goal's kcal, the derived energy and macros (none without a weight) or a manual
+  goal's own, then the overrides. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -195,6 +198,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
   reads the food through the same visibility as `food.get`. Meals and entry kinds are in
   `lib/domain/diary/entries.ts`.
+- `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
+  `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
+  keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
+  first; `findLatestMeasurement` is the latest on or before an optional date, the read ADR 0011
+  needs. The `body` router (`lib/trpc/routers/body.ts`) is these over the caller. Metrics and the
+  weight bounds (20 to 400 kg) are in `lib/domain/body.ts`. The day view shows `LogWeightCard`
+  (`components/body/`) on today until today has a weight; `/body`, linked from Trends, is
+  `WeightLog`.
+- `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
+  object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
+  profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
+  The `goals` router (`get`, `set`, `forDate`) is these over the caller.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
@@ -271,7 +286,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
 - `app/(app)/diary/` — the day view, `DiaryDay` (`components/diary/`). The day is the `date` search
   parameter through nuqs (`NuqsAdapter` in the root layout, `NuqsTestingAdapter` in tests), absent
-  for today, which is the browser's day and so only known after hydration. The top bar steps a day
+  for today, which is the browser's day and so only known after hydration (`useToday` in
+  `components/use-today.ts`, `null` until then). The top bar steps a day
   either way and opens the native date picker; `diary.day` fills the day totals card (energy and
   macros, the rest of the EU label behind *More nutrients*) and the four meals. Tapping an entry
   opens `EditEntryDialog`, which sends `diary.update` only the fields that changed, since a

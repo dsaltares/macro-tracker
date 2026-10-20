@@ -3,6 +3,11 @@ import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accountDeletion } from './accounts.ts';
 import {
+  latestMeasurementQuery,
+  measurementDeletion,
+  measurementsQuery,
+} from './body-measurements.ts';
+import {
   diaryDayQuery,
   diaryEntryDeletion,
   diaryEntryQuery,
@@ -21,6 +26,7 @@ import {
   liveFoodCountsQuery,
   sourcePreferencesQuery,
 } from './food-source-preferences.ts';
+import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import type { Database } from './schema.ts';
@@ -270,6 +276,10 @@ describe('query plans', () => {
     expectSearch(profileQuery(db, 'u').compile(), 'profiles');
   });
 
+  it("reads a user's goal settings by their key", () => {
+    expectSearch(goalSettingsQuery(db, 'u').compile(), 'goals');
+  });
+
   it('deletes an account and cascades to what it owns without a scan', () => {
     expectNoScan(accountDeletion(db, 'u', 'u@example.test').compile(), [
       'users',
@@ -279,6 +289,8 @@ describe('query plans', () => {
       'food_source_preferences',
       'diary_entries',
       'favourites',
+      'body_measurements',
+      'goals',
     ]);
   });
 
@@ -358,5 +370,40 @@ describe('query plans', () => {
     expectNoScan(signInMethodDisconnection(db, 'u', 'google').compile(), [
       'accounts',
     ]);
+  });
+
+  it("reads a user's latest weight with a search, newest first from the index", () => {
+    const plan = planOf(latestMeasurementQuery(db, 'u', 'weight_kg').compile());
+    expect(plan).toEqual([
+      expect.stringMatching(/^SEARCH body_measurements USING INDEX/),
+    ]);
+    expect(
+      planOf(
+        latestMeasurementQuery(db, 'u', 'weight_kg', '2026-10-20').compile(),
+      ),
+    ).toEqual([expect.stringMatching(/^SEARCH body_measurements USING INDEX/)]);
+  });
+
+  it("lists a user's weights over a range with a search, in order from the index", () => {
+    expect(
+      planOf(
+        measurementsQuery(db, 'u', {
+          metric: 'weight_kg',
+          from: '2026-10-01',
+          to: '2026-10-31',
+        }).compile(),
+      ),
+    ).toEqual([expect.stringMatching(/^SEARCH body_measurements USING INDEX/)]);
+    expectSearch(
+      measurementsQuery(db, 'u', { metric: 'weight_kg' }).compile(),
+      'body_measurements',
+    );
+  });
+
+  it("removes a user's measurement by id with a search", () => {
+    expectSearch(
+      measurementDeletion(db, 'u', 'm').compile(),
+      'body_measurements',
+    );
   });
 });

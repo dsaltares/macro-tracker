@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, daysBetween, isDate, localDateOf, today } from './dates.ts';
+import {
+  addDays,
+  daysBetween,
+  formatDay,
+  isDate,
+  localDateOf,
+  today,
+} from './dates.ts';
 
 describe('localDateOf', () => {
   it('is the local calendar day, zero-padded', () => {
@@ -115,5 +122,15 @@ describe('daysBetween', () => {
 
   it('undoes addDays', () => {
     expect(daysBetween('2026-10-20', addDays('2026-10-20', 400))).toBe(400);
+  });
+});
+
+describe('formatDay', () => {
+  it.each([
+    ['2026-10-20', 'Tue, 20 Oct 2026'],
+    ['2024-02-29', 'Thu, 29 Feb 2024'],
+    ['2027-01-01', 'Fri, 1 Jan 2027'],
+  ])('shows %s as %s', (date, shown) => {
+    expect(formatDay(date)).toBe(shown);
   });
 });

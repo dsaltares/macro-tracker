@@ -37,10 +37,13 @@ const everyMigration = [
   '0009-profiles',
   '0010-diary',
   '0011-account-deletion',
+  '0012-body-measurements',
+  '0013-goals',
 ];
 
 const everyTable = [
   'accounts',
+  'body_measurements',
   'diary_entries',
   'favourites',
   'food_imports',
@@ -53,6 +56,7 @@ const everyTable = [
   'foods_fts_data',
   'foods_fts_docsize',
   'foods_fts_idx',
+  'goals',
   'meta',
   'profiles',
   'sessions',
@@ -63,6 +67,21 @@ const everyTable = [
 const accountTables = ['accounts', 'sessions', 'users', 'verifications'];
 
 const diaryTables = ['diary_entries', 'favourites'];
+
+const undo = async (
+  db: ReturnType<typeof createDatabase>,
+  migration: string,
+) => {
+  for (;;) {
+    const undone = await migrateDown(db);
+    if (undone.includes(migration)) {
+      return;
+    }
+    if (undone.length === 0) {
+      throw new Error(`${migration} was never applied`);
+    }
+  }
+};
 
 const targets = [
   ['in memory', () => inMemory],
@@ -120,7 +139,7 @@ describe.each(targets)('migrations %s', (_, url) => {
         .orderBy('user_id')
         .execute();
     await migrateToLatest(db);
-    await migrateDown(db);
+    await undo(db, '0011-account-deletion');
     await db
       .insertInto('users')
       .values({ id: 'user-1', name: 'user-1', email: 'user-1@example.test' })
@@ -139,18 +158,28 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     expect(await preferences()).toEqual(kept);
 
-    await migrateDown(db);
+    await undo(db, '0011-account-deletion');
     expect(await preferences()).toEqual(kept);
   });
 
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0013-goals']);
+    const beforeGoals = everyTable.filter((table) => table !== 'goals');
+    expect(await tableNames(db)).toEqual(beforeGoals);
+
+    expect(await migrateDown(db)).toEqual(['0012-body-measurements']);
+    const beforeBody = beforeGoals.filter(
+      (table) => table !== 'body_measurements',
+    );
+    expect(await tableNames(db)).toEqual(beforeBody);
+
     expect(await migrateDown(db)).toEqual(['0011-account-deletion']);
-    expect(await tableNames(db)).toEqual(everyTable);
+    expect(await tableNames(db)).toEqual(beforeBody);
 
     expect(await migrateDown(db)).toEqual(['0010-diary']);
-    const withoutDiary = everyTable.filter(
+    const withoutDiary = beforeBody.filter(
       (table) => !diaryTables.includes(table),
     );
     expect(await tableNames(db)).toEqual(withoutDiary);
@@ -176,7 +205,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0011-account-deletion']);
+    expect(await migrateToLatest(db)).toEqual(['0013-goals']);
   });
 
   it('reads back what is written to meta', async () => {

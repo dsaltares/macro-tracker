@@ -100,6 +100,18 @@ const giveEverything = async (userId: string) => {
     { now, nextId },
   );
   await addFavourite(db, userId, referenceFoodId, now);
+  await caller.body.log({
+    date: '2026-10-20',
+    metric: 'weight_kg',
+    value: 72.4,
+  });
+  await caller.goals.set({
+    mode: 'derived',
+    weeklyRateKg: -0.5,
+    proteinGPerKg: 1.8,
+    fatEnergyShare: 0.3,
+    overrides: { iron: 18 },
+  });
   await caller.food.addPortion({
     foodId: referenceFoodId,
     label: `${userId}'s spoon`,
@@ -120,6 +132,8 @@ const ownedRows = (userId: string) => {
     food_portions: sql`user_id = ${userId} or food_id in (${ownFoods})`,
     diary_entries: sql`user_id = ${userId}`,
     favourites: sql`user_id = ${userId}`,
+    body_measurements: sql`user_id = ${userId}`,
+    goals: sql`user_id = ${userId}`,
   };
 };
 
