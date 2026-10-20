@@ -259,6 +259,16 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/trpc/routers/recipe.ts`) is these over the caller. `logRecipe` (`diary.addRecipe`, servings
   or grams) snapshots `recipeAsFood` at `1 serving` or `100 g`, and `updateDiaryEntry`
   re-resolves a recipe entry from the current recipe the way it does a food entry.
+- `lib/db/api-keys.ts` — API keys (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
+  `createApiKey` makes a key with `generateApiKey` (`lib/api/keys.ts`: `mt_` and 32 random bytes
+  in base 62) and stores its `prefixOf` and SHA-256 `hashApiKey`, never the key, which it returns
+  once; `listApiKeys` is the caller's live keys, newest first; `revokeApiKey` sets `revoked_at`
+  on the caller's live key, keeping the row. `key_hash` is unique for the lookup `/api/v1` will
+  make. The scopes are `apiKeyScopes` and a new key's schema `newApiKeySchema`
+  (`lib/domain/api-keys.ts`), stored as a JSON array. The `apiKeys` router (`create`, `list`,
+  `revoke`) is these over the caller. `ApiKeysSettings` (`components/settings/`) is Settings › API
+  keys: a name and scopes, the new key in a dialog to copy, and the list with each key's prefix,
+  scopes, creation and last use, revoked once confirmed.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest

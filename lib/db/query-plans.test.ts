@@ -2,6 +2,7 @@ import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { accountDeletion } from './accounts.ts';
+import { apiKeyRevocation, liveApiKeysQuery } from './api-keys.ts';
 import {
   latestMeasurementQuery,
   measurementDeletion,
@@ -349,6 +350,7 @@ describe('query plans', () => {
       'goals',
       'recipes',
       'recipe_ingredients',
+      'api_keys',
     ]);
   });
 
@@ -596,6 +598,27 @@ describe('query plans', () => {
     expectSearch(
       measurementDeletion(db, 'u', 'm').compile(),
       'body_measurements',
+    );
+  });
+
+  it("lists a user's live API keys with a search, newest first from the index", () => {
+    expect(planOf(liveApiKeysQuery(db, 'u').compile())).toEqual([
+      expect.stringMatching(/^SEARCH api_keys USING INDEX/),
+    ]);
+  });
+
+  it("revokes a user's API key by id with a search", () => {
+    expectSearch(apiKeyRevocation(db, 'u', 'k', 't').compile(), 'api_keys');
+  });
+
+  it('finds an API key by its hash with a search', () => {
+    expectSearch(
+      db
+        .selectFrom('api_keys')
+        .select('id')
+        .where('key_hash', '=', 'h')
+        .compile(),
+      'api_keys',
     );
   });
 });

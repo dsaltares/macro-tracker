@@ -207,8 +207,10 @@ export default function PrivacyPage() {
               alone.
             </li>
             <li>
-              <strong>API keys</strong> you create: a name, a scope and a hash
-              of the key. The key itself is shown to you once and never stored.
+              <strong>API keys</strong> you create: a name, their scopes, the
+              first eight characters of the key so you can tell them apart, a
+              hash of the key, and when it was created, last used and revoked.
+              The key itself is shown to you once and never stored.
             </li>
           </ul>
 
