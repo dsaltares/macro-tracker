@@ -11,6 +11,7 @@ import * as foodImportHistory from './migrations/0007-food-import-history.ts';
 import * as termsAccepted from './migrations/0008-terms-accepted.ts';
 import * as profiles from './migrations/0009-profiles.ts';
 import * as diary from './migrations/0010-diary.ts';
+import * as accountDeletion from './migrations/0011-account-deletion.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -24,6 +25,7 @@ const migrations: Record<string, Migration> = {
   '0008-terms-accepted': termsAccepted,
   '0009-profiles': profiles,
   '0010-diary': diary,
+  '0011-account-deletion': accountDeletion,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

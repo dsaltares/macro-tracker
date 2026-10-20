@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { seedDevUser } from '../lib/auth/seed-dev-user.ts';
 import { seedFoods } from '../lib/data/seed-foods.ts';
 import { createDatabase } from '../lib/db/client.ts';
 import { migrateToLatest } from '../lib/db/migrator.ts';
@@ -21,6 +22,11 @@ const prepareDatabase = async () => {
   const db = createDatabase(e2eDatabaseUrl);
   try {
     await migrateToLatest(db);
+    await seedDevUser({
+      db,
+      now: () => new Date().toISOString(),
+      nextId: () => randomUUID(),
+    });
     const seed = await seedFoods({
       db,
       clock: {

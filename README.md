@@ -15,8 +15,9 @@ yarn install
 yarn dev
 ```
 
-The dev server listens on [http://localhost:3014](http://localhost:3014). `.env.example` lists
-the environment variables.
+The dev server listens on [http://localhost:3014](http://localhost:3014), with a confirmed
+`dev@example.test` (password `macro-tracker-dev`) and a few hundred foods seeded. `.env.example`
+lists the environment variables.
 
 The scripts are in `package.json`, and `AGENTS.md` says what each one is for.
 
