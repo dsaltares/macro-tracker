@@ -9,7 +9,7 @@ import { FormError } from '@/components/auth/fields';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Food } from '@/lib/db/food-search';
-import { newFoodHref } from '@/lib/routes';
+import { type DiaryMeal, newFoodHref } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 import { cn } from '@/lib/utils';
 
@@ -30,10 +30,12 @@ const BarcodeScanner = dynamic(
 
 function NotFound({
   code,
+  diary,
   onSearchByName,
   onScanAgain,
 }: {
   code: string;
+  diary: DiaryMeal;
   onSearchByName: () => void;
   onScanAgain: () => void;
 }) {
@@ -44,7 +46,7 @@ function NotFound({
         Search by name
       </Button>
       <Link
-        href={newFoodHref({ barcode: code })}
+        href={newFoodHref({ barcode: code, diary })}
         className={cn(
           buttonVariants({ variant: 'outline', size: 'lg' }),
           'h-11',
@@ -53,7 +55,7 @@ function NotFound({
         Create food
       </Link>
       <Link
-        href={newFoodHref({ barcode: code, scanLabel: true })}
+        href={newFoodHref({ barcode: code, scanLabel: true, diary })}
         className={cn(
           buttonVariants({ variant: 'outline', size: 'lg' }),
           'h-11',
@@ -69,9 +71,11 @@ function NotFound({
 }
 
 export function ScanStep({
+  diary,
   onBack,
   onFound,
 }: {
+  diary: DiaryMeal;
   onBack: () => void;
   onFound: (food: Food) => void;
 }) {
@@ -128,6 +132,7 @@ export function ScanStep({
       ) : (
         <NotFound
           code={missed}
+          diary={diary}
           onSearchByName={onBack}
           onScanAgain={scanAgain}
         />

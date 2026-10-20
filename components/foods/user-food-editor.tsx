@@ -26,7 +26,7 @@ import {
   type LabelFood,
   labelReadingToFood,
 } from '@/lib/domain/foods/label-reading';
-import { routes } from '@/lib/routes';
+import { addToDiaryHref, type DiaryMeal, routes } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 import { isConflict } from '@/lib/trpc/failure';
 
@@ -40,25 +40,32 @@ function useAfterSave() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const router = useRouter();
-  return async () => {
+  return async (next: string) => {
     await queryClient.invalidateQueries({ queryKey: trpc.food.pathKey() });
-    router.push(routes.foods);
+    router.push(next);
   };
 }
 
 export function NewUserFood({
   barcode,
+  diary = null,
   labelScanning = false,
   scanFirst = false,
 }: {
   barcode: string;
+  diary?: DiaryMeal | null;
   labelScanning?: boolean;
   scanFirst?: boolean;
 }) {
   const trpc = useTRPC();
   const afterSave = useAfterSave();
   const create = useMutation(
-    trpc.food.create.mutationOptions({ onSuccess: afterSave }),
+    trpc.food.create.mutationOptions({
+      onSuccess: (foodId) =>
+        afterSave(
+          diary === null ? routes.foods : addToDiaryHref({ ...diary, foodId }),
+        ),
+    }),
   );
   const [scanning, setScanning] = useState(labelScanning && scanFirst);
   const [label, setLabel] = useState<LabelFood | null>(null);
@@ -117,7 +124,9 @@ function ArchiveFood({ food }: { food: Food }) {
   const afterSave = useAfterSave();
   const [open, setOpen] = useState(false);
   const archive = useMutation(
-    trpc.food.archive.mutationOptions({ onSuccess: afterSave }),
+    trpc.food.archive.mutationOptions({
+      onSuccess: () => afterSave(routes.foods),
+    }),
   );
   const working = archive.isPending || archive.isSuccess;
 
@@ -166,7 +175,9 @@ function EditFood({ food }: { food: Food }) {
   const trpc = useTRPC();
   const afterSave = useAfterSave();
   const update = useMutation(
-    trpc.food.update.mutationOptions({ onSuccess: afterSave }),
+    trpc.food.update.mutationOptions({
+      onSuccess: () => afterSave(routes.foods),
+    }),
   );
 
   return (

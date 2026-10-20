@@ -5,7 +5,14 @@ import {
   NewUserFood,
   notEditable,
 } from '@/components/foods/user-food-editor';
-import { barcodeTaken, saveFailed } from '@/components/foods/user-food-form';
+import {
+  barcodeTaken,
+  compareWithLabel,
+  hardToRead,
+  saveFailed,
+  unsurePrinted,
+  unsureReading,
+} from '@/components/foods/user-food-form';
 import { shrinkPhoto, uploadPhoto } from '@/components/label-scan/photo';
 import { findFood } from '@/lib/db/food-search';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
@@ -234,6 +241,22 @@ describe('NewUserFood', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
+  it('goes on to log the food it saved to the diary meal it came from', async () => {
+    const { user } = renderUi(
+      <NewUserFood barcode="" diary={{ date: '2026-10-19', meal: 'lunch' }} />,
+      { wrap: api.wrap },
+    );
+
+    await user.type(field('Name'), 'Granola');
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    await vi.waitFor(() => expect(router.push).toHaveBeenCalled());
+    const [own] = await ownFoods();
+    expect(router.push).toHaveBeenCalledWith(
+      `/diary?date=2026-10-19&meal=lunch&food=${own?.id}`,
+    );
+  });
+
   it('says so when the food cannot be saved', async () => {
     api.fails('food.create');
     const { user } = renderNew();
@@ -301,6 +324,112 @@ describe('NewUserFood with label scanning', () => {
     );
 
     expect(field('Barcode')).toHaveValue('5000159407236');
+  });
+
+  const scan = async (
+    user: ReturnType<typeof renderScanning>['user'],
+    reading: LabelReading,
+  ) => {
+    vi.mocked(shrinkPhoto).mockResolvedValue(photo);
+    vi.mocked(uploadPhoto).mockResolvedValue({ read: true, reading });
+    await user.click(
+      screen.getByRole('button', { name: 'Scan a label instead' }),
+    );
+    await user.upload(screen.getByLabelText('Take a photo'), photo);
+    await screen.findByLabelText('Name');
+  };
+
+  it('highlights a value it is unsure of with what the label printed, and saves the label per 100 g', async () => {
+    const { user } = renderScanning();
+
+    await scan(user, {
+      ...labelReading,
+      servingSize: { label: '1 bar', amount: 40, unit: 'g', confidence: 0.9 },
+      per100g: [],
+      perServing: [
+        {
+          nutrient: 'energy_kcal',
+          printed: '180',
+          unit: 'kcal',
+          confidence: 0.9,
+        },
+        { nutrient: 'sugars', printed: '6,4', unit: 'g', confidence: 0.4 },
+        { nutrient: 'salt', printed: '0,2', unit: 'g', confidence: 0.9 },
+      ],
+    });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(compareWithLabel);
+    expect(screen.getByRole('alert')).toHaveTextContent(hardToRead);
+    expect(field('Sugars (g)')).toHaveValue(16);
+    expect(field('Sugars (g)')).toHaveAccessibleDescription(
+      unsurePrinted('6,4 g per serving'),
+    );
+    expect(field('Energy (kcal)')).not.toHaveAccessibleDescription();
+    expect(field('Salt (g)')).not.toHaveAccessibleDescription();
+    expect(field('Name')).not.toHaveAccessibleDescription();
+
+    await user.click(screen.getByRole('button', { name: 'Create food' }));
+
+    expect((await savedFood()).nutrients).toEqual({
+      energy_kcal: 450,
+      sugars: 16,
+      sodium: 200,
+    });
+  });
+
+  it('stops highlighting a value once it is corrected', async () => {
+    const { user } = renderScanning();
+
+    await scan(user, {
+      ...labelReading,
+      per100g: [
+        { nutrient: 'sugars', printed: '12,5', unit: 'g', confidence: 0.4 },
+      ],
+    });
+    expect(field('Sugars (g)')).toHaveAccessibleDescription(
+      unsurePrinted('12,5 g'),
+    );
+    await user.clear(field('Sugars (g)'));
+    await user.type(field('Sugars (g)'), '13.5');
+    await user.tab();
+
+    expect(field('Sugars (g)')).not.toHaveAccessibleDescription();
+  });
+
+  it('highlights the details and the serving it is unsure of, and lists its notes', async () => {
+    const { user } = renderScanning();
+
+    await scan(user, {
+      ...labelReading,
+      productName: { value: 'Oat biscuits', confidence: 0.5 },
+      servingSize: {
+        label: '2 biscuits',
+        amount: 25,
+        unit: 'g',
+        confidence: 0.3,
+      },
+      per100g: [
+        { nutrient: 'sodium', printed: '410', unit: 'mg', confidence: 0.6 },
+      ],
+      notes: ['The brand is cut off'],
+    });
+
+    expect(field('Name')).toHaveAccessibleDescription(unsureReading);
+    expect(field('Brand')).toHaveAccessibleDescription('Optional');
+    expect(field('Portion 1 label')).toHaveAccessibleDescription(unsureReading);
+    expect(field('Portion 1 grams')).toHaveAccessibleDescription(unsureReading);
+    expect(field('Salt (g)')).toHaveAccessibleDescription(
+      unsurePrinted('410 mg sodium'),
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('The brand is cut off');
+  });
+
+  it('shows no notice for a reading it is sure of', async () => {
+    const { user } = renderScanning();
+
+    await scan(user, labelReading);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('fills the form from the label it reads, keeping the barcode, and saves it', async () => {

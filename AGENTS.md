@@ -360,7 +360,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
-  per 100 g winning over those per serving, the first of a nutrient read twice winning.
+  per 100 g winning over those per serving, the first of a nutrient read twice winning. It keeps
+  the printed entry behind each nutrient (`printed`, `perServing`) for the form to show beside a
+  value; `isUnsure` is a confidence below `unsureBelow` (0.8).
 - `lib/label-scan/route.ts` — `POST /api/label-scan`, a route handler, not tRPC, since the body is
   bytes. `labelScanRoute({ readLabel, resolveCaller, logger })` answers `401` without a session,
   `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
@@ -423,7 +425,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
   *Scan the label* on a miss, the last two linking to `/foods/new` with the barcode
-  (`newFoodHref`), the last starting it with the camera.
+  (`newFoodHref`), the last starting it with the camera. Those links and the sheet's own *Create
+  food* carry the sheet's `date` and `meal`; saving the new food comes back to
+  `/diary?date=&meal=&food=` (`addToDiaryHref`), which opens the sheet on `FoodStep` for that food
+  and drops `meal` and `food` from the address once the sheet closes.
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
@@ -455,7 +460,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
   it did not touch. Editing also archives, once confirmed. While label scanning is on, a new food
   offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, whose reading
-  fills the form through `labelReadingToFood`, keeping the barcode.
+  fills the form through `labelReadingToFood`, keeping the barcode. Each field the reading is
+  unsure of is highlighted (`TextField`'s `warning`), a nutrient with what the label printed,
+  until it is edited, under a notice listing the reading's notes.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
