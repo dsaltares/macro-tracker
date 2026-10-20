@@ -1,10 +1,20 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import Link from 'next/link';
 import { FormError } from '@/components/auth/fields';
 import { servingOf } from '@/components/diary/amounts';
-import { EntryForm, type EntryValues } from '@/components/diary/entry-form';
-import { Button } from '@/components/ui/button';
+import {
+  type AmountSource,
+  EntryForm,
+  type EntryValues,
+} from '@/components/diary/entry-form';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -15,8 +25,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import type { DiaryEntry } from '@/lib/db/diary';
 import type { Food } from '@/lib/db/food-search';
+import type { RecipeDetail } from '@/lib/db/recipes';
 import type { Portion } from '@/lib/domain/foods/portions';
+import { recipeRoute } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
+import { cn } from '@/lib/utils';
 
 export const saveFailed = 'Your change could not be saved. Try again.';
 
@@ -24,6 +37,9 @@ export const removeFailed = 'The entry could not be deleted. Try again.';
 
 export const foodGone =
   'The food this entry was logged from no longer exists, so its amount cannot change.';
+
+export const recipeGone =
+  'The recipe this entry was logged from has no ingredients any more, so its amount cannot change.';
 
 const placeholderQuantity = 1;
 
@@ -55,26 +71,36 @@ const loggedPortionOf = (entry: DiaryEntry): Portion | null =>
     ? null
     : { label: entry.portionLabel, grams: entry.grams / entry.quantity };
 
-const portionsFor = (entry: DiaryEntry, food: Food): Portion[] => {
+const portionsFor = (
+  entry: DiaryEntry,
+  portions: readonly Portion[],
+): readonly Portion[] => {
   const logged = loggedPortionOf(entry);
-  return logged === null ||
-    food.portions.some(({ label }) => label === logged.label)
-    ? food.portions
-    : [logged, ...food.portions];
+  return logged === null || portions.some(({ label }) => label === logged.label)
+    ? portions
+    : [logged, ...portions];
+};
+
+type LoggedFrom = {
+  source: AmountSource;
+  portions: readonly Portion[];
+  foodId: string | null;
 };
 
 function EditEntryForm({
   entry,
-  food,
+  loggedFrom,
+  recipeHref,
   onDone,
 }: {
   entry: DiaryEntry;
-  food: Food | null;
+  loggedFrom: LoggedFrom | null;
+  recipeHref: string | null;
   onDone: () => void;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const amountEditable = food !== null;
+  const amountEditable = loggedFrom !== null;
   const refreshDiary = () =>
     queryClient.invalidateQueries({ queryKey: trpc.diary.day.queryKey() });
   const update = useMutation(
@@ -99,12 +125,17 @@ function EditEntryForm({
     <>
       {update.isError ? <FormError>{saveFailed}</FormError> : null}
       {remove.isError ? <FormError>{removeFailed}</FormError> : null}
-      {entry.kind === 'food' && !amountEditable ? (
-        <p className="text-muted-foreground text-sm">{foodGone}</p>
+      {entry.kind !== 'quick' && !amountEditable ? (
+        <p className="text-muted-foreground text-sm">
+          {entry.kind === 'food' ? foodGone : recipeGone}
+        </p>
       ) : null}
       <EntryForm
-        food={food}
-        portions={food === null ? [] : portionsFor(entry, food)}
+        source={loggedFrom?.source ?? null}
+        foodId={loggedFrom?.foodId ?? null}
+        portions={
+          loggedFrom === null ? [] : portionsFor(entry, loggedFrom.portions)
+        }
         logged={{ grams: entry.grams, nutrients: entry.nutrients }}
         defaultValues={valuesOf(entry)}
         saving={update.isPending}
@@ -117,6 +148,17 @@ function EditEntryForm({
           update.mutate({ id: entry.id, ...changes });
         }}
       >
+        {recipeHref === null ? null : (
+          <Link
+            href={recipeHref}
+            className={cn(
+              buttonVariants({ variant: 'outline', size: 'lg' }),
+              'h-11',
+            )}
+          >
+            Open recipe
+          </Link>
+        )}
         <Button
           type="button"
           variant="destructive"
@@ -132,6 +174,23 @@ function EditEntryForm({
   );
 }
 
+const loggedFromOf = (
+  food: Food | undefined,
+  recipe: RecipeDetail | undefined,
+): LoggedFrom | null => {
+  if (food !== undefined) {
+    return { source: food, portions: food.portions, foodId: food.id };
+  }
+  if (recipe !== undefined && recipe.ingredients.length > 0) {
+    return {
+      source: { nutrients: recipe.nutrients.per100g },
+      portions: recipe.portions,
+      foodId: null,
+    };
+  }
+  return null;
+};
+
 function EditEntry({
   entry,
   onDone,
@@ -140,15 +199,19 @@ function EditEntry({
   onDone: () => void;
 }) {
   const trpc = useTRPC();
-  const linksFood = entry.kind === 'food' && entry.foodId !== null;
+  const foodId = entry.kind === 'food' ? entry.foodId : null;
+  const recipeId = entry.kind === 'recipe' ? entry.recipeId : null;
   const food = useQuery(
-    trpc.food.get.queryOptions(entry.foodId ?? '', {
-      enabled: linksFood,
-      retry: false,
-    }),
+    trpc.food.get.queryOptions(foodId ?? skipToken, { retry: false }),
+  );
+  const recipe = useQuery(
+    trpc.recipe.get.queryOptions(recipeId ?? skipToken, { retry: false }),
   );
 
-  if (linksFood && food.isPending) {
+  if (
+    (foodId !== null && food.isPending) ||
+    (recipeId !== null && recipe.isPending)
+  ) {
     return (
       <div role="status" aria-label="Loading" className="flex flex-col gap-4">
         <Skeleton className="h-11 w-full" />
@@ -161,7 +224,10 @@ function EditEntry({
   return (
     <EditEntryForm
       entry={entry}
-      food={linksFood ? (food.data ?? null) : null}
+      loggedFrom={loggedFromOf(food.data, recipe.data)}
+      recipeHref={
+        recipe.data === undefined ? null : recipeRoute(recipe.data.id)
+      }
       onDone={onDone}
     />
   );

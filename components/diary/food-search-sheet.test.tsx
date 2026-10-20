@@ -10,7 +10,9 @@ import {
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { addFailed, foodLoadFailed } from '@/components/diary/food-step';
 import { enterAnAmount } from '@/components/diary/quick-add-step';
+import { emptyRecipe } from '@/components/diary/recipe-step';
 import { lookupFailed, notFound } from '@/components/diary/scan-step';
+import { noRecipeMatches, noRecipesYet } from '@/components/recipes/recipes';
 import {
   cameraDenied,
   cameraFailed,
@@ -18,6 +20,7 @@ import {
 } from '@/components/scanner/barcode-scanner';
 import { addFavourite, diaryDay, favourites, logFood } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
+import { addIngredient, createRecipe, findRecipe } from '@/lib/db/recipes';
 import { searchPageSize } from '@/lib/domain/foods/search';
 import { serveApi } from '@/test/api';
 import { fakeCamera } from '@/test/camera';
@@ -133,7 +136,47 @@ const seedApples = async (count: number) => {
   }
 };
 
+const seedPorridge = async () => {
+  const { oats, nutella } = await seedFoods();
+  const db = api.database();
+  const context = seeding();
+  const porridge = await createRecipe(
+    db,
+    'user-1',
+    { name: 'Porridge', servings: 2, cookedWeightG: null, notes: null },
+    context,
+  );
+  for (const [foodId, portion, quantity] of [
+    [oats, '100 g', 1],
+    [nutella, '1 serving', 2],
+  ] as const) {
+    await addIngredient(
+      db,
+      'user-1',
+      {
+        recipeId: porridge,
+        ingredient: { kind: 'food', foodId },
+        portion,
+        quantity,
+      },
+      context,
+    );
+  }
+  return porridge;
+};
+
 const sheet = () => screen.getByRole('dialog', { name: 'Add to lunch' });
+
+const openPorridge = async (user: ReturnType<typeof render>['user']) => {
+  await screen.findByRole('dialog', { name: 'Add to lunch' });
+  await user.click(within(sheet()).getByRole('tab', { name: 'Recipes' }));
+  await user.click(
+    await within(sheet()).findByRole('button', { name: /Porridge/ }),
+  );
+  const recipe = within(sheet()).getByRole('region', { name: 'Porridge' });
+  await within(recipe).findByLabelText('Amount');
+  return recipe;
+};
 
 const openNutella = async (user: ReturnType<typeof render>['user']) => {
   await screen.findByRole('dialog', { name: 'Add to lunch' });
@@ -776,6 +819,118 @@ describe('FoodSearchSheet', () => {
     expect(
       await within(sheet()).findByText(foodListFailed),
     ).toBeInTheDocument();
+  });
+
+  describe('logging a recipe', () => {
+    it('lists the recipes, filtered by the search, staying on the tab', async () => {
+      await seedPorridge();
+      const { user } = render();
+
+      await screen.findByRole('dialog', { name: 'Add to lunch' });
+      await user.click(within(sheet()).getByRole('tab', { name: 'Recipes' }));
+
+      expect(
+        await within(sheet()).findByRole('button', { name: /Porridge/ }),
+      ).toHaveTextContent('2 servings');
+
+      await searchFor(user, 'chili');
+
+      expect(
+        within(sheet()).getByRole('tab', { name: 'Recipes' }),
+      ).toHaveAttribute('aria-selected', 'true');
+      expect(
+        within(sheet()).getByText(noRecipeMatches('chili')),
+      ).toBeInTheDocument();
+    });
+
+    it('says so when there are no recipes yet', async () => {
+      const { user } = render();
+
+      await screen.findByRole('dialog', { name: 'Add to lunch' });
+      await user.click(within(sheet()).getByRole('tab', { name: 'Recipes' }));
+
+      expect(
+        await within(sheet()).findByText(noRecipesYet),
+      ).toBeInTheDocument();
+    });
+
+    it('logs servings of a recipe at its nutrients per serving', async () => {
+      const porridge = await seedPorridge();
+      const recipe = await findRecipe(api.database(), 'user-1', porridge);
+      const perServing = recipe?.nutrients.perServing.energy_kcal ?? 0;
+      const onClose = vi.fn();
+      const { user } = render(onClose);
+      const step = await openPorridge(user);
+
+      expect(within(step).getByLabelText('Amount')).toHaveValue(1);
+      expect(within(step).getByLabelText('Unit')).toHaveValue('servings');
+      expect(await preview(step)).toHaveAccessibleName('Nutrients in 65 g');
+
+      await user.clear(within(step).getByLabelText('Amount'));
+      await user.type(within(step).getByLabelText('Amount'), '1.5');
+      await user.click(within(step).getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+      const [entry] = await diaryDay(api.database(), 'user-1', day);
+      expect(entry).toMatchObject({
+        kind: 'recipe',
+        recipeId: porridge,
+        label: 'Porridge',
+        meal: 'lunch',
+        quantity: 1.5,
+        portionLabel: '1 serving',
+        grams: 97.5,
+      });
+      expect(entry?.nutrients.energy_kcal).toBeCloseTo(perServing * 1.5);
+    });
+
+    it('logs grams of a recipe', async () => {
+      await seedPorridge();
+      const onClose = vi.fn();
+      const { user } = render(onClose);
+      const step = await openPorridge(user);
+
+      await user.selectOptions(within(step).getByLabelText('Unit'), 'grams');
+      await user.clear(within(step).getByLabelText('Amount'));
+      await user.type(within(step).getByLabelText('Amount'), '200');
+
+      expect(await preview(step)).toHaveAccessibleName('Nutrients in 200 g');
+
+      await user.click(within(step).getByRole('button', { name: 'Save' }));
+
+      await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+        expect.objectContaining({
+          kind: 'recipe',
+          quantity: 2,
+          portionLabel: '100 g',
+          grams: 200,
+        }),
+      ]);
+    });
+
+    it('offers to open a recipe with no ingredients instead of logging it', async () => {
+      const empty = await createRecipe(
+        api.database(),
+        'user-1',
+        { name: 'Porridge', servings: 1, cookedWeightG: null, notes: null },
+        seeding(),
+      );
+      const { user } = render();
+
+      await screen.findByRole('dialog', { name: 'Add to lunch' });
+      await user.click(within(sheet()).getByRole('tab', { name: 'Recipes' }));
+      await user.click(
+        await within(sheet()).findByRole('button', { name: /Porridge/ }),
+      );
+      const step = within(sheet()).getByRole('region', { name: 'Porridge' });
+
+      expect(await within(step).findByText(emptyRecipe)).toBeInTheDocument();
+      expect(
+        within(step).getByRole('link', { name: 'Open recipe' }),
+      ).toHaveAttribute('href', `/foods/recipes/${empty}`);
+      expect(within(step).queryByLabelText('Amount')).not.toBeInTheDocument();
+    });
   });
 
   describe('scanning a barcode', () => {

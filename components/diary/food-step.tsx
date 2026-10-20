@@ -61,7 +61,8 @@ function AddEntry({
     <>
       {add.isError ? <FormError>{addFailed}</FormError> : null}
       <EntryForm
-        food={food.data}
+        source={food.data}
+        foodId={foodId}
         portions={food.data.portions}
         defaultValues={{
           quantity: defaultQuantity,
