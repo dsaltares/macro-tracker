@@ -81,6 +81,14 @@ export const signedInAs = async (page: Page, email: string) => {
 
 export const signOut = async (page: Page) => {
   await page.goto('/settings');
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  const accountMenu = page.getByRole('button', { name: 'Account' });
+  const signOutButton = page.getByRole('button', { name: 'Sign out' });
+  await expect(accountMenu.or(signOutButton)).toBeVisible();
+  if (await accountMenu.isVisible()) {
+    await accountMenu.click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  } else {
+    await signOutButton.click();
+  }
   await expect(page).toHaveURL('/sign-in');
 };

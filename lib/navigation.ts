@@ -26,6 +26,11 @@ export const legalDocuments: readonly LegalDocument[] = [
   cookiePolicy,
 ];
 
+export const dataSourcesUrl =
+  'https://github.com/dsaltares/macro-tracker/blob/main/docs/DATA-SOURCES.md';
+
+export const sourceCodeUrl = 'https://github.com/dsaltares/macro-tracker';
+
 export type AppTab = {
   href: string;
   label: string;

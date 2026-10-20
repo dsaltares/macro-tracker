@@ -10,8 +10,8 @@ import {
   siteHost,
   supportEmail,
 } from '@/components/legal/legal-document';
-import { dataSourcesUrl } from '@/components/site-footer';
 import { siteName } from '@/lib/brand';
+import { dataSourcesUrl } from '@/lib/navigation';
 import { routes } from '@/lib/routes';
 
 export const metadata: Metadata = {

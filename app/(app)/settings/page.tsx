@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { AccountSummary } from '@/components/account/account-summary';
 import { AppPage } from '@/components/app-shell/app-page';
-import { SignOutButton } from '@/components/auth/sign-out-button';
 import { SettingsList } from '@/components/settings/settings-list';
 import { ThemeSetting } from '@/components/settings/theme-setting';
 import { requireProfile } from '@/lib/auth/session';
@@ -19,15 +19,8 @@ export default async function SettingsPage() {
         </h2>
         <ThemeSetting />
       </section>
-      <div className="flex flex-col gap-3 md:hidden">
-        <p className="text-sm">
-          Signed in as <span className="font-medium">{user.email}</span>
-        </p>
-        <SignOutButton
-          variant="outline"
-          size="lg"
-          className="h-11 w-fit px-4"
-        />
+      <div className="md:hidden">
+        <AccountSummary account={user} />
       </div>
     </AppPage>
   );

@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { SignOutButton } from '@/components/auth/sign-out-button';
+import { SignOutButton } from '@/components/account/sign-out-button';
 import { signOut } from '@/test/auth-client';
 import { router } from '@/test/next-navigation';
 import { renderUi } from '@/test/ui';

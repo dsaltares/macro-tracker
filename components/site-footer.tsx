@@ -1,8 +1,5 @@
 import Link from 'next/link';
-import { legalDocuments } from '@/lib/navigation';
-
-export const dataSourcesUrl =
-  'https://github.com/dsaltares/macro-tracker/blob/main/docs/DATA-SOURCES.md';
+import { dataSourcesUrl, legalDocuments } from '@/lib/navigation';
 
 const linkClass = 'underline underline-offset-4 hover:text-foreground';
 

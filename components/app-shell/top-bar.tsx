@@ -1,4 +1,8 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AppLogo } from '@/components/app-shell/app-logo';
+import { siteName } from '@/lib/brand';
+import { routes } from '@/lib/routes';
 
 export function TopBarFrame({ children }: { children: ReactNode }) {
   return (
@@ -19,7 +23,11 @@ export function TopBar({
 }) {
   return (
     <TopBarFrame>
-      {start}
+      {start ?? (
+        <Link href={routes.diary} aria-label={siteName} className="md:hidden">
+          <AppLogo className="size-7" />
+        </Link>
+      )}
       <h1 className="min-w-0 flex-1 truncate font-semibold text-lg">{title}</h1>
       {end ? <div className="flex items-center gap-2">{end}</div> : null}
     </TopBarFrame>

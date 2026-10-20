@@ -1,7 +1,8 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { dataSourcesUrl } from '@/lib/navigation';
 import { renderUi } from '@/test/ui';
-import { dataSourcesUrl, SiteFooter } from './site-footer.tsx';
+import { SiteFooter } from './site-footer.tsx';
 
 describe('SiteFooter', () => {
   it('links to the privacy policy, the terms and the cookie policy', () => {

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
-import { SignOutButton } from '@/components/auth/sign-out-button';
+import { SignOutButton } from '@/components/account/sign-out-button';
 import { OnboardingForm } from '@/components/profile/onboarding-form';
 import { SiteFooter } from '@/components/site-footer';
 import { ThemeToggle } from '@/components/theme-toggle';
