@@ -43,7 +43,12 @@ export function WeightForm({
   const log = useMutation(
     trpc.body.log.mutationOptions({
       onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: trpc.body.pathKey() }),
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.body.pathKey() }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.goals.forDate.pathKey(),
+          }),
+        ]),
     }),
   );
   const [interactive, setInteractive] = useState(false);

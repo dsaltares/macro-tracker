@@ -46,14 +46,17 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | meal | `breakfast`, `lunch`, `dinner` or `snack`. Fixed. | [Diary](DOMAIN.md#diary) |
 | meal totals | The sum of a meal's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
 | micro goal | The goal for a mineral, a vitamin, fibre, saturated fat or sugars, defaulting to its dietary reference value and overridable. | [Body and goals](DOMAIN.md#body-and-goals) |
+| no data | A nutrient no entry in a day or meal declares. Shown as such, never as zero, and with no progress. | [Body and goals](DOMAIN.md#body-and-goals) |
 | nutrient | One key in the closed canon in `lib/domain/nutrition/nutrients.ts`, with a unit, a group and a display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient group | Energy, macros, fat detail, carbohydrate detail, minerals, vitamins, other — in that display order. | [Nutrients](DOMAIN.md#nutrients) |
+| nutrient panel | Every nutrient of a day, or of one meal against the day's goals, by group and display order, with its progress. | [Body and goals](DOMAIN.md#body-and-goals) |
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
 | onboarding | The steps after a new account's first sign-in: the profile, then the goal settings with their defaults chosen. Every other page sends an account without a profile there. | [Body and goals](DOMAIN.md#body-and-goals) |
 | original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |
 | override | An explicit target for one nutrient that wins over the goal vector's value for it, in either mode. | [Body and goals](DOMAIN.md#body-and-goals) |
 | portion | A named quantity in grams for one food. Every food has `100 g`, `1 g` and `1 ml`. | [Foods](DOMAIN.md#foods) |
 | profile | Sex, date of birth, height in cm and activity level. One per account, asked for at onboarding. | [Body and goals](DOMAIN.md#body-and-goals) |
+| progress | How far a day's or meal's totals have come toward a goal: under, near or over. Near is 90% to 110% of a target, or 90% to 100% of an upper limit. | [Body and goals](DOMAIN.md#body-and-goals) |
 | quick entry | A diary entry with a label and a nutrient vector typed directly, no food. | [Diary](DOMAIN.md#diary) |
 | recent foods | The last 30 foods a user logged, each once, last logged first. Each with its last logged amount. | [Diary](DOMAIN.md#diary) |
 | recipe | A name, servings, an optional cooked weight and ordered ingredients. Nests one level. Private. | [Recipes](DOMAIN.md#recipes) |

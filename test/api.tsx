@@ -66,11 +66,13 @@ export const serveApi = ({ signedInAs }: ServeApiOptions = {}) => {
   );
 
   const failingProcedure = (procedure: string) =>
-    http.all(`${origin}${trpcEndpoint}/${procedure}`, () =>
-      HttpResponse.json(
-        { error: { message: 'Internal server error', code: -32603 } },
-        { status: 500 },
-      ),
+    http.all(`${origin}${trpcEndpoint}/:procedures`, ({ params }) =>
+      String(params.procedures).split(',').includes(procedure)
+        ? HttpResponse.json(
+            { error: { message: 'Internal server error', code: -32603 } },
+            { status: 500 },
+          )
+        : undefined,
     );
 
   const server = setupServer(apiHandler);
