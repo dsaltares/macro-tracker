@@ -9,8 +9,8 @@ import {
   foodRowClass,
   Message,
   ResultsSkeleton,
+  searchDebounceMs,
 } from '@/components/diary/food-search-results';
-import { searchDebounceMs } from '@/components/diary/food-search-sheet';
 import {
   AmountSkeleton,
   IngredientAmountForm,

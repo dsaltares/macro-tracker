@@ -33,6 +33,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | derived goal | A goal computed from a weekly rate target at 7,700 kcal per kg, protein in g per kg, a fat share of energy, carbohydrate as the remainder and fibre at 14 g per 1,000 kcal. | [Body and goals](DOMAIN.md#body-and-goals) |
 | diary entry | One logged item: a user, a date, a meal, an optional time, and a snapshot. A food, recipe or quick entry. | [Diary](DOMAIN.md#diary) |
 | dietary reference value | The default for a micro goal, by sex and age band: EFSA's population reference intake, else its adequate intake, else another body's figure. | [Body and goals](DOMAIN.md#body-and-goals), [Data sources](DATA-SOURCES.md) |
+| estimated item | One line of a meal estimate or draft: a name, the model's grams, a confidence and an optional note, and a food, a recipe or a guess. | [Diary](DOMAIN.md#diary) |
 | favourite | A food a user marked to find again quickly. Theirs alone; goes with the food. | [Diary](DOMAIN.md#diary) |
 | food | Anything with a nutrient vector per 100 g: a reference product, a generic food or a user's own. One table. | [Foods](DOMAIN.md#foods) |
 | food import | One run of the importer over some sources: queued, running, succeeded or failed, with its counts. One runs at a time. | [Foods](DOMAIN.md#foods) |
@@ -51,6 +52,8 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | logged day | A date with at least one diary entry. Only logged days count in an average or in adherence. | [Trends](DOMAIN.md#trends) |
 | manual goal | A goal with explicit targets instead of derived ones. | [Body and goals](DOMAIN.md#body-and-goals) |
 | meal | `breakfast`, `lunch`, `dinner` or `snack`. Fixed. | [Diary](DOMAIN.md#diary) |
+| meal draft | A meal estimate resolved against the database: each item with the snapshot its entry would keep, unsure or unresolved where so, and the totals. What the user reviews before logging. | [Diary](DOMAIN.md#diary) |
+| meal estimate | What a vision model answered to photos of a meal and a description, after searching the user's foods, recipes and the reference foods: estimated items and notes. | [Diary](DOMAIN.md#diary) |
 | meal totals | The sum of a meal's entry snapshots. Computed, never stored. | [Diary](DOMAIN.md#diary) |
 | micro goal | The goal for a mineral, a vitamin, fibre, saturated fat or sugars, defaulting to its dietary reference value and overridable. | [Body and goals](DOMAIN.md#body-and-goals) |
 | no data | A nutrient no entry in a day or meal declares. Shown as such, never as zero, and with no progress. | [Body and goals](DOMAIN.md#body-and-goals) |
@@ -87,6 +90,8 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | trace | A nutrient a source declares as below a limit or as "traces": stored as zero and listed among the food's traces. | [Foods](DOMAIN.md#foods) |
 | TDEE | Total daily energy expenditure: BMR times the activity multiplier. | [Body and goals](DOMAIN.md#body-and-goals) |
 | trend weight | An exponential moving average over the weight log, a tenth of the way toward each weight, carried over the days without one. | [Body and goals](DOMAIN.md#body-and-goals) |
+| unresolved | An estimated item whose food or recipe the app cannot find: a guess with the model's name and grams, no nutrients, flagged for the user to replace. | [Diary](DOMAIN.md#diary) |
+| unsure | A label reading's field or an estimated item with a confidence below 0.8, highlighted for the user to check. | [Foods](DOMAIN.md#foods), [Diary](DOMAIN.md#diary) |
 | upper limit | A goal to stay under: saturated fat, sugars, sodium and chloride. | [Body and goals](DOMAIN.md#body-and-goals) |
 | user food | A food with `source` `user`: owned by one user, visible only to them, may carry a barcode. | [Foods](DOMAIN.md#foods) |
 | weekly rate | How much the trend weight changed over a range, per week. A range under a week has none. | [Body and goals](DOMAIN.md#body-and-goals) |

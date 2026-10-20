@@ -1,8 +1,12 @@
 import { type Kysely, type Selectable, sql } from 'kysely';
 import { addDays } from '../domain/dates.ts';
 import { type Meal, meals, resolveEntry } from '../domain/diary/entries.ts';
-import { hundredGrams, type Portion } from '../domain/foods/portions.ts';
+import type { Portion } from '../domain/foods/portions.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
+import {
+  type RecipeAmount,
+  recipePortionOf,
+} from '../domain/recipes/recipes.ts';
 import {
   type Food,
   findFood,
@@ -214,41 +218,48 @@ const portionLabelled = (
 ): Portion | undefined =>
   food.portions.find((portion) => portion.label === label);
 
-export const logFood = (
+const writeFoodEntry = async (
   db: Kysely<Database>,
   userId: string,
   { foodId, portion: portionLabel, quantity, ...when }: FoodToLog,
   context: FoodWriteContext,
-): Promise<LoggedFood> =>
-  db.transaction().execute(async (trx) => {
-    const food = await findFood({ db: trx, userId }, foodId);
-    if (food === null) {
-      return { outcome: 'food-not-found' };
-    }
-    const portion = portionLabelled(food, portionLabel);
-    if (portion === undefined) {
-      return { outcome: 'portion-not-found' };
-    }
-    const { grams, nutrients } = resolveEntry(food, portion, quantity);
-    const entry = await insertDiaryEntry(
-      trx,
-      userId,
-      {
-        kind: 'food',
-        ...when,
-        foodId,
-        label: food.name,
-        quantity,
-        portionLabel: portion.label,
-        grams,
-        nutrients,
-      },
-      context,
-    );
-    return { outcome: 'logged', entry };
-  });
+): Promise<LoggedFood> => {
+  const food = await findFood({ db, userId }, foodId);
+  if (food === null) {
+    return { outcome: 'food-not-found' };
+  }
+  const portion = portionLabelled(food, portionLabel);
+  if (portion === undefined) {
+    return { outcome: 'portion-not-found' };
+  }
+  const { grams, nutrients } = resolveEntry(food, portion, quantity);
+  const entry = await insertDiaryEntry(
+    db,
+    userId,
+    {
+      kind: 'food',
+      ...when,
+      foodId,
+      label: food.name,
+      quantity,
+      portionLabel: portion.label,
+      grams,
+      nutrients,
+    },
+    context,
+  );
+  return { outcome: 'logged', entry };
+};
 
-export type RecipeAmount = { servings: number } | { grams: number };
+export const logFood = (
+  db: Kysely<Database>,
+  userId: string,
+  food: FoodToLog,
+  context: FoodWriteContext,
+): Promise<LoggedFood> =>
+  db.transaction().execute((trx) => writeFoodEntry(trx, userId, food, context));
+
+export type { RecipeAmount };
 
 export type RecipeToLog = {
   date: string;
@@ -263,53 +274,117 @@ export type LoggedRecipe =
   | { outcome: 'recipe-not-found' }
   | { outcome: 'empty-recipe' };
 
-const recipePortionOf = (
-  portions: readonly Portion[],
-  amount: RecipeAmount,
-) => {
-  if ('grams' in amount) {
-    return {
-      portion: hundredGrams,
-      quantity: amount.grams / hundredGrams.grams,
-    };
+const writeRecipeEntry = async (
+  db: Kysely<Database>,
+  userId: string,
+  { recipeId, amount, ...when }: RecipeToLog,
+  context: FoodWriteContext,
+): Promise<LoggedRecipe> => {
+  const recipe = await findRecipeFood(db, userId, recipeId);
+  if (recipe === null || recipe.archived) {
+    return { outcome: 'recipe-not-found' };
   }
-  const [serving = hundredGrams] = portions;
-  return { portion: serving, quantity: amount.servings };
+  if (isEmptyRecipe(recipe)) {
+    return { outcome: 'empty-recipe' };
+  }
+  const { portion, quantity } = recipePortionOf(recipe.portions, amount);
+  const { grams, nutrients } = resolveEntry(recipe, portion, quantity);
+  const entry = await insertDiaryEntry(
+    db,
+    userId,
+    {
+      kind: 'recipe',
+      ...when,
+      recipeId,
+      label: recipe.name,
+      quantity,
+      portionLabel: portion.label,
+      grams,
+      nutrients,
+    },
+    context,
+  );
+  return { outcome: 'logged', entry };
 };
 
 export const logRecipe = (
   db: Kysely<Database>,
   userId: string,
-  { recipeId, amount, ...when }: RecipeToLog,
+  recipe: RecipeToLog,
   context: FoodWriteContext,
 ): Promise<LoggedRecipe> =>
-  db.transaction().execute(async (trx) => {
-    const recipe = await findRecipeFood(trx, userId, recipeId);
-    if (recipe === null || recipe.archived) {
-      return { outcome: 'recipe-not-found' };
+  db
+    .transaction()
+    .execute((trx) => writeRecipeEntry(trx, userId, recipe, context));
+
+type MealEntryWhen = { date: string; meal: Meal; time: string | null };
+
+export type MealEntryToLog =
+  | ({ kind: 'food' } & Omit<FoodToLog, keyof MealEntryWhen>)
+  | ({ kind: 'recipe' } & Omit<RecipeToLog, keyof MealEntryWhen>)
+  | { kind: 'quick'; label: string; nutrients: NutrientVector };
+
+export type MealToLog = MealEntryWhen & { entries: MealEntryToLog[] };
+
+type NotLogged = Exclude<LoggedFood | LoggedRecipe, { outcome: 'logged' }>;
+
+export type LoggedMeal =
+  | { outcome: 'logged'; entries: DiaryEntry[] }
+  | (NotLogged & { index: number });
+
+const writeMealEntry = async (
+  db: Kysely<Database>,
+  userId: string,
+  when: MealEntryWhen,
+  entry: MealEntryToLog,
+  context: FoodWriteContext,
+): Promise<LoggedFood | LoggedRecipe> => {
+  switch (entry.kind) {
+    case 'food': {
+      const { kind, ...food } = entry;
+      return writeFoodEntry(db, userId, { ...when, ...food }, context);
     }
-    if (isEmptyRecipe(recipe)) {
-      return { outcome: 'empty-recipe' };
+    case 'recipe': {
+      const { kind, ...recipe } = entry;
+      return writeRecipeEntry(db, userId, { ...when, ...recipe }, context);
     }
-    const { portion, quantity } = recipePortionOf(recipe.portions, amount);
-    const { grams, nutrients } = resolveEntry(recipe, portion, quantity);
-    const entry = await insertDiaryEntry(
-      trx,
-      userId,
-      {
-        kind: 'recipe',
-        ...when,
-        recipeId,
-        label: recipe.name,
-        quantity,
-        portionLabel: portion.label,
-        grams,
-        nutrients,
-      },
-      context,
-    );
-    return { outcome: 'logged', entry };
-  });
+    case 'quick':
+      return {
+        outcome: 'logged',
+        entry: await insertDiaryEntry(
+          db,
+          userId,
+          { ...when, ...entry },
+          context,
+        ),
+      };
+  }
+};
+
+export const logMealEntries = async (
+  db: Kysely<Database>,
+  userId: string,
+  { entries, ...when }: MealToLog,
+  context: FoodWriteContext,
+): Promise<LoggedMeal> => {
+  const trx = await db.startTransaction().execute();
+  try {
+    const logged: DiaryEntry[] = [];
+    for (const [index, entry] of entries.entries()) {
+      const written = await writeMealEntry(trx, userId, when, entry, context);
+      if (written.outcome !== 'logged') {
+        await trx.rollback().execute();
+        return { ...written, index };
+      }
+      logged.push(written.entry);
+    }
+    await trx.commit().execute();
+    return { outcome: 'logged', entries: logged };
+  } catch (error) {
+    await trx.rollback().execute();
+    throw error;
+  }
+};
 
 export type DiaryEntryChanges = {
   date?: string | undefined;

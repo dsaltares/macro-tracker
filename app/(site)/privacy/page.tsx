@@ -44,11 +44,11 @@ const recipients = [
     key: 'openai',
     who: (
       <>
-        <strong>OpenAI</strong> (label reading)
+        <strong>OpenAI</strong> (label reading and meal estimates)
       </>
     ),
-    sees: 'The photo of a nutrition label you take or choose to scan, and nothing else about you',
-    why: 'Only when you scan a label, to read the product name, brand and nutrition table from the photo so the food fills itself in. The photo is held in memory on our server while it is read and then discarded: we never store it or write it to a log. OpenAI does not use it to train its models, and may keep it for up to 30 days to detect abuse before deleting it. If you never scan a label, OpenAI sees nothing.',
+    sees: 'The photo of a nutrition label you scan; or the photos of a meal you ask it to estimate, your description of the meal, your foods and recipes whose names match what it searches for, and, when you ask it to correct an estimate, the estimate as you left it and what you said. Nothing else about you',
+    why: 'Only when you scan a label, to read the product name, brand and nutrition table from the photo so the food fills itself in, or when you ask for a meal estimate, to name the foods on the plate and how much of each so you can review them before anything is logged. The photos are held in memory on our server while they are read and then discarded: we never store them or write them to a log, so correcting an estimate sends them again. OpenAI does not use any of it to train its models, and may keep it for up to 30 days to detect abuse before deleting it. If you never scan a label or estimate a meal, OpenAI sees nothing.',
   },
   {
     key: 'cloudflare',
@@ -305,8 +305,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>No photos.</strong> A photo of a nutrition label you scan
-              is read by OpenAI to fill in the food and then discarded; we never
-              store it. See <em>Who else sees it</em>.
+              or of a meal you estimate is read by OpenAI and then discarded; we
+              never store it. See <em>Who else sees it</em>.
             </li>
             <li>
               <strong>No camera footage.</strong> The camera is on only while
@@ -463,9 +463,9 @@ export default function PrivacyPage() {
             location outside the European Economic Area. That processing is
             covered by Cloudflare’s data processing terms and the European
             Commission’s Standard Contractual Clauses. If you sign in with
-            Google, receive an email through Resend, or scan a label, which
-            OpenAI reads in the United States, information travels to those
-            providers under their own terms and safeguards.
+            Google, receive an email through Resend, or scan a label or estimate
+            a meal, which OpenAI reads in the United States, information travels
+            to those providers under their own terms and safeguards.
           </p>
         </Prose>
       </LegalSection>

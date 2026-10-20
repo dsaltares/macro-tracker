@@ -152,6 +152,26 @@ the one logged last. Recent foods, frequent foods and favourites each carry the 
 logged amount**, the portion and quantity of its latest food entry, so one tap logs it again; a
 food never logged, or whose portion is gone, carries one of its default portion.
 
+A **meal estimate** is what a vision model answered to photos of a meal and an optional
+description, after searching the user's foods, recipes and the reference foods: its **estimated
+items**, one line each for every food, sauce, oil or drink it saw, and notes on what it could not
+tell (a hidden sauce, a cup it could not size). An estimated item has a name, the grams the model
+estimated, a confidence from 0 to 1 and an optional note, and is one of a **food** it found (by
+id, with a quantity of one of the food's portions when it chose one), a **recipe** of the user's
+(by id, a number of servings or else its grams) or a **guess** when nothing fit: the model's
+energy and three macros for the grams it named. The model names foods and grams; the nutrients
+of a food or recipe it found are never its.
+
+A **meal draft** is the estimate resolved against the database, what the user reviews before
+anything is written. Each item carries the snapshot a diary entry of it would keep: a food
+item's vector at its grams (a portion's weight times the quantity when the item names one of
+the food's portions, otherwise the model's grams of `1 g`), a recipe item's as logging the recipe
+would, a guess's as the model gave it. An item is **unsure** below a confidence of 0.8, as a label
+reading's field is. A food or recipe the app cannot find becomes an **unresolved** guess, the
+model's name and grams with no nutrients, flagged for the user to replace and never dropped. The
+draft's totals are the sum of its items' snapshots. Logging a draft adds one entry per item, of
+its kind, in one go, and the photos are never kept.
+
 ## Body and goals
 
 A **profile** is sex (female or male, what the energy and reference value equations take), date

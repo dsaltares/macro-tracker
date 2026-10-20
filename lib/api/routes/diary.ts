@@ -17,7 +17,8 @@ import {
   timeSchema,
   updateEntry,
 } from '../../services/diary.ts';
-import { apiFailure } from '../errors.ts';
+import { logMeal, maxMealItems, mealToLogSchema } from '../../services/meal.ts';
+import { type ApiError, apiError, apiFailure } from '../errors.ts';
 import { apiHandler } from '../handler.ts';
 import { diaryDay, diaryEntry, idSchema } from '../schemas.ts';
 
@@ -352,4 +353,104 @@ export const copyMealRoute = apiHandler({
   handle: async ({ context, input }) => ({
     entries: (await copyMeal(context, input)).map(entryOf),
   }),
+});
+
+const itemFoodGone: ApiError = {
+  code: 'NOT_FOUND',
+  message: "Item N's food or recipe no longer exists.",
+};
+const itemPortionNotFound: ApiError = {
+  code: 'INVALID_REQUEST',
+  message: "Item N's food has no portion with this label.",
+};
+const itemEmptyRecipe: ApiError = {
+  code: 'INVALID_REQUEST',
+  message: "Item N's recipe has no ingredients.",
+};
+
+const itemError = ({ code, message }: ApiError, index: number) =>
+  apiError(code, message.replace('Item N', `Item ${index + 1}`));
+
+const mealItemSchema = mealToLogSchema.shape.items.element;
+
+export const addMealRoute = apiHandler({
+  method: 'POST',
+  path: '/diary/meals',
+  operationId: 'addMeal',
+  summary: 'Log a meal',
+  description:
+    'Log several items into one meal in one request, all or nothing: foods by a portion, recipes by servings or grams, and quick entries from amounts typed in, in the order given. Answers the new entries. When an item fails, the message says which, counting from one, and nothing is logged.',
+  scope: 'write',
+  status: 201,
+  input: mealToLogSchema
+    .extend({
+      time: mealToLogSchema.shape.time.describe(
+        'The time of day as HH:MM, shared by every entry. Leave out for none.',
+      ),
+      items: z
+        .array(mealItemSchema)
+        .min(1)
+        .max(maxMealItems)
+        .describe(
+          `One to ${maxMealItems} items, each logged as its own entry.`,
+        ),
+    })
+    .strict(),
+  output: z.object({ entries: z.array(diaryEntry) }),
+  errors: [itemFoodGone, itemPortionNotFound, itemEmptyRecipe],
+  example: {
+    input: {
+      date: '2026-10-20',
+      meal: 'dinner',
+      time: '20:00',
+      items: [
+        {
+          kind: 'food',
+          foodId: exampleFoodId,
+          portion: '1 serving (40 g)',
+          quantity: 1,
+        },
+        {
+          kind: 'quick',
+          label: 'Glass of red wine',
+          nutrients: { totals: { energy_kcal: 125, carbohydrate: 4 } },
+        },
+      ],
+    },
+    response: {
+      entries: [
+        { ...oatsEntry, meal: 'dinner', time: '20:00' },
+        {
+          id: '3d5f7a9b-1e2f-4b4c-9d6e-0f1a2b3c4d5e',
+          kind: 'quick',
+          date: '2026-10-20',
+          meal: 'dinner',
+          time: '20:00',
+          label: 'Glass of red wine',
+          foodId: null,
+          recipeId: null,
+          quantity: null,
+          portion: null,
+          grams: null,
+          nutrients: { energy_kcal: 125, carbohydrate: 4 },
+          createdAt: '2026-10-20T19:02:10.000Z',
+          updatedAt: '2026-10-20T19:02:10.000Z',
+        },
+      ],
+    },
+  },
+  handle: async ({ context, input }) => {
+    const logged = await logMeal(context, input);
+    switch (logged.outcome) {
+      case 'food-not-found':
+      case 'recipe-not-found':
+        throw itemError(itemFoodGone, logged.index);
+      case 'portion-not-found':
+        throw itemError(itemPortionNotFound, logged.index);
+      case 'empty-recipe':
+        throw itemError(itemEmptyRecipe, logged.index);
+      case 'logged':
+        return { entries: logged.entries.map(entryOf) };
+    }
+  },
 });

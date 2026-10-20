@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { matchExpression, searchPageSize, searchTerms } from './search.ts';
+import {
+  matchExpression,
+  nameMatchesEveryTerm,
+  searchPageSize,
+  searchTerms,
+} from './search.ts';
 
 describe('searchTerms', () => {
   it('splits a query into its words', () => {
@@ -32,6 +37,26 @@ describe('matchExpression', () => {
   it('matches nothing for a query without words', () => {
     expect(matchExpression('')).toBeNull();
     expect(matchExpression(' -*" ')).toBeNull();
+  });
+});
+
+describe('nameMatchesEveryTerm', () => {
+  it('matches a name holding every word of the query, in any case and order', () => {
+    expect(nameMatchesEveryTerm('Mum’s Chicken Curry', 'curry chicken')).toBe(
+      true,
+    );
+  });
+
+  it('matches a word inside another', () => {
+    expect(nameMatchesEveryTerm('Overnight oats', 'oat')).toBe(true);
+  });
+
+  it('refuses a name missing one of the words', () => {
+    expect(nameMatchesEveryTerm('Chicken curry', 'chicken soup')).toBe(false);
+  });
+
+  it('matches nothing for a query without words', () => {
+    expect(nameMatchesEveryTerm('Chicken curry', ' - ')).toBe(false);
   });
 });
 

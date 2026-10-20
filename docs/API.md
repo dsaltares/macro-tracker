@@ -266,6 +266,23 @@ curl -sS "$API/diary/entries" -H "Authorization: Bearer $KEY" -H 'Content-Type: 
 }'
 ```
 
+Log a whole meal in one request, all or nothing: any mix of foods, recipes and quick entries,
+each becoming its own entry. Answers `201` with the entries. When an item fails, the message says
+which one, counting from one, and nothing is logged.
+
+```sh
+curl -sS "$API/diary/meals" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{
+  "date": "2026-10-20",
+  "meal": "dinner",
+  "time": "20:00",
+  "items": [
+    { "kind": "food", "foodId": "7d1f4c2e-9b3a-4f6e-8c5d-2a1b0c9d8e7f", "portion": "1 serving (40 g)", "quantity": 1 },
+    { "kind": "recipe", "recipeId": "b3c5d7e9-1f2a-4b4c-8d6e-0f1a2b3c4d5e", "amount": { "servings": 1 } },
+    { "kind": "quick", "label": "Glass of red wine", "nutrients": { "totals": { "energy_kcal": 125, "carbohydrate": 4 } } }
+  ]
+}'
+```
+
 Change an entry. Send only what changes: a new `quantity` or `portion` re-resolves the nutrients
 from the food or recipe as it is now, and is `409` when that food or recipe is gone; a new `date`,
 `meal` or `time` keeps them.
@@ -384,6 +401,8 @@ before you write. To log something a person ate:
 5. When nothing matches, `POST /diary/entries` with `kind: "quick"` and the nutrients you know, per
    100 g with the grams, or as totals; add `saveAsFood: true` when you know them per 100 g, so the
    food exists next time.
+6. For a meal of several things, `POST /diary/meals` once with every item instead of one request
+   per entry: it logs all of them or none.
 
 To report a day, `GET /diary/{date}` has every entry and the totals; `GET /goals?date=` has what
 they are measured against; `GET /trends?from&to` has the days of a range.

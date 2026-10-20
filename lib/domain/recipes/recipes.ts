@@ -62,6 +62,22 @@ export type RecipeAsFood = {
   portions: Portion[];
 };
 
+export type RecipeAmount = { servings: number } | { grams: number };
+
+export const recipePortionOf = (
+  portions: readonly Portion[],
+  amount: RecipeAmount,
+): { portion: Portion; quantity: number } => {
+  if ('grams' in amount) {
+    return {
+      portion: hundredGrams,
+      quantity: amount.grams / hundredGrams.grams,
+    };
+  }
+  const [serving = hundredGrams] = portions;
+  return { portion: serving, quantity: amount.servings };
+};
+
 export const recipeAsFood = (
   recipe: Recipe,
   ingredients: readonly ResolvedIngredient[],

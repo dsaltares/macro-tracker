@@ -654,6 +654,58 @@ describe('diary.remove', () => {
   });
 });
 
+describe('diary.addMeal', () => {
+  it('logs every item of a meal, each as its kind', async () => {
+    const recipeId = await oatsBowl();
+
+    const entries = await as('user-1').diary.addMeal({
+      date,
+      meal: 'lunch',
+      items: [
+        {
+          kind: 'food',
+          foodId: await nutellaId(),
+          portion: '15 g',
+          quantity: 1,
+        },
+        { kind: 'recipe', recipeId, amount: { servings: 1 } },
+        { kind: 'quick', label: 'Coffee', nutrients: coffee.nutrients },
+      ],
+    });
+
+    expect(entries.map(({ kind, label }) => ({ kind, label }))).toEqual([
+      { kind: 'food', label: 'Nutella' },
+      { kind: 'recipe', label: 'Oats bowl' },
+      { kind: 'quick', label: 'Coffee' },
+    ]);
+    expect(await labelsOn(date)).toMatchObject({
+      lunch: ['Nutella', 'Oats bowl', 'Coffee'],
+    });
+  });
+
+  it("answers not found for another user's recipe, and logs nothing", async () => {
+    const recipeId = await oatsBowl();
+
+    await expect(
+      as('user-2').diary.addMeal({
+        date,
+        meal: 'lunch',
+        items: [
+          { kind: 'quick', label: 'Coffee', nutrients: coffee.nutrients },
+          { kind: 'recipe', recipeId, amount: { grams: 100 } },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(await labelsOn(date, 'user-2')).toMatchObject({ lunch: [] });
+  });
+
+  it('refuses a meal without items', async () => {
+    await expect(
+      as('user-1').diary.addMeal({ date, meal: 'lunch', items: [] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});
+
 describe('diary.copyMeal', () => {
   it('copies a meal to another date and meal, snapshots and all', async () => {
     const user = as('user-1');

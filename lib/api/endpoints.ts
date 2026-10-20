@@ -6,6 +6,7 @@ import {
 } from './routes/body.ts';
 import {
   addEntryRoute,
+  addMealRoute,
   copyMealRoute,
   diaryDayRoute,
   removeEntryRoute,
@@ -32,6 +33,7 @@ export const apiEndpoints: readonly ApiEndpoint[] = [
   createFoodRoute,
   diaryDayRoute,
   addEntryRoute,
+  addMealRoute,
   updateEntryRoute,
   removeEntryRoute,
   copyMealRoute,

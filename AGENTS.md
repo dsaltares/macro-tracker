@@ -85,12 +85,23 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/diary/meal-estimate.ts` — `mealEstimateSchema`, what the meal estimator answers:
+  `items`, each `{ kind, name, grams, confidence, note }` with a `food` (`foodId`, an optional
+  `portion` of `{ label, quantity }`), a `recipe` (`recipeId`, `servings` or null for the grams)
+  or a `guess` (`nutrients`: energy and the three macros for the grams), and `notes`. Nullable,
+  never optional, so strict structured outputs take it. `mealDraft(estimate, resolved)` resolves
+  each item through `resolveEntry` over the `MatchedFood`s the caller found by id (a food's
+  portion when it names one the food has, otherwise `1 g` times its grams; a recipe through
+  `recipePortionOf`) or `quickEntryNutrients` for a guess, flags `unsure` by `isUnsure`, turns a
+  food or recipe not in `resolved` into an `unresolved` guess with no nutrients, and sums the
+  totals. `mealDraftToEntries(draft)` is the entries to add, one per item, by kind.
 - `lib/domain/recipes/` — `recipeNutrients(recipe, ingredients)` sums each ingredient's vector
   per 100 g at its grams (filling energy from the macros, as `resolveEntry` does) into the total,
   per serving and per 100 g over the cooked weight or else the ingredients' grams.
   `canNest(parent, child)` is the one-level rule over `NestingFacts`, which the write reads.
   `recipeAsFood` is the recipe as `resolveEntry` takes a food: the vector per 100 g and the
-  portions `1 serving` and `100 g`. Coverage on it is gated at 100%.
+  portions `1 serving` and `100 g`; `recipePortionOf(portions, amount)` is the portion and
+  quantity a number of servings or grams of it resolves through. Coverage on it is gated at 100%.
 - `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
   `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
   per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
@@ -301,8 +312,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   /api/v1/diary/entries` (`write`, `201`) takes a `kind` of `food`, `recipe` (servings or grams)
   or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
   and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
-  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`. Each entry goes out
-  through `entryOf`, its portion label as `portion`.
+  /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`; `POST
+  /api/v1/diary/meals` (`write`, `201`) logs a meal as `diary.addMeal` does and answers `{ entries }`,
+  `404` naming the item whose food or recipe is gone. Each entry goes out through `entryOf`, its
+  portion label as `portion`.
   `routes/body.ts` is
   `GET|POST /api/v1/measurements` (`metric`, default `weight_kg`, `from`, `to`, 100 a page; a
   `POST` answers `201` and replaces the date's weight) and `DELETE /api/v1/measurements/{id}`;
@@ -343,8 +356,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `mealSchema`, `timeSchema`, `quickNutrientsSchema`, `savingOnlyPer100g`, …). `body.ts`
   (with `measurementSchema`), `goals.ts`, `recipes.ts` (`listRecipes`, `findRecipe`) and
   `trends.ts` (`trendRange`, with `trendRangeSchema`) are behind the `body`, `goals`, `recipe`
-  and `trends` procedures and their routes. A `lib/db/` function moves behind a service when a
-  REST route needs it too.
+  and `trends` procedures and their routes. `meal.ts` is `logMeal(context, { date, meal, time,
+  items })`, behind `diary.addMeal` and `POST /api/v1/diary/meals`: the entries
+  `mealDraftToEntries` gives (`mealToLogSchema`), written by `logMealEntries` (`lib/db/diary.ts`)
+  in one transaction through the same writes as `logFood`, `logRecipe` and a quick entry, rolled
+  back whole when any item's food or recipe is not the caller's to log, with that item's `index`.
+  A `lib/db/` function moves behind a service when a REST route needs it too.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -444,8 +461,20 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   from the photo, never from the source's data; `score.ts` compares a reading to it field by field,
   amounts by value whatever the decimal separator or unit. The schema
   sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
-  answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
-  `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
+  answer is still validated by the Zod one (`strictOutput`, `structured-output.ts`, with the
+  failures `failureOf` maps errors to). Tests drive it with `MockLanguageModelV4` from
+  `ai/test`. `createMealEstimator({ model })` (`meal-estimator.ts`, ADR
+  [0016](docs/adr/0016-estimate-meals-with-an-agent-over-the-users-own-search.md)) is
+  `estimateMeal({ photos, description, foods, previous? })`, which never throws either: the
+  `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10) `unreadable`. It is a tool
+  loop with `prompts/meal.ts` and two tools over `foods`, a `MealEstimatorFoods` port:
+  `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo.
+  `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
+  caller: `searchFoods`' first page and the live recipes whose names hold every word
+  (`nameMatchesEveryTerm`), and a live food with its portions. `resolveMealMatches` reads the live
+  foods and live, non-empty recipes an estimate names, for `mealDraft`. `previous` is `{ draft, feedback }`,
+  sent as the model's earlier answer and the user's correction; the photos are sent again.
+  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
   per 100 g winning over those per serving, the first of a nutrient read twice winning. It keeps
@@ -456,13 +485,41 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
   again while reading the body), `415` for anything but a JPEG or WebP by its leading bytes, and
   otherwise the `LabelReading` or the reader's failure, logged without the photo. The route in
-  `app/api/label-scan/` only wires it to the server.
+  `app/api/label-scan/` only wires it to the server. `lib/photo-upload.ts` holds what it shares
+  with the meal estimate: `maxPhotoBytes`, `isJpegOrWebp`, `readUpTo` and `aiFailureStatuses`.
+- `lib/meal-estimate/route.ts` — `POST /api/meal-estimate`, session-only like label scan.
+  `mealEstimateRoute({ estimateMeal, resolveCaller, db, logger })` reads `multipart/form-data` of
+  at most `maxMealEstimateBytes`: one to four `photos` (`maxMealPhotos`, in
+  `lib/domain/diary/meal-estimate.ts` for the browser to read too), an optional
+  `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
+  (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
+  the estimator is off, `400` on a bad part, `413` for a photo over `maxPhotoBytes`, `415` for one
+  that is not a JPEG or WebP, and otherwise the `MealDraft`, resolved on the server with
+  `mealDraft` over `resolveMealMatches`, or the estimator's failure, logged without the photos.
+  The route in `app/api/meal-estimate/` only wires it to the server.
 - `components/label-scan/` — `LabelCapture`: *Take a photo* (a file input with
   `capture="environment"`) or *Choose a photo*, shrunk in the browser to 1,600 px on the long edge
   as WebP, JPEG where the browser cannot encode WebP (`shrinkPhoto`, `photo.ts`), sent with
   `XMLHttpRequest` for its upload progress (`uploadPhoto`), then *Reading the label…*, handing the
   reading to `onRead`. A failure that may pass offers *Try again* with the same photo; every failure
-  offers another. Tests mock `photo.ts`, which needs a real canvas.
+  offers another. Tests mock `photo.ts`, which needs a real canvas. `postWithProgress` there is
+  the `XMLHttpRequest` both uploads share.
+- `components/meal-estimate/` — `MealEstimate`, the sheet's step behind the camera button beside
+  the barcode one while estimation is on (`getMealEstimator()`, passed down from the diary page
+  as `mealEstimates`). It keeps the photos and description while it switches between
+  `MealPhotoStep` (*Take a photo* or *Choose photos*, up to `maxMealPhotos`, each through
+  `shrinkPhoto` with a thumbnail and remove, a description, *Estimate*: `requestMealEstimate`
+  (`estimate.ts`) posts the form to `/api/meal-estimate` with upload progress, then *Looking at
+  your meal…*; failures as `LabelCapture` shows them, *Try again* keeping the photos) and
+  `MealDraftReview`: the totals of the draft over one row per item (name, source badge, *Recipe*
+  or *Estimate*, grams, kcal), unsure and unresolved rows flagged *Check* with their notes. A
+  row opens its amount (`draft-item-editors.tsx`: `EntryForm` with `amountOnly` for a food or a
+  recipe, the guess's own totals form) and is rebuilt by `foodDraftItem`, `recipeDraftItem` or
+  `guessDraftItem` (`lib/domain/diary/meal-estimate.ts`), no longer unsure (`checkedByUser`);
+  *Replace* searches with the row's name and swaps it by `replacedDraftItem`, keeping the
+  grams; *Add item* searches and appends; `draftOfItems` keeps the totals. *Log meal* is
+  `diary.addMeal` of `mealDraftToEntries`, then a toast and the sheet closes. Tests answer
+  `/api/meal-estimate` with `serveApi().use(handler)` (MSW intercepts the upload).
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,
@@ -646,8 +703,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   - `e2e/*.spec.ts` — Playwright, and only for what cannot be simulated: routing, real sessions,
     real mail, the OAuth redirects, the mobile viewport. If a test would pass with a fixture and
     no browser, it belongs in a `*.test.tsx`. Every spec runs in both the `desktop-chrome` and
-    `mobile-chrome` (Pixel 7) projects. E2e has its own database, `.data/e2e.sqlite`, named once
-    in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
+    `mobile-chrome` (Pixel 7) projects, except `mobile.spec.ts`, the phone journey, which skips
+    on desktop. `expectNoSeriousViolations` (`e2e/axe.ts`) runs axe once the page's animations
+    settle and fails on any `serious` or `critical` violation. E2e has its own database,
+    `.data/e2e.sqlite`, named once in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
     the mail outbox, in the web server command before the server starts — not in `globalSetup`,
     which Playwright runs after the server has the old file open. It seeds the dev user too, whom
     `signInAsDevUser` (`e2e/auth.ts`) signs in as; a spec that changes an account makes a fresh
