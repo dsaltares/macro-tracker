@@ -10,6 +10,7 @@ import {
 } from '@/components/diary/food-lists';
 import { FoodSearchResults } from '@/components/diary/food-search-results';
 import { FoodStep } from '@/components/diary/food-step';
+import { QuickAddStep } from '@/components/diary/quick-add-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -145,7 +146,19 @@ function FoodSearch({
   const [query, setQuery] = useState('');
   const [list, setList] = useState<FoodList>('recent');
   const [chosen, setChosen] = useState<FoodSummary | null>(null);
+  const [quickAdding, setQuickAdding] = useState(false);
 
+  if (quickAdding) {
+    return (
+      <QuickAddStep
+        label={query.trim()}
+        date={date}
+        meal={meal}
+        onBack={() => setQuickAdding(false)}
+        onAdded={onAdded}
+      />
+    );
+  }
   if (chosen !== null) {
     return (
       <FoodStep
@@ -173,7 +186,12 @@ function FoodSearch({
         <Button variant="outline" size="lg" className="h-11" disabled>
           Create food
         </Button>
-        <Button variant="outline" size="lg" className="h-11" disabled>
+        <Button
+          variant="outline"
+          size="lg"
+          className="h-11"
+          onClick={() => setQuickAdding(true)}
+        >
           Quick add
         </Button>
       </div>

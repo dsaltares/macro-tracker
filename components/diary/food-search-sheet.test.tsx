@@ -9,6 +9,7 @@ import {
 } from '@/components/diary/food-search-results';
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { addFailed } from '@/components/diary/food-step';
+import { enterAnAmount } from '@/components/diary/quick-add-step';
 import { addFavourite, diaryDay, favourites, logFood } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { searchPageSize } from '@/lib/domain/foods/search';
@@ -153,6 +154,26 @@ const searchFor = async (
     within(sheet()).getByRole('searchbox', { name: 'Search foods' }),
     query,
   );
+
+const openQuickAdd = async (
+  user: ReturnType<typeof render>['user'],
+  query = '',
+) => {
+  await screen.findByRole('dialog', { name: 'Add to lunch' });
+  if (query !== '') {
+    await searchFor(user, query);
+  }
+  await user.click(within(sheet()).getByRole('button', { name: 'Quick add' }));
+  return within(sheet()).getByRole('region', { name: 'Quick add' });
+};
+
+const userFoods = () =>
+  api
+    .database()
+    .selectFrom('foods')
+    .select(['name', 'owner_user_id'])
+    .where('source', '=', 'user')
+    .execute();
 
 describe('FoodSearchSheet', () => {
   it('opens for its meal on the recent foods, each list empty until there are foods in it', async () => {
@@ -458,6 +479,154 @@ describe('FoodSearchSheet', () => {
     expect(
       within(sheet()).getByRole('button', { name: 'Quick add' }),
     ).toBeInTheDocument();
+  });
+
+  it('quick adds amounts per 100 g for the grams eaten, named after the search', async () => {
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const quick = await openQuickAdd(user, 'flapjack');
+
+    expect(within(quick).getByLabelText('Label')).toHaveValue('flapjack');
+    expect(
+      within(quick).getByRole('button', { name: 'Per 100 g', pressed: true }),
+    ).toBeInTheDocument();
+    await user.type(within(quick).getByLabelText('Protein (g)'), '6');
+    await user.type(within(quick).getByLabelText('Fat (g)'), '20');
+    await user.type(within(quick).getByLabelText('Carbs (g)'), '55');
+    await user.type(within(quick).getByLabelText('Grams eaten'), '50');
+
+    expect(await preview(quick)).toHaveAccessibleName('Nutrients in 50 g');
+    expect(previewed(await preview(quick), 'Energy')).toHaveTextContent(
+      '212 kcal',
+    );
+    expect(previewed(await preview(quick), 'Fat')).toHaveTextContent('10 g');
+
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+      expect.objectContaining({
+        kind: 'quick',
+        label: 'flapjack',
+        meal: 'lunch',
+        time: null,
+        nutrients: {
+          protein: 3,
+          fat: 10,
+          carbohydrate: 27.5,
+          energy_kcal: 212,
+        },
+      }),
+    ]);
+    expect(await userFoods()).toEqual([]);
+  });
+
+  it('quick adds totals, energy alone enough', async () => {
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const quick = await openQuickAdd(user);
+
+    await user.type(within(quick).getByLabelText('Label'), 'Birthday cake');
+    await user.click(within(quick).getByRole('button', { name: 'Totals' }));
+    expect(
+      within(quick).queryByLabelText('Grams eaten'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(quick).queryByRole('switch', { name: 'Save as my food' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+    expect(await within(quick).findByText(enterAnAmount)).toBeInTheDocument();
+
+    await user.type(within(quick).getByLabelText('Energy (kcal)'), '450');
+    expect(await preview(quick)).toHaveAccessibleName('Nutrients');
+    await user.selectOptions(within(quick).getByLabelText('Meal'), 'snack');
+    await user.type(within(quick).getByLabelText('Time'), '17:00');
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+      expect.objectContaining({
+        kind: 'quick',
+        label: 'Birthday cake',
+        meal: 'snack',
+        time: '17:00',
+        nutrients: { energy_kcal: 450 },
+      }),
+    ]);
+  });
+
+  it('asks for the macros, the grams eaten and a label per 100 g', async () => {
+    const { user } = render();
+    const quick = await openQuickAdd(user);
+
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+
+    expect(await within(quick).findByText('Enter a label')).toBeInTheDocument();
+    expect(within(quick).getAllByText('Enter an amount')).toHaveLength(3);
+    expect(
+      within(quick).getByText('Enter the grams eaten'),
+    ).toBeInTheDocument();
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([]);
+  });
+
+  it('saves a quick add as a food of the user’s own, found by search', async () => {
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const quick = await openQuickAdd(user, 'Granny’s flapjack');
+
+    await user.type(within(quick).getByLabelText('Protein (g)'), '6');
+    await user.type(within(quick).getByLabelText('Fat (g)'), '20');
+    await user.type(within(quick).getByLabelText('Carbs (g)'), '55');
+    await user.type(within(quick).getByLabelText('Energy (kcal)'), '430');
+    await user.type(within(quick).getByLabelText('Grams eaten'), '50');
+    await user.click(
+      within(quick).getByRole('switch', { name: 'Save as my food' }),
+    );
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(await diaryDay(api.database(), 'user-1', day)).toEqual([
+      expect.objectContaining({
+        kind: 'quick',
+        nutrients: {
+          protein: 3,
+          fat: 10,
+          carbohydrate: 27.5,
+          energy_kcal: 215,
+        },
+      }),
+    ]);
+    expect(await userFoods()).toEqual([
+      { name: 'Granny’s flapjack', owner_user_id: 'user-1' },
+    ]);
+  });
+
+  it('says so when the quick entry cannot be saved', async () => {
+    api.fails('diary.addQuick');
+    const onClose = vi.fn();
+    const { user } = render(onClose);
+    const quick = await openQuickAdd(user, 'Cake');
+
+    await user.click(within(quick).getByRole('button', { name: 'Totals' }));
+    await user.type(within(quick).getByLabelText('Energy (kcal)'), '300');
+    await user.click(within(quick).getByRole('button', { name: 'Save' }));
+
+    expect(await within(quick).findByText(addFailed)).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('goes back from quick add to the same search', async () => {
+    const { user } = render();
+    const quick = await openQuickAdd(user, 'xyzzy');
+
+    await user.click(
+      within(quick).getByRole('button', { name: 'Back to search' }),
+    );
+
+    expect(
+      within(sheet()).getByRole('searchbox', { name: 'Search foods' }),
+    ).toHaveValue('xyzzy');
   });
 
   it('says so when the search fails', async () => {
