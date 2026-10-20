@@ -5,6 +5,7 @@ import {
   type NestingFacts,
   recipeAsFood,
   recipeNutrients,
+  recipePortionOf,
 } from './recipes.ts';
 
 const oats = {
@@ -174,5 +175,31 @@ describe('recipeAsFood', () => {
     expect(resolveEntry(food, serving, 1).nutrients).toEqual(
       recipeNutrients(reduced, [oats, milk]).perServing,
     );
+  });
+});
+
+describe('recipePortionOf', () => {
+  const serving = { label: '1 serving', grams: 125 };
+  const portions = [serving, { label: '100 g', grams: 100 }];
+
+  it('is the quantity of the serving for a number of servings', () => {
+    expect(recipePortionOf(portions, { servings: 2 })).toEqual({
+      portion: serving,
+      quantity: 2,
+    });
+  });
+
+  it('is a quantity of 100 g for grams', () => {
+    expect(recipePortionOf(portions, { grams: 250 })).toEqual({
+      portion: { label: '100 g', grams: 100 },
+      quantity: 2.5,
+    });
+  });
+
+  it('falls back to 100 g for a recipe without a serving', () => {
+    expect(recipePortionOf([], { servings: 1 })).toEqual({
+      portion: { label: '100 g', grams: 100 },
+      quantity: 1,
+    });
   });
 });

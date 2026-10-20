@@ -81,12 +81,23 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/diary/meal-estimate.ts` — `mealEstimateSchema`, what the meal estimator answers:
+  `items`, each `{ kind, name, grams, confidence, note }` with a `food` (`foodId`, an optional
+  `portion` of `{ label, quantity }`), a `recipe` (`recipeId`, `servings` or null for the grams)
+  or a `guess` (`nutrients`: energy and the three macros for the grams), and `notes`. Nullable,
+  never optional, so strict structured outputs take it. `mealDraft(estimate, resolved)` resolves
+  each item through `resolveEntry` over the `MatchedFood`s the caller found by id (a food's
+  portion when it names one the food has, otherwise `1 g` times its grams; a recipe through
+  `recipePortionOf`) or `quickEntryNutrients` for a guess, flags `unsure` by `isUnsure`, turns a
+  food or recipe not in `resolved` into an `unresolved` guess with no nutrients, and sums the
+  totals. `mealDraftToEntries(draft)` is the entries to add, one per item, by kind.
 - `lib/domain/recipes/` — `recipeNutrients(recipe, ingredients)` sums each ingredient's vector
   per 100 g at its grams (filling energy from the macros, as `resolveEntry` does) into the total,
   per serving and per 100 g over the cooked weight or else the ingredients' grams.
   `canNest(parent, child)` is the one-level rule over `NestingFacts`, which the write reads.
   `recipeAsFood` is the recipe as `resolveEntry` takes a food: the vector per 100 g and the
-  portions `1 serving` and `100 g`. Coverage on it is gated at 100%.
+  portions `1 serving` and `100 g`; `recipePortionOf(portions, amount)` is the portion and
+  quantity a number of servings or grams of it resolves through. Coverage on it is gated at 100%.
 - `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
   `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
   per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
