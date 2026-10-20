@@ -46,7 +46,7 @@ export type TrendRange = (typeof trendRanges)[number];
 
 export const pointsInRange = (
   points: readonly TrendPoint[],
-  range: TrendRange,
+  range: { days: number | null },
   today: string,
 ) => {
   if (range.days === null) {

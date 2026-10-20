@@ -392,6 +392,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   requests); `detector.test.ts` fails until a `barcode-detector` upgrade copies the new
   `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm` there. Component tests fake the camera
   and the detector with `fakeCamera` (`test/camera.ts`).
+- `app/(app)/trends/` — `TrendsOverview` (`components/trends/`): range chips (7, 30 or 90 days
+  ending today, 30 by default) over `trends.range`, kept on screen while the next range loads. A
+  summary (the averages of energy and the macros over the logged days, adherence and the weekly
+  rate of the trend weight in the range), then, with a logged day in the range, the Energy chart
+  (daily kcal bars, the goal as a dashed step line, the rolling average) and the Macros chart
+  (protein, carbohydrate and fat stacked, coloured per theme through `ChartConfig`'s `theme`), and
+  the Weight section: `WeightTrendFigure` (`components/body/weight-chart.tsx`) over the range and a
+  link to `/body`. Each chart is hidden from screen readers behind a `figcaption` that sums it up.
 - `app/(app)/foods/` — `UserFoods` (`components/foods/`), the user's foods with a search box,
   each linking to `/foods/[id]`, and *New food* to `/foods/new` (`?barcode=` fills the barcode).
   Both pages render `UserFoodForm` through `NewUserFood` and `EditUserFood`: name, brand,
