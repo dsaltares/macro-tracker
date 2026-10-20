@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import type { Kysely } from 'kysely';
+import { v7 } from 'uuid';
 import type { Auth } from '../auth/auth.ts';
 import { resolveCaller } from '../auth/caller.ts';
 import { getDatabase } from '../db/client.ts';
@@ -29,5 +29,5 @@ export const createContext = async ({
   db,
   caller: await resolveCaller(headers, auth),
   now: () => new Date().toISOString(),
-  nextId: () => randomUUID(),
+  nextId: v7,
 });

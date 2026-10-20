@@ -6,6 +6,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 ## Commands
 
 - `yarn dev` — `yarn db:seed`, then the dev server on 3014 · `yarn build` · `yarn start`
+- `yarn build:import-worker` — bundle the food import's worker thread (`lib/data/import-worker.ts`)
+  into `build/import-worker.mjs` with esbuild, for the image, which names it in `FOOD_IMPORT_WORKER`
 - `yarn bundle:budget [dist-dir]` — after `yarn build`, each route's first-load JS, gzipped (the
   root chunks and every chunk its client reference manifest lists, `scripts/bundle-size.ts`),
   failing when one is over `firstLoadBudgetKb` (`scripts/bundle-budget.ts`). CI runs it after the
@@ -192,9 +194,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   once the row exists, with a `finished` promise; `importFoods` awaits it. The adapters the CLI,
   the endpoint and the schedule can name are in `lib/data/sources/registry.ts` (`chooseSources`);
   naming none means every `full` one.
-- `lib/data/background-import.ts` — `serverFoodImport(db)` starts a run that outlives the request
-  with the server's clock, logger and work directory: the one code path behind the endpoint and the
-  schedule. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
+- `lib/data/background-import.ts` — `serverFoodImport(sources)` starts a run that outlives the
+  request on a worker thread (`import-worker.ts`) with a connection of its own, opened with
+  `bulkWrites`, answering once the run's row exists: the one code path behind the endpoint and the
+  schedule. better-sqlite3 is synchronous, so a run on the main thread would stall every request.
+  Next doesn't bundle a worker's entry: the image runs `build/import-worker.mjs` (named in
+  `FOOD_IMPORT_WORKER`), anywhere else Node runs the source. `importFoodsInBackground` is the same
+  launch in-process, for tests over an in-memory database. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
   for `yarn db:seed` and `e2e/prepare-database.ts`.
 - `lib/data/food-import-schedule.ts` — the in-process schedules (`croner`). `FOOD_IMPORT_CRON` is
   the pattern of the full import, every `full` source; unset means the first Sunday of the month
@@ -208,7 +214,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `Authorization: Bearer <INTERNAL_API_TOKEN>`, and always while that variable is unset. Operator
   plumbing, not part of `/api/v1`. The route in `app/api/internal/` only wires it to the server.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
-  `createDatabase(url)` opens a connection with WAL, foreign keys and a busy timeout;
+  `createDatabase(url, { bulkWrites })` opens a connection with WAL, foreign keys, a busy timeout
+  and a 64 MB WAL size limit; `bulkWrites`, for the importer's connection, adds a 256 MB page
+  cache and `synchronous = NORMAL`. Ids are `v7` from `uuid`: they sort in the order they were made,
+  so inserts append to the indexes on them instead of scattering;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.
   Migrations are an ordered map of static imports in `migrator.ts`, never a directory read —
   `output: 'standalone'` traces modules, not directories. Add a migration, never edit one that has

@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
+import { v7 } from 'uuid';
 import { foodImportWorkDir, importFoods } from '../lib/data/import-foods.ts';
 import { createFixtureSource } from '../lib/data/sources/fixture.ts';
 import { chooseSources, sourceAdapters } from '../lib/data/sources/registry.ts';
@@ -40,7 +40,7 @@ const chosenSources = (): FoodSource[] => {
 
 const run = async () => {
   const sources = chosenSources();
-  const db = createDatabase();
+  const db = createDatabase(databaseUrl(), { bulkWrites: true });
   const controller = new AbortController();
   process.once('SIGINT', () => controller.abort(new Error('Interrupted')));
   try {
@@ -53,7 +53,7 @@ const run = async () => {
       sources,
       clock: {
         now: () => new Date().toISOString(),
-        nextId: () => randomUUID(),
+        nextId: v7,
       },
       logger: getLogger('import-foods'),
       signal: controller.signal,

@@ -6,7 +6,7 @@ const routes = () =>
   foodImportRoutes({
     db: getDatabase(),
     token: process.env.INTERNAL_API_TOKEN,
-    startImport: serverFoodImport(getDatabase()),
+    startImport: serverFoodImport,
   });
 
 export const GET = (request: Request) => routes().GET(request);

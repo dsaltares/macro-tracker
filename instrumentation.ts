@@ -28,7 +28,6 @@ export const register = async () => {
     logger.warn({ interrupted }, 'Failed food imports a restart interrupted');
   }
   const importLogger = getLogger('import-foods');
-  const startImport = serverFoodImport(getDatabase());
   const schedules = [
     {
       name: 'full',
@@ -50,7 +49,7 @@ export const register = async () => {
     scheduleFoodImports({
       pattern,
       logger: scheduleLogger,
-      startImport: () => startImport(sources()),
+      startImport: () => serverFoodImport(sources()),
     });
     scheduleLogger.info({ pattern }, 'Scheduled food imports');
   }
