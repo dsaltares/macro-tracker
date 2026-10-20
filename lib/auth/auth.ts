@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import type { Kysely } from 'kysely';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
@@ -7,7 +8,11 @@ import { resetPasswordEmail } from '../email/templates/reset-password.tsx';
 import { verifyAddressEmail } from '../email/templates/verify-address.tsx';
 import type { SendEmail } from '../email/transport.ts';
 import { authBaseUrl } from './base-url.ts';
-import { maxPasswordLength, minPasswordLength } from './credentials.ts';
+import {
+  maxPasswordLength,
+  minPasswordLength,
+  termsNotAccepted,
+} from './credentials.ts';
 
 const day = 60 * 60 * 24;
 
@@ -20,6 +25,17 @@ const defaultLimitRequests = () =>
   process.env.NODE_ENV === 'production';
 
 const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' };
+
+const emailSignUpPath = '/sign-up/email';
+
+const requireTermsOnSignUp = createAuthMiddleware(async (ctx) => {
+  if (ctx.path === emailSignUpPath && ctx.body?.termsAccepted !== true) {
+    throw new APIError('BAD_REQUEST', {
+      code: termsNotAccepted,
+      message: 'Agreeing to the terms is required to create an account.',
+    });
+  }
+});
 
 export type AuthOptions = {
   db?: Kysely<Database>;
@@ -43,6 +59,25 @@ export const createAuth = ({
     user: {
       modelName: 'users',
       fields: { emailVerified: 'email_verified', ...timestamps },
+      additionalFields: {
+        termsAcceptedAt: {
+          type: 'date',
+          required: false,
+          input: false,
+          fieldName: 'terms_accepted_at',
+        },
+      },
+    },
+    hooks: { before: requireTermsOnSignUp },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user, ctx) =>
+            ctx?.path === emailSignUpPath
+              ? { data: { ...user, termsAcceptedAt: new Date() } }
+              : { data: user },
+        },
+      },
     },
     session: {
       modelName: 'sessions',

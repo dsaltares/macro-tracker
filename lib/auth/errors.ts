@@ -1,3 +1,5 @@
+import { termsNotAccepted, termsRequired } from './credentials.ts';
+
 export const somethingWentWrong =
   'Something went wrong on our side. Try again in a moment.';
 
@@ -20,6 +22,7 @@ const codeMessages: Record<string, string> = {
     'Confirm your email address before signing in. The link is in your inbox.',
   PASSWORD_TOO_SHORT: 'That password is too short.',
   PASSWORD_TOO_LONG: 'That password is too long.',
+  [termsNotAccepted]: termsRequired,
 };
 
 export type AuthError = {

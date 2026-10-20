@@ -35,9 +35,18 @@ const linkIn = ({ text }: EmailMessage) => {
   return found[0];
 };
 
-const signUp = (auth: ReturnType<typeof createAuth>) =>
+const signUp = (
+  auth: ReturnType<typeof createAuth>,
+  consent: { termsAccepted?: boolean } = { termsAccepted: true },
+) =>
   auth.api.signUpEmail({
-    body: { email, password, name: 'eater', callbackURL: '/verify' },
+    body: {
+      email,
+      password,
+      name: 'eater',
+      callbackURL: '/verify',
+      ...consent,
+    },
   });
 
 const signIn = (auth: ReturnType<typeof createAuth>, secret = password) =>
@@ -64,6 +73,38 @@ describe('createAuth', () => {
     expect(linkIn(sent[0] as EmailMessage)).toMatch(
       `${baseUrl}/api/auth/verify-email?token=`,
     );
+  });
+
+  it('records when the terms were agreed to at sign-up', async () => {
+    const { auth } = authWithOutbox();
+    const before = new Date();
+
+    await signUp(auth);
+
+    const { terms_accepted_at } = await database()
+      .selectFrom('users')
+      .select('terms_accepted_at')
+      .where('email', '=', email)
+      .executeTakeFirstOrThrow();
+    expect(new Date(terms_accepted_at ?? 0).getTime()).toBeGreaterThanOrEqual(
+      before.getTime(),
+    );
+  });
+
+  it.each([
+    ['without agreeing to the terms', {}],
+    ['having declined the terms', { termsAccepted: false }],
+  ])('refuses a sign-up %s, and mails nothing', async (_, consent) => {
+    const { auth, sent } = authWithOutbox();
+
+    await expect(signUp(auth, consent)).rejects.toMatchObject({
+      body: { code: 'TERMS_NOT_ACCEPTED' },
+    });
+
+    expect(await database().selectFrom('users').select('id').execute()).toEqual(
+      [],
+    );
+    expect(sent).toEqual([]);
   });
 
   it('refuses to sign in an address that is not confirmed', async () => {

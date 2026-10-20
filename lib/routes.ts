@@ -5,4 +5,7 @@ export const routes = {
   verify: '/verify',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
+  privacy: '/privacy',
+  terms: '/terms',
+  cookies: '/cookies',
 } as const;

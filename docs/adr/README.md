@@ -17,6 +17,7 @@ order).
 | [0005](0005-import-reference-foods-in-the-server-open-food-facts-first.md) | Import reference foods inside the server, Open Food Facts first, through one adapter contract | Accepted | 2026-10-19 |
 | [0006](0006-sessions-only-for-a-confirmed-address.md) | Authenticate with Better Auth over the app's SQLite, and open a session only for a confirmed address | Accepted | 2026-10-19 |
 | [0007](0007-mail-through-resend-behind-a-send-email-seam.md) | Send mail through Resend behind a `sendEmail` seam, and keep it in an outbox for e2e | Accepted | 2026-10-19 |
+| [0009](0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md) | Process the diary as health data on explicit consent, recorded at sign-up | Accepted | 2026-10-20 |
 
 ## How to add one
 

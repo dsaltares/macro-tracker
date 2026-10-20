@@ -86,6 +86,7 @@ export type UsersTable = {
   email: string;
   email_verified: Generated<0 | 1>;
   image: string | null;
+  terms_accepted_at: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
 };

@@ -38,8 +38,17 @@ const mismatch = {
   path: ['confirmPassword'],
 };
 
+export const termsNotAccepted = 'TERMS_NOT_ACCEPTED';
+
+export const termsRequired =
+  'Agree to the terms and acknowledge the privacy policy to create an account.';
+
 export const signUpSchema = z
-  .object({ email, ...chosenPassword })
+  .object({
+    email,
+    ...chosenPassword,
+    termsAccepted: z.boolean().refine((accepted) => accepted, termsRequired),
+  })
   .refine(bothTheSame, mismatch);
 
 export const addressSchema = z.object({ email });
