@@ -10,6 +10,7 @@ export type GoalWarning = EnergyWarning | MacroWarning;
 export type DerivedGoal = {
   bmr: number;
   tdee: number;
+  kcal: number;
   nutrients: NutrientVector;
   warnings: GoalWarning[];
 };
@@ -25,6 +26,7 @@ export const derivedGoal = (
   return {
     bmr: energy.bmr,
     tdee: energy.tdee,
+    kcal: energy.kcal,
     nutrients: { energy_kcal: energy.kcal, ...macros },
     warnings: [...energy.warnings, ...warnings],
   };

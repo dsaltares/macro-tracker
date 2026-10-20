@@ -26,6 +26,7 @@ import {
   liveFoodCountsQuery,
   sourcePreferencesQuery,
 } from './food-source-preferences.ts';
+import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import type { Database } from './schema.ts';
@@ -275,6 +276,10 @@ describe('query plans', () => {
     expectSearch(profileQuery(db, 'u').compile(), 'profiles');
   });
 
+  it("reads a user's goal settings by their key", () => {
+    expectSearch(goalSettingsQuery(db, 'u').compile(), 'goals');
+  });
+
   it('deletes an account and cascades to what it owns without a scan', () => {
     expectNoScan(accountDeletion(db, 'u', 'u@example.test').compile(), [
       'users',
@@ -285,6 +290,7 @@ describe('query plans', () => {
       'diary_entries',
       'favourites',
       'body_measurements',
+      'goals',
     ]);
   });
 

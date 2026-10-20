@@ -38,6 +38,7 @@ const everyMigration = [
   '0010-diary',
   '0011-account-deletion',
   '0012-body-measurements',
+  '0013-goals',
 ];
 
 const everyTable = [
@@ -55,6 +56,7 @@ const everyTable = [
   'foods_fts_data',
   'foods_fts_docsize',
   'foods_fts_idx',
+  'goals',
   'meta',
   'profiles',
   'sessions',
@@ -163,8 +165,12 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0013-goals']);
+    const beforeGoals = everyTable.filter((table) => table !== 'goals');
+    expect(await tableNames(db)).toEqual(beforeGoals);
+
     expect(await migrateDown(db)).toEqual(['0012-body-measurements']);
-    const beforeBody = everyTable.filter(
+    const beforeBody = beforeGoals.filter(
       (table) => table !== 'body_measurements',
     );
     expect(await tableNames(db)).toEqual(beforeBody);
@@ -199,7 +205,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0012-body-measurements']);
+    expect(await migrateToLatest(db)).toEqual(['0013-goals']);
   });
 
   it('reads back what is written to meta', async () => {
