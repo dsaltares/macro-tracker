@@ -19,6 +19,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   rmSync(directory, { recursive: true, force: true });
 });
 
@@ -55,6 +56,27 @@ describe('createOutboxTransport', () => {
     await createOutboxTransport(join(aFile, 'outbox'), next)(message);
 
     expect(next).toHaveBeenCalledWith(message);
+  });
+
+  it('keeps the order of messages sent within the same millisecond', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_760_000_000_000);
+    const send = createOutboxTransport(directory, delivered);
+    const subjects = Array.from({ length: 20 }, (_, n) => `Message ${n}`);
+
+    for (const subject of subjects) {
+      await send({ ...message, subject });
+    }
+
+    expect((await readOutbox(directory)).map(({ subject }) => subject)).toEqual(
+      subjects,
+    );
+  });
+
+  it('never reads a message that is still being written', async () => {
+    await createOutboxTransport(directory, delivered)(message);
+    writeFileSync(join(directory, '1760000000000-half.json.partial'), '{"to":');
+
+    expect(await readOutbox(directory)).toEqual([message]);
   });
 
   it('reads an outbox nobody has written to as empty', async () => {
