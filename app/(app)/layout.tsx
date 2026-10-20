@@ -3,6 +3,8 @@ import { BottomNav } from '@/components/app-shell/bottom-nav';
 import { Sidebar } from '@/components/app-shell/sidebar';
 import { requireProfile } from '@/lib/auth/session';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const { user } = await requireProfile();
   return (

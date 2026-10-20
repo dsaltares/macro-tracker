@@ -7,7 +7,7 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { type ComponentProps, useState } from 'react';
 import {
   type Account,
   AccountAvatar,
@@ -24,6 +24,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { signOut } from '@/lib/auth/client';
 import { routes } from '@/lib/routes';
+
+const ExternalLink = (props: ComponentProps<'a'>) => (
+  <a {...props} target="_blank" rel="noreferrer" />
+);
 
 export function AccountMenu({ account }: { account: Account }) {
   const router = useRouter();
@@ -57,11 +61,7 @@ export function AccountMenu({ account }: { account: Account }) {
           <DropdownMenuItem
             key={href}
             render={
-              external ? (
-                <a href={href} target="_blank" rel="noreferrer" />
-              ) : (
-                <Link href={href} />
-              )
+              external ? <ExternalLink href={href} /> : <Link href={href} />
             }
           >
             <Icon />

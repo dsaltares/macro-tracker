@@ -9,7 +9,8 @@ import { getAuth } from './auth.ts';
 import { authUrl } from './redirect.ts';
 
 export const currentSession = cache(async () => {
-  const session = await getAuth().api.getSession({ headers: await headers() });
+  const requestHeaders = await headers();
+  const session = await getAuth().api.getSession({ headers: requestHeaders });
   return session?.user.emailVerified ? session : null;
 });
 
