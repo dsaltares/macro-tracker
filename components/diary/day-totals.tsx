@@ -123,26 +123,26 @@ function MacroProgress({
   const kind = goalKind(nutrientKey);
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <dt className="text-muted-foreground">{label}</dt>
-        <dd className="tabular-nums">
-          <span className="font-medium">{amountIn(nutrientKey, amount)}</span>
-          {goal === undefined ? null : (
-            <span className="text-muted-foreground">
-              {' '}
-              {goalOf(nutrientKey, goal, kind)}
-            </span>
-          )}
-        </dd>
-      </div>
+    <div className="grid grid-cols-[1fr_auto] items-baseline gap-x-2 gap-y-1 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="tabular-nums">
+        <span className="font-medium">{amountIn(nutrientKey, amount)}</span>
+        {goal === undefined ? null : (
+          <span className="text-muted-foreground">
+            {' '}
+            {goalOf(nutrientKey, goal, kind)}
+          </span>
+        )}
+      </dd>
       {goal === undefined ? null : (
-        <ProgressBar
-          label={label}
-          share={goalShare(amount, goal)}
-          kind={kind}
-          progress={progressOf(amount, goal, kind)}
-        />
+        <dd className="col-span-2">
+          <ProgressBar
+            label={label}
+            share={goalShare(amount, goal)}
+            kind={kind}
+            progress={progressOf(amount, goal, kind)}
+          />
+        </dd>
       )}
     </div>
   );

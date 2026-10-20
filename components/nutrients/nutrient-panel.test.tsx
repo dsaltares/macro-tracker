@@ -51,12 +51,10 @@ const seedSparklingWater = () =>
 
 const group = (name: string) => screen.getByRole('region', { name });
 
-const shown = (groupName: string, label: string) => {
-  const region = group(groupName);
-  const terms = within(region).getAllByRole('term');
-  const index = terms.findIndex((term) => term.textContent === label);
-  return within(region).getAllByRole('definition')[index];
-};
+const shown = (groupName: string, label: string) =>
+  within(group(groupName))
+    .getAllByRole('term')
+    .find((term) => term.textContent === label)?.nextElementSibling;
 
 const meter = (name: string) => screen.queryByRole('meter', { name });
 

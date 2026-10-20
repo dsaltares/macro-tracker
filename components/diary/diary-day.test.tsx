@@ -51,11 +51,10 @@ const meal = (name: string) => screen.getByRole('region', { name });
 
 const totals = () => screen.getByRole('region', { name: 'Day totals' });
 
-const shown = (label: string) => {
-  const terms = within(totals()).getAllByRole('term');
-  const index = terms.findIndex((term) => term.textContent === label);
-  return within(totals()).getAllByRole('definition')[index];
-};
+const shown = (label: string) =>
+  within(totals())
+    .getAllByRole('term')
+    .find((term) => term.textContent === label)?.nextElementSibling;
 
 const entryIn = (mealName: string, label: string) =>
   within(meal(mealName)).getByRole('button', { name: new RegExp(label) });
