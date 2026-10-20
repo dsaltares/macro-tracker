@@ -47,6 +47,7 @@
     "@trpc/client": "11.19.0",
     "@trpc/server": "11.19.0",
     "@trpc/tanstack-react-query": "11.19.0",
+    "barcode-detector": "3.2.2",
     "better-auth": "1.7.5",
     "better-sqlite3": "13.0.3",
     "class-variance-authority": "0.7.1",

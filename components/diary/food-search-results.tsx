@@ -20,7 +20,9 @@ export const noMatches = (query: string) => `No foods match “${query}”.`;
 
 const unknownEnergy = '—';
 
-export const energyPer100g = ({ energyKcal }: FoodSummary) =>
+export const energyPer100g = ({
+  energyKcal,
+}: Pick<FoodSummary, 'energyKcal'>) =>
   `${energyKcal === null ? unknownEnergy : formatAmount(energyKcal, 'kcal')} / 100 g`;
 
 const detailsOf = ({ brand, quantityLabel }: FoodSummary) =>
