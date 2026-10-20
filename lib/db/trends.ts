@@ -9,7 +9,7 @@ import {
   rollingWindowStart,
   trendDays,
 } from '../domain/trends/aggregations.ts';
-import { diarySnapshots } from './diary.ts';
+import { diaryEntries } from './diary.ts';
 import { findGoalsOver } from './goals.ts';
 import type { Database } from './schema.ts';
 
@@ -40,7 +40,7 @@ export const trendRange = async (
 ) => {
   const { from, to } = range;
   const [entries, goals] = await Promise.all([
-    diarySnapshots(db, userId, rollingWindowStart(from), to),
+    diaryEntries(db, userId, { from: rollingWindowStart(from), to }),
     goalVectorsOver(db, userId, range),
   ]);
   const days = trendDays(from, to, entries).map(withGoals(goals));
@@ -54,7 +54,7 @@ export const trendNutrients = async (
 ) => {
   const { from, to } = range;
   const [entries, goals] = await Promise.all([
-    diarySnapshots(db, userId, from, to),
+    diaryEntries(db, userId, range),
     goalVectorsOver(db, userId, range),
   ]);
   const days = dailyTotals(from, to, entries).map(withGoals(goals));

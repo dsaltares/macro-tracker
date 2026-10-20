@@ -91,7 +91,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   seven ending on it (the entries read from `rollingWindowStart(from)`), `adherence` within 10% of
   the kcal goal and `nutrientAverages`, every average over the logged days alone. `goalsOn`
   (`lib/domain/goals/goal.ts`) is the goal on each date of a range from one read of the weights.
-  `lib/db/trends.ts` puts them over `diarySnapshots` (`lib/db/diary.ts`) and `findGoalsOver`
+  `lib/db/trends.ts` puts them over `diaryEntries` (`lib/db/diary.ts`) and `findGoalsOver`
   (`lib/db/goals.ts`); the `trends` router is `range` and `nutrients` (`{ from, to }`, at most
   `maxTrendRangeDays`) over the caller. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
@@ -205,7 +205,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `diary_entries` keeps each entry's snapshot as a JSON object in `nutrients`, and its checks
   enforce the shape of each kind: only a food entry links a food, only a recipe entry a recipe,
   and only a quick entry has no quantity, portion or grams. Deleting a food clears `food_id` and
-  keeps the entry; `recipe_id` has no foreign key until recipes have a table. `diaryDay` reads a
+  keeps the entry; `recipe_id` has no foreign key, since a recipe is archived and only an account
+  deletion, which takes the entries too, deletes one. `diaryDay` reads a
   user's date on `(user_id, date)` and orders it by meal, then logging time. `logFood` reads the
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
@@ -222,6 +223,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   amount coming from SQLite's bare columns beside a lone `max(created_at)`, and hand them to
   `withLastLoggedAmounts` (`food-search.ts`), which reads the summaries search shows and falls back
   to one default portion. Meals and entry kinds are in `lib/domain/diary/entries.ts`.
+- `lib/db/recipes.ts` — recipes and their ingredients. `recipes` is one row per recipe, on
+  `users.id` with a cascade; `recipe_ingredients` keeps each ingredient's `grams`, `portion_label`
+  and `quantity` at a `position`, and links exactly one of `food_id` and `child_recipe_id`, never
+  the recipe itself. Both links cascade, and the one-level nesting rule is the write's, not a
+  constraint. `userRecipesQuery` lists a user's live recipes by name, `recipeQuery` reads one and
+  `recipeIngredientsQuery` its ingredients in order, ownership on each statement.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -244,6 +251,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   overrides are the manual mode's inputs, and are dropped when a derived goal is saved; every
   other override is a micro goal's field, empty for its default. Nutrient names are
   `nutrientNames` (`components/nutrients/`).
+- `lib/export/` — the export, session-authenticated route handlers in `app/api/export/`:
+  `diary.csv` (one row per entry: date, meal, time, label, grams and a column per canonical
+  nutrient) and `weights.csv`, both over an optional inclusive `from` and `to`, and `all.json`
+  (`exportAccount` in `lib/db/export.ts`: profile, goal settings, the caller's own foods, every
+  entry and every measurement). Each answers an attachment with `Cache-Control: no-store`, `401`
+  without a session and `400` on a bad range. The CSV encoding (RFC 4180, CRLF, numbers to four
+  decimals) is `lib/domain/export/csv.ts`; the routes prepend a byte order mark so spreadsheets
+  read UTF-8. `exportSchema` (`lib/domain/export/schema.ts`) is the JSON's contract, versioned by
+  `exportVersion`, for an import to parse. Recipes join it when they have a table.
+  `ExportSettings` (`components/settings/`) is Settings › Export: a date range and the three
+  downloads.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
@@ -296,6 +314,19 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   Resend. With `EMAIL_OUTBOX_DIR` set, every message is also written there as JSON, which is how e2e
   follows mailed links (`e2e/auth.ts`). Templates are React Email in `templates/`, one
   `ActionEmail` layout for every message that is a link to follow.
+- `lib/ai/` — the only module importing the Vercel AI SDK (ADR [0013](docs/adr/0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md)).
+  `createLabelReader({ model })` over any `LanguageModel`; its `readLabel(image)` sends the bytes
+  with `prompts/label.ts` and never throws: the `LabelReading`, or a failure (`unreadable`,
+  `rejected`, `rate-limited`, `unavailable`) with a message, never the SDK's error, whose request
+  holds the photo. The photo is never written or logged. `resolveLanguageModel` (`model.ts`) reads
+  `AI_PROVIDER` (`openai`), `AI_MODEL` and `AI_API_KEY`, `null` without a key;
+  `getLabelReader()` (`server.ts`) is the server's, `null` when label scanning is off. The schema
+  sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
+  answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
+  `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
+  the table as printed, each amount with its unit and a confidence, turned into a user food's
+  fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
+  per 100 g winning over those per serving, the first of a nutrient read twice winning.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,

@@ -76,7 +76,7 @@ export const settingsSections: readonly SettingsSection[] = [
   {
     label: 'Export',
     description: 'Everything you logged, as CSV and JSON',
-    href: null,
+    href: routes.export,
   },
   {
     label: 'Account',

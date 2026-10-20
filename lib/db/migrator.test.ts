@@ -39,6 +39,7 @@ const everyMigration = [
   '0011-account-deletion',
   '0012-body-measurements',
   '0013-goals',
+  '0014-recipes',
 ];
 
 const everyTable = [
@@ -59,6 +60,8 @@ const everyTable = [
   'goals',
   'meta',
   'profiles',
+  'recipe_ingredients',
+  'recipes',
   'sessions',
   'users',
   'verifications',
@@ -67,6 +70,8 @@ const everyTable = [
 const accountTables = ['accounts', 'sessions', 'users', 'verifications'];
 
 const diaryTables = ['diary_entries', 'favourites'];
+
+const recipeTables = ['recipe_ingredients', 'recipes'];
 
 const undo = async (
   db: ReturnType<typeof createDatabase>,
@@ -165,8 +170,14 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0014-recipes']);
+    const beforeRecipes = everyTable.filter(
+      (table) => !recipeTables.includes(table),
+    );
+    expect(await tableNames(db)).toEqual(beforeRecipes);
+
     expect(await migrateDown(db)).toEqual(['0013-goals']);
-    const beforeGoals = everyTable.filter((table) => table !== 'goals');
+    const beforeGoals = beforeRecipes.filter((table) => table !== 'goals');
     expect(await tableNames(db)).toEqual(beforeGoals);
 
     expect(await migrateDown(db)).toEqual(['0012-body-measurements']);
@@ -205,7 +216,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0013-goals']);
+    expect(await migrateToLatest(db)).toEqual(['0014-recipes']);
   });
 
   it('reads back what is written to meta', async () => {

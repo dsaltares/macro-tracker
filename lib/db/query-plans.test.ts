@@ -9,16 +9,17 @@ import {
 } from './body-measurements.ts';
 import {
   diaryDayQuery,
+  diaryEntriesQuery,
   diaryEntryDeletion,
   diaryEntryQuery,
   diaryMealDeletion,
-  diaryRangeQuery,
   favouriteDeletion,
   favouritesQuery,
   frequentFoodsQuery,
   lastLoggedAmountsQuery,
   recentFoodsQuery,
 } from './diary.ts';
+import { ownedFoodsQuery } from './export.ts';
 import { lastSucceededFoodImportQuery } from './food-imports.ts';
 import { userPortionDeletion } from './food-portions.ts';
 import {
@@ -37,6 +38,11 @@ import { userPortionsDeletion } from './foods.ts';
 import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
+import {
+  recipeIngredientsQuery,
+  recipeQuery,
+  userRecipesQuery,
+} from './recipes.ts';
 import type { Database } from './schema.ts';
 import {
   passwordCreation,
@@ -334,6 +340,50 @@ describe('query plans', () => {
       'favourites',
       'body_measurements',
       'goals',
+      'recipes',
+      'recipe_ingredients',
+    ]);
+  });
+
+  it("drops a deleted user's foods from recipes with a search", () => {
+    expectSearch(
+      db.deleteFrom('recipe_ingredients').where('food_id', '=', 'f').compile(),
+      'recipe_ingredients',
+    );
+  });
+
+  it('drops a deleted recipe from the recipes it is in with a search', () => {
+    expectSearch(
+      db
+        .deleteFrom('recipe_ingredients')
+        .where('child_recipe_id', '=', 'r')
+        .compile(),
+      'recipe_ingredients',
+    );
+  });
+
+  it("lists a user's live recipes with a search, in order from the index", () => {
+    expect(planOf(userRecipesQuery(db, 'u').compile())).toEqual([
+      expect.stringMatching(/^SEARCH recipes USING INDEX recipes_user_id_name/),
+    ]);
+  });
+
+  it("reads a user's recipe by id with a search", () => {
+    expectSearch(recipeQuery(db, 'u', 'r').compile(), 'recipes');
+  });
+
+  it("reads a user's recipe's ingredients in order without a scan", () => {
+    const plan = planOf(recipeIngredientsQuery(db, 'u', 'r').compile());
+
+    expect(plan).toContainEqual(
+      expect.stringMatching(
+        /^SEARCH recipe_ingredients USING INDEX recipe_ingredients_recipe_id_position/,
+      ),
+    );
+    expect(plan).not.toContainEqual(expect.stringMatching(/TEMP B-TREE/));
+    expectNoScan(recipeIngredientsQuery(db, 'u', 'r').compile(), [
+      'recipes',
+      'recipe_ingredients',
     ]);
   });
 
@@ -351,11 +401,20 @@ describe('query plans', () => {
     );
   });
 
-  it("reads a user's diary entries over a range of dates with a search", () => {
-    expectSearch(
-      diaryRangeQuery(db, 'u', '2026-10-01', '2026-10-31').compile(),
-      'diary_entries',
-    );
+  it("reads a user's diary entries over a range, or all of them, with a search", () => {
+    for (const range of [{}, { from: '2026-10-01', to: '2026-10-31' }]) {
+      expectSearch(
+        diaryEntriesQuery(db, 'u', range).compile(),
+        'diary_entries',
+      );
+    }
+  });
+
+  it("reads a user's own foods with their nutrients without a scan", () => {
+    expectNoScan(ownedFoodsQuery(db, 'u').compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
   });
 
   it("reads a user's diary entry by id with a search", () => {

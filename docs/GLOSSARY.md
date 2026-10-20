@@ -44,6 +44,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | Google | A way to sign in whose confirmation of the address stands in for the mailed link. Attaches to the user with the same address. | [Accounts](DOMAIN.md#accounts), [ADR 0008](adr/0008-link-google-to-the-account-on-the-same-confirmed-address.md) |
 | importer | The in-server job that upserts what source adapters stream and archives what a run no longer sees. | [Foods](DOMAIN.md#foods) |
 | ingredient | A food or a recipe, with grams, in a recipe's ordered list. | [Recipes](DOMAIN.md#recipes) |
+| label reading | What a vision model transcribed from a photo of a nutrition label: product, serving, the table per 100 g and per serving as printed, a confidence per field and notes. Turned into a user food by the app, never by the model. The photo is not kept. | [Foods](DOMAIN.md#foods), [ADR 0013](adr/0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md) |
 | last logged amount | The portion and quantity of a food's latest food entry, or one default portion when there is none or that portion is gone. What one tap logs again. | [Diary](DOMAIN.md#diary) |
 | logged day | A date with at least one diary entry. Only logged days count in an average or in adherence. | [Trends](DOMAIN.md#trends) |
 | manual goal | A goal with explicit targets instead of derived ones. | [Body and goals](DOMAIN.md#body-and-goals) |

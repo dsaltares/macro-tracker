@@ -41,6 +41,16 @@ const recipients = [
     why: 'Only if you choose to sign in with Google. Its handling of your information is governed by its own privacy policy, not this one. If you sign in with a password, Google is not involved.',
   },
   {
+    key: 'openai',
+    who: (
+      <>
+        <strong>OpenAI</strong> (label reading)
+      </>
+    ),
+    sees: 'The photo of a nutrition label you take or choose to scan, and nothing else about you',
+    why: 'Only when you scan a label, to read the product name, brand and nutrition table from the photo so the food fills itself in. The photo is held in memory on our server while it is read and then discarded: we never store it or write it to a log. OpenAI does not use it to train its models, and may keep it for up to 30 days to detect abuse before deleting it. If you never scan a label, OpenAI sees nothing.',
+  },
+  {
     key: 'cloudflare',
     who: (
       <>
@@ -292,10 +302,9 @@ export default function PrivacyPage() {
               <em>loading a page makes no request to a third party at all</em>.
             </li>
             <li>
-              <strong>No photos.</strong> When label scanning is available, a
-              photo of a nutrition label is read to fill in the food and then
-              discarded; it is never stored. Whoever reads it will be named
-              under <em>Who else sees it</em> before that feature is turned on.
+              <strong>No photos.</strong> A photo of a nutrition label you scan
+              is read by OpenAI to fill in the food and then discarded; we never
+              store it. See <em>Who else sees it</em>.
             </li>
             <li>
               <strong>No camera footage.</strong> The camera is on only while
@@ -452,8 +461,9 @@ export default function PrivacyPage() {
             location outside the European Economic Area. That processing is
             covered by Cloudflare’s data processing terms and the European
             Commission’s Standard Contractual Clauses. If you sign in with
-            Google, or receive an email through Resend, information travels to
-            those providers under their own terms and safeguards.
+            Google, receive an email through Resend, or scan a label, which
+            OpenAI reads in the United States, information travels to those
+            providers under their own terms and safeguards.
           </p>
         </Prose>
       </LegalSection>
@@ -529,9 +539,7 @@ export default function PrivacyPage() {
             Settings, and need nothing from us: export gives you everything you
             logged as CSV and JSON, and deleting your account removes your
             account record, your sign-in credentials, your sessions, your API
-            keys and everything you logged or created, at once. Deletion is
-            there now; until export is, email us and we will send you your data
-            by hand.
+            keys and everything you logged or created, at once.
           </p>
           <p>
             For everything else, email us at <strong>{supportEmail}</strong>{' '}

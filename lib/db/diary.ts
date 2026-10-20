@@ -102,31 +102,37 @@ export const diaryDay = async (
     .map(diaryEntry)
     .toSorted(inDayOrder);
 
-export const diaryRangeQuery = (
-  db: Kysely<Database>,
-  userId: string,
-  from: string,
-  to: string,
-) =>
-  db
-    .selectFrom('diary_entries')
-    .select(['date', 'nutrients'])
-    .where('user_id', '=', userId)
-    .where('date', '>=', from)
-    .where('date', '<=', to);
+export type DiaryRange = {
+  from?: string | undefined;
+  to?: string | undefined;
+};
 
-export const diarySnapshots = async (
+export const diaryEntriesQuery = (
   db: Kysely<Database>,
   userId: string,
-  from: string,
-  to: string,
+  { from, to }: DiaryRange,
+) => {
+  let query = db
+    .selectFrom('diary_entries')
+    .selectAll()
+    .where('user_id', '=', userId);
+  if (from !== undefined) {
+    query = query.where('date', '>=', from);
+  }
+  if (to !== undefined) {
+    query = query.where('date', '<=', to);
+  }
+  return query.orderBy('date');
+};
+
+export const diaryEntries = async (
+  db: Kysely<Database>,
+  userId: string,
+  range: DiaryRange,
 ) =>
-  (await diaryRangeQuery(db, userId, from, to).execute()).map(
-    ({ date, nutrients }) => ({
-      date,
-      nutrients: JSON.parse(nutrients) as NutrientVector,
-    }),
-  );
+  (await diaryEntriesQuery(db, userId, range).execute())
+    .map(diaryEntry)
+    .toSorted((a, b) => a.date.localeCompare(b.date) || inDayOrder(a, b));
 
 export const insertDiaryEntry = async (
   db: Kysely<Database>,

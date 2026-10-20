@@ -185,6 +185,29 @@ export type GoalsTable = {
   updated_at: string;
 };
 
+export type RecipesTable = {
+  id: string;
+  user_id: string;
+  name: string;
+  servings: number;
+  cooked_weight_g: number | null;
+  notes: string | null;
+  archived_at: string | null;
+  created_at: ColumnType<string, string, never>;
+  updated_at: string;
+};
+
+export type RecipeIngredientsTable = {
+  id: string;
+  recipe_id: string;
+  food_id: string | null;
+  child_recipe_id: string | null;
+  grams: number;
+  portion_label: string;
+  quantity: number;
+  position: number;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -202,4 +225,6 @@ export type Database = {
   favourites: FavouritesTable;
   body_measurements: BodyMeasurementsTable;
   goals: GoalsTable;
+  recipes: RecipesTable;
+  recipe_ingredients: RecipeIngredientsTable;
 };
