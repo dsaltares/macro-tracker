@@ -473,6 +473,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   fills the form through `labelReadingToFood`, keeping the barcode. Each field the reading is
   unsure of is highlighted (`TextField`'s `warning`), a nutrient with what the label printed,
   until it is edited, under a notice listing the reading's notes.
+- `app/(app)/foods/recipes/` — recipes, under the Foods tab: `FoodsNav` (`components/foods/`)
+  switches between *Your foods* and *Recipes*. `Recipes` (`components/recipes/`) is
+  `recipe.list`, each linking to `/foods/recipes/[id]`. `NewRecipe` takes the name, servings and
+  optional cooked weight and opens the new recipe's builder, `RecipeBuilder`: the same fields,
+  saved by *Save recipe*, then the ingredients, each saved as it changes. *Add ingredient* opens
+  `IngredientSheet`, a bottom sheet with the Foods tab (`food.search`) and the Recipes tab (the
+  caller's other recipes, filtered by name), then the amount (`IngredientAmountForm`, also behind
+  tapping an ingredient) with a live preview. Each ingredient moves up or down
+  (`recipe.reorder`) or is removed. `RecipeNutrition` is the summary per serving and per 100 g,
+  `recipeNutrients` over the ingredients and the servings and cooked weight as they are typed.
+  The fields are a `<form>` of their own, with the ingredients outside it: React bubbles a submit
+  from the sheet's portal to every form around it.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
