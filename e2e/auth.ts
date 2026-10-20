@@ -69,11 +69,16 @@ export const completeOnboarding = async (page: Page) => {
   await expect(page).not.toHaveURL(/\/onboarding/);
 };
 
-export const signedInAs = (page: Page, email: string) =>
-  expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+export const tab = (page: Page, name: string) =>
+  page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name });
+
+export const signedInAs = async (page: Page, email: string) => {
+  await tab(page, 'Settings').click();
+  await expect(page.getByText(`Signed in as ${email}`)).toBeVisible();
+};
 
 export const signOut = async (page: Page) => {
-  await page.getByRole('button', { name: 'Account' }).click();
-  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL('/sign-in');
 };

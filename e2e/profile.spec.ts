@@ -8,6 +8,7 @@ import {
   signInAs,
   signOut,
   signUp,
+  tab,
 } from './auth.ts';
 
 const confirmed = async (page: Parameters<typeof signUp>[0]) => {
@@ -21,30 +22,29 @@ test('a new account is sent to onboarding until it has a profile', async ({
   page,
 }) => {
   const email = await confirmed(page);
-  await expect(page).toHaveURL('/onboarding?next=%2F');
+  await expect(page).toHaveURL('/onboarding?next=%2Fdiary');
 
   await page.goto('/settings/profile');
   await expect(page).toHaveURL('/onboarding?next=%2Fsettings%2Fprofile');
 
   await signOut(page);
   await signInAs(page, email);
-  await expect(page).toHaveURL('/onboarding?next=%2F');
+  await expect(page).toHaveURL('/onboarding?next=%2Fdiary');
 
   await completeOnboarding(page);
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/diary');
   await signedInAs(page, email);
 
   await page.goto('/onboarding');
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/diary');
 });
 
 test('someone changes their profile from settings', async ({ page }) => {
   await confirmed(page);
   await completeOnboarding(page);
-  await expect(page).toHaveURL('/');
+  await expect(page).toHaveURL('/diary');
 
-  await page.getByRole('button', { name: 'Account' }).click();
-  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await tab(page, 'Settings').click();
   await expect(page).toHaveURL('/settings');
   await page.getByRole('link', { name: /^Profile/ }).click();
   await expect(page).toHaveURL('/settings/profile');
