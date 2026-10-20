@@ -1,6 +1,6 @@
 'use client';
 
-import { IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { IconLogout, IconUser, IconUserCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -43,6 +43,11 @@ export function AccountMenu({ email }: { email: string }) {
         <DropdownMenuGroup>
           <DropdownMenuLabel>{email}</DropdownMenuLabel>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href={routes.profile} />}>
+          <IconUser />
+          Profile
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {accountMenuDocuments.map(({ href, label }) => (
           <DropdownMenuItem key={href} render={<Link href={href} />}>

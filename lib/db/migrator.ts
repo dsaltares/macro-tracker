@@ -9,7 +9,8 @@ import * as foodSourcePreferences from './migrations/0005-food-source-preference
 import * as accounts from './migrations/0006-accounts.ts';
 import * as foodImportHistory from './migrations/0007-food-import-history.ts';
 import * as termsAccepted from './migrations/0008-terms-accepted.ts';
-import * as diary from './migrations/0009-diary.ts';
+import * as profiles from './migrations/0009-profiles.ts';
+import * as diary from './migrations/0010-diary.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -21,7 +22,8 @@ const migrations: Record<string, Migration> = {
   '0006-accounts': accounts,
   '0007-food-import-history': foodImportHistory,
   '0008-terms-accepted': termsAccepted,
-  '0009-diary': diary,
+  '0009-profiles': profiles,
+  '0010-diary': diary,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

@@ -59,6 +59,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   normalisation they share (`source-food.ts`: kJ to kcal, salt to sodium, traces to a flagged
   zero, per serving to per 100 g); barcode validation and UPC-A to EAN-13 (`barcode.ts`). Coverage
   on it is gated at 100%.
+- `lib/domain/profile.ts` — the profile's Zod schema, the activity levels and their multipliers,
+  and `ageOn`. `profileSchemaOn(today)` adds the age bound (16 to 120), which needs a today, so
+  the form passes the local day and `profile.upsert` checks it against the server's.
+  `lib/db/profiles.ts` reads and saves it, one row per user keyed on `user_id`.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -188,7 +192,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   limit is on in production unless `DISABLE_AUTH_RATE_LIMIT=1`. Password rules and every form
   schema are in `credentials.ts`, shared by the forms and the server's limits. `resolveCaller`
   turns a confirmed session into the tRPC caller; `session.ts` reads it in a server component and
-  `requireSession(here)` sends someone signed out to sign in and back. `redirect.ts` keeps `next`
+  `requireSession(here)` sends someone signed out to sign in and back;
+  `requireProfile(here)` also sends an account without a profile to `/onboarding` and back. Every
+  page of the app but onboarding itself calls `requireProfile`. `redirect.ts` keeps `next`
   inside the app and off the auth pages. `client.ts` is the browser client; component tests mock it
   with `test/auth-client.ts` and `next/navigation` with `test/next-navigation.ts`. The pages are in
   `app/(auth)/`, the forms in `components/auth/`. Sign-up requires consent (ADR
@@ -216,7 +222,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the first two.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
-  test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client
+  test, with a ticking clock and sequential ids; `serveApi({ signedInAs: 'user-1' })` creates that
+  user and calls every procedure as them. `api.wrap(<Component />)` renders with the client
   providers; `api.fails('<procedure>')` makes one procedure answer 500.
 - `app/manifest.ts` and `public/icons/` make the app installable. `public/icons/icon.svg` is the
   source; the PNGs are rendered from it.

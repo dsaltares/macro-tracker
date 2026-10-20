@@ -40,14 +40,18 @@ const ApiProviders = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const serveApi = () => {
+export type ServeApiOptions = {
+  signedInAs?: string;
+};
+
+export const serveApi = ({ signedInAs }: ServeApiOptions = {}) => {
   let db: Kysely<Database>;
   let minted = 0;
   let ticks = 0;
 
   const context = (): Context => ({
     db,
-    caller: null,
+    caller: signedInAs === undefined ? null : { userId: signedInAs },
     now: () => new Date(firstTick + ++ticks * tickMs).toISOString(),
     nextId: () => `id-${++minted}`,
   });
@@ -82,6 +86,17 @@ export const serveApi = () => {
   beforeEach(async () => {
     db = createDatabase(inMemory);
     await migrateToLatest(db);
+    if (signedInAs !== undefined) {
+      await db
+        .insertInto('users')
+        .values({
+          id: signedInAs,
+          name: signedInAs,
+          email: `${signedInAs}@example.test`,
+          email_verified: 1,
+        })
+        .execute();
+    }
     minted = 0;
     ticks = 0;
   });
