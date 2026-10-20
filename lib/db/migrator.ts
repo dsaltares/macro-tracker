@@ -13,6 +13,7 @@ import * as profiles from './migrations/0009-profiles.ts';
 import * as diary from './migrations/0010-diary.ts';
 import * as accountDeletion from './migrations/0011-account-deletion.ts';
 import * as bodyMeasurements from './migrations/0012-body-measurements.ts';
+import * as goals from './migrations/0013-goals.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -28,6 +29,7 @@ const migrations: Record<string, Migration> = {
   '0010-diary': diary,
   '0011-account-deletion': accountDeletion,
   '0012-body-measurements': bodyMeasurements,
+  '0013-goals': goals,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

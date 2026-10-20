@@ -6,6 +6,7 @@ import type {
   PortionSource,
   Source,
 } from '../domain/foods/sources.ts';
+import type { GoalMode } from '../domain/goals/settings.ts';
 import type { NutrientKey } from '../domain/nutrition/nutrients.ts';
 import type { ActivityLevel, Sex } from '../domain/profile.ts';
 
@@ -173,6 +174,17 @@ export type BodyMeasurementsTable = {
   created_at: ColumnType<string, string, never>;
 };
 
+export type GoalsTable = {
+  user_id: string;
+  mode: GoalMode;
+  weekly_rate_kg: number;
+  protein_g_per_kg: number;
+  fat_energy_share: number;
+  overrides: string;
+  created_at: ColumnType<string, string, never>;
+  updated_at: string;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -189,4 +201,5 @@ export type Database = {
   diary_entries: DiaryEntriesTable;
   favourites: FavouritesTable;
   body_measurements: BodyMeasurementsTable;
+  goals: GoalsTable;
 };

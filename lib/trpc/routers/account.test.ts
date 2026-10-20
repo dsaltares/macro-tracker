@@ -105,6 +105,13 @@ const giveEverything = async (userId: string) => {
     metric: 'weight_kg',
     value: 72.4,
   });
+  await caller.goals.set({
+    mode: 'derived',
+    weeklyRateKg: -0.5,
+    proteinGPerKg: 1.8,
+    fatEnergyShare: 0.3,
+    overrides: { iron: 18 },
+  });
   await caller.food.addPortion({
     foodId: referenceFoodId,
     label: `${userId}'s spoon`,
@@ -126,6 +133,7 @@ const ownedRows = (userId: string) => {
     diary_entries: sql`user_id = ${userId}`,
     favourites: sql`user_id = ${userId}`,
     body_measurements: sql`user_id = ${userId}`,
+    goals: sql`user_id = ${userId}`,
   };
 };
 

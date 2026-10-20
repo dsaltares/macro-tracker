@@ -33,6 +33,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | food entry | A diary entry for a food: the food, a quantity, a portion and the grams they resolved to. | [Diary](DOMAIN.md#diary) |
 | generic source | `ciqual`, `cofid` or `usda`. A user chooses which of them appear in their search. | [Foods](DOMAIN.md#foods) |
 | goal | Derived or manual; either way it yields a goal vector. Goals warn, never block. | [Body and goals](DOMAIN.md#body-and-goals) |
+| goal settings | An account's goal mode, weekly rate, protein in g per kg, fat share and overrides. One per account, no history. | [Body and goals](DOMAIN.md#body-and-goals) |
 | goal vector | A target per nutrient for a date, computed live from the latest weight on or before it. Never stored. | [Body and goals](DOMAIN.md#body-and-goals), [ADR 0011](adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md) |
 | Google | A way to sign in whose confirmation of the address stands in for the mailed link. Attaches to the user with the same address. | [Accounts](DOMAIN.md#accounts), [ADR 0008](adr/0008-link-google-to-the-account-on-the-same-confirmed-address.md) |
 | importer | The in-server job that upserts what source adapters stream and archives what a run no longer sees. | [Foods](DOMAIN.md#foods) |
@@ -46,6 +47,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
 | onboarding | The step after a new account's first sign-in that asks for the profile. Every other page sends an account without one there. | [Body and goals](DOMAIN.md#body-and-goals) |
 | original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |
+| override | An explicit target for one nutrient that wins over the goal vector's value for it, in either mode. | [Body and goals](DOMAIN.md#body-and-goals) |
 | portion | A named quantity in grams for one food. Every food has `100 g`, `1 g` and `1 ml`. | [Foods](DOMAIN.md#foods) |
 | profile | Sex, date of birth, height in cm and activity level. One per account, asked for at onboarding. | [Body and goals](DOMAIN.md#body-and-goals) |
 | quick entry | A diary entry with a label and a nutrient vector typed directly, no food. | [Diary](DOMAIN.md#diary) |
