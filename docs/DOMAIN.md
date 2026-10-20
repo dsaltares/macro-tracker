@@ -110,8 +110,9 @@ time. It is one of:
 - a **recipe entry** — recipe, number of servings or grams;
 - a **quick entry** — a label and a nutrient vector typed directly.
 
-Every entry **snapshots** the nutrient vector it resolved to. Editing a food, a recipe or
-re-importing reference data changes future entries only.
+Every entry **snapshots** the nutrient vector it resolved to. A snapshot without energy takes the
+kcal of its macros (4 per gram of protein and carbohydrate, 9 of fat, 7 of alcohol). Editing a
+food, a recipe or re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
 

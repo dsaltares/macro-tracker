@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { type NutrientKey, nutrientKeys } from '../nutrition/nutrients.ts';
 import {
   kcal,
-  kcalFromMacros,
   type NutrientVector,
   per100gFrom,
   sodium,
+  withEnergy,
 } from '../nutrition/vector.ts';
 import { isValidBarcode } from './barcode.ts';
 
@@ -124,15 +124,9 @@ export const normaliseNutrients = (
     }
   }
 
-  const nutrients: NutrientVector = Object.fromEntries(
-    [...amounts].map(([key, { amount }]) => [key, amount]),
+  const nutrients = withEnergy(
+    Object.fromEntries([...amounts].map(([key, { amount }]) => [key, amount])),
   );
-  if (nutrients.energy_kcal === undefined) {
-    const fromMacros = kcalFromMacros(nutrients);
-    if (fromMacros !== undefined) {
-      nutrients.energy_kcal = fromMacros;
-    }
-  }
 
   return {
     nutrients:

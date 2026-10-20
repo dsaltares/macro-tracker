@@ -12,6 +12,7 @@ import {
   scale,
   sodium,
   sum,
+  withEnergy,
 } from './vector.ts';
 
 const amount = fc.double({ min: 0, max: 10_000, noNaN: true });
@@ -173,6 +174,27 @@ describe('kcalFromMacros', () => {
 
   it('is zero, not unknown, for macros known to be zero', () => {
     expect(kcalFromMacros({ fat: 0 })).toBe(0);
+  });
+});
+
+describe('withEnergy', () => {
+  it('keeps a declared energy', () => {
+    const declared = { energy_kcal: 50, protein: 10 };
+
+    expect(withEnergy(declared)).toBe(declared);
+  });
+
+  it('fills a missing energy from the macros', () => {
+    expect(withEnergy({ protein: 10, fat: 1, sodium: 40 })).toEqual({
+      protein: 10,
+      fat: 1,
+      sodium: 40,
+      energy_kcal: 49,
+    });
+  });
+
+  it('leaves energy unknown without a macro', () => {
+    expect(withEnergy({ sodium: 40 })).toEqual({ sodium: 40 });
   });
 });
 
