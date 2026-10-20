@@ -66,6 +66,9 @@ export const completeOnboarding = async (page: Page) => {
   await page.getByLabel('Height (cm)').fill('168');
   await page.getByRole('radio', { name: /^Moderate/ }).click();
   await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(page).toHaveURL(/^[^?]*\/onboarding\/goals/);
+  await ready(page, 'Continue');
+  await page.getByRole('button', { name: 'Continue' }).click();
   await expect(page).not.toHaveURL(/\/onboarding/);
 };
 

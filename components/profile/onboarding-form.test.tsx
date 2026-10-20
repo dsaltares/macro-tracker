@@ -46,14 +46,18 @@ beforeEach(() => {
 });
 
 describe('OnboardingForm', () => {
-  it('saves the profile and goes on to where it was headed', async () => {
+  it('saves the profile and goes on to the goals step', async () => {
     atSearchParams('?next=%2Fdiary');
     const { user } = render();
 
     await fill(user, { height: '172.5', activity: /^Very active/ });
     await user.click(continueButton());
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/diary'));
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith(
+        '/onboarding/goals?next=%2Fdiary',
+      ),
+    );
     expect(await findProfile(api.database(), 'user-1')).toEqual({
       sex: 'female',
       birthDate: '1990-06-15',
@@ -62,13 +66,15 @@ describe('OnboardingForm', () => {
     });
   });
 
-  it('goes home without somewhere to go next', async () => {
+  it('goes on to the goals step without somewhere to go next', async () => {
     const { user } = render();
 
     await fill(user);
     await user.click(continueButton());
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/'));
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith('/onboarding/goals'),
+    );
   });
 
   it('asks for every answer it is missing', async () => {

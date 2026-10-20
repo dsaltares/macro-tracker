@@ -12,6 +12,10 @@ describe('SettingsList', () => {
       'href',
       '/settings/profile',
     );
+    expect(screen.getByRole('link', { name: /^Goals/ })).toHaveAttribute(
+      'href',
+      '/settings/goals',
+    );
     expect(screen.getByRole('link', { name: /^Food sources/ })).toHaveAttribute(
       'href',
       '/settings/food-sources',
@@ -20,8 +24,7 @@ describe('SettingsList', () => {
       'href',
       '/settings/account',
     );
-    expect(screen.getAllByRole('link')).toHaveLength(3);
-    expect(screen.getAllByText('Coming soon')).toHaveLength(3);
-    expect(screen.getByText('Goals')).toBeInTheDocument();
+    expect(screen.getAllByRole('link')).toHaveLength(4);
+    expect(screen.getAllByText('Coming soon')).toHaveLength(2);
   });
 });

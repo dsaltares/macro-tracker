@@ -214,7 +214,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
   object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
   profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
-  The `goals` router (`get`, `set`, `forDate`) is these over the caller.
+  The `goals` router (`get`, `set`, `forDate`) is these over the caller. `GoalSettingsForm`
+  (`components/goals/`) edits them on `/settings/goals` and at `/onboarding/goals`, the step after
+  the profile. It previews the goal with `goalOn` as the settings change, from the profile and
+  `body.latest`, and asks for a weight inline when a derived goal has none. The energy and macro
+  overrides are the manual mode's inputs, and are dropped when a derived goal is saved; every
+  other override is a micro goal's field, empty for its default. Nutrient names are
+  `nutrientNames` (`components/nutrients/`).
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes

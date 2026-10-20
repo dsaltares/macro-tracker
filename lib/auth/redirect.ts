@@ -16,6 +16,7 @@ const authPaths: readonly string[] = [
   routes.forgotPassword,
   routes.resetPassword,
   routes.onboarding,
+  routes.onboardingGoals,
 ];
 
 const isAuthPath = (path: string) =>

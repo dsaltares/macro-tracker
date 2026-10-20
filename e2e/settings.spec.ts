@@ -8,12 +8,12 @@ test('the dev user finds every section in settings and their food sources', asyn
 
   await tab(page, 'Settings').click();
   await expect(page).toHaveURL('/settings');
-  for (const section of ['Profile', 'Food sources', 'Account']) {
+  for (const section of ['Profile', 'Goals', 'Food sources', 'Account']) {
     await expect(
       page.getByRole('link', { name: new RegExp(`^${section}`) }),
     ).toBeVisible();
   }
-  for (const section of ['Goals', 'API keys', 'Export']) {
+  for (const section of ['API keys', 'Export']) {
     await expect(page.getByText(section, { exact: true })).toBeVisible();
   }
 

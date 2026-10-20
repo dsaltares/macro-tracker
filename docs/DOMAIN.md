@@ -134,7 +134,8 @@ A **profile** is sex (female or male, what the energy and reference value equati
 of birth, height in cm and an **activity level** (sedentary, light, moderate, active, very active,
 with the usual 1.2 to 1.9 multipliers). An account is between 16 and 120 years old by its date of
 birth. A new account goes through **onboarding**, which asks for the profile, before anything
-else, and is sent back to it until a profile exists; after that the profile is edited in settings.
+else, and is sent back to it until a profile exists; then it offers the goal settings with their
+defaults chosen, to keep or change. After that both are edited in settings.
 
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
 The **trend weight** is an exponential moving average over the log: it starts at the first weight

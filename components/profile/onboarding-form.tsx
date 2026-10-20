@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProfileForm } from '@/components/profile/profile-form';
-import { afterAuthPath, nextParam } from '@/lib/auth/redirect';
+import { authUrl, nextParam } from '@/lib/auth/redirect';
+import { routes } from '@/lib/routes';
 
 export function OnboardingForm() {
   const router = useRouter();
@@ -13,10 +14,7 @@ export function OnboardingForm() {
       profile={null}
       submit="Continue"
       working="Saving…"
-      onSaved={() => {
-        router.replace(afterAuthPath(next));
-        router.refresh();
-      }}
+      onSaved={() => router.replace(authUrl(routes.onboardingGoals, next))}
     />
   );
 }

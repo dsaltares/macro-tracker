@@ -45,7 +45,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | nutrient | One key in the closed canon in `lib/domain/nutrition/nutrients.ts`, with a unit, a group and a display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient group | Energy, macros, fat detail, carbohydrate detail, minerals, vitamins, other — in that display order. | [Nutrients](DOMAIN.md#nutrients) |
 | nutrient vector | A partial record from nutrient key to amount: per 100 g on a food, for its grams on an entry. Absent means unknown, not zero. | [Nutrients](DOMAIN.md#nutrients) |
-| onboarding | The step after a new account's first sign-in that asks for the profile. Every other page sends an account without one there. | [Body and goals](DOMAIN.md#body-and-goals) |
+| onboarding | The steps after a new account's first sign-in: the profile, then the goal settings with their defaults chosen. Every other page sends an account without a profile there. | [Body and goals](DOMAIN.md#body-and-goals) |
 | original name | A generic food's name in its source's own language (CIQUAL's French). Searched, never shown. | [Foods](DOMAIN.md#foods) |
 | override | An explicit target for one nutrient that wins over the goal vector's value for it, in either mode. | [Body and goals](DOMAIN.md#body-and-goals) |
 | portion | A named quantity in grams for one food. Every food has `100 g`, `1 g` and `1 ml`. | [Foods](DOMAIN.md#foods) |
