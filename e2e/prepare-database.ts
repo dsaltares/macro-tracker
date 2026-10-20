@@ -5,16 +5,19 @@ import { seedFoods } from '../lib/data/seed-foods.ts';
 import { createDatabase } from '../lib/db/client.ts';
 import { migrateToLatest } from '../lib/db/migrator.ts';
 import { getLogger } from '../lib/logger.ts';
-import { e2eDatabaseUrl } from '../playwright.config.ts';
+import { e2eDatabaseUrl, e2eOutboxDir } from '../playwright.config.ts';
 
 const sqliteSidecars = ['', '-wal', '-shm'];
 
-export default async function globalSetup() {
-  await Promise.all(
-    sqliteSidecars.map((suffix) =>
+// Playwright starts the web server before globalSetup, so a reset there deletes the database
+// the server already holds open. The server command runs this first instead.
+const prepareDatabase = async () => {
+  await Promise.all([
+    ...sqliteSidecars.map((suffix) =>
       rm(`${e2eDatabaseUrl}${suffix}`, { force: true }),
     ),
-  );
+    rm(e2eOutboxDir, { recursive: true, force: true }),
+  ]);
   const db = createDatabase(e2eDatabaseUrl);
   try {
     await migrateToLatest(db);
@@ -40,4 +43,6 @@ export default async function globalSetup() {
   } finally {
     await db.destroy();
   }
-}
+};
+
+await prepareDatabase();

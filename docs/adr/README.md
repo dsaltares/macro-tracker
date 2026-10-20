@@ -15,6 +15,8 @@ order).
 | [0003](0003-diary-entries-snapshot-their-nutrients.md) | Snapshot a diary entry's nutrient vector when it is logged | Accepted | 2026-10-19 |
 | [0004](0004-one-canonical-nutrient-vector-per-100-g-in-wide-columns.md) | Store one canonical nutrient vector per 100 g, in wide columns, with sodium canonical | Accepted | 2026-10-19 |
 | [0005](0005-import-reference-foods-in-the-server-open-food-facts-first.md) | Import reference foods inside the server, Open Food Facts first, through one adapter contract | Accepted | 2026-10-19 |
+| [0006](0006-sessions-only-for-a-confirmed-address.md) | Authenticate with Better Auth over the app's SQLite, and open a session only for a confirmed address | Accepted | 2026-10-19 |
+| [0007](0007-mail-through-resend-behind-a-send-email-seam.md) | Send mail through Resend behind a `sendEmail` seam, and keep it in an outbox for e2e | Accepted | 2026-10-19 |
 
 ## How to add one
 
