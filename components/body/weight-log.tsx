@@ -5,8 +5,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormError } from '@/components/auth/fields';
 import { WeightForm } from '@/components/body/weight-form';
 import { Button } from '@/components/ui/button';
+import { useToday } from '@/components/use-today';
 import { formatWeight } from '@/lib/domain/body';
-import { formatDay, localDateOf } from '@/lib/domain/dates';
+import { formatDay } from '@/lib/domain/dates';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'Your weights could not be loaded.';
@@ -16,7 +17,7 @@ export const removeFailed = 'That weight could not be removed. Try again.';
 export function WeightLog() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const today = localDateOf(new Date());
+  const today = useToday();
   const weights = useQuery(
     trpc.body.list.queryOptions({ metric: 'weight_kg' }),
   );
@@ -67,7 +68,7 @@ export function WeightLog() {
 
   return (
     <div className="flex flex-col gap-6">
-      <WeightForm today={today} pickDate />
+      {today === null ? null : <WeightForm today={today} pickDate />}
       <section className="flex flex-col gap-3" aria-label="Weight log">
         {remove.isError ? <FormError>{removeFailed}</FormError> : null}
         {log()}

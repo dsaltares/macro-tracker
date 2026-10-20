@@ -35,7 +35,8 @@ const savedWeights = async () =>
     await listMeasurements(api.database(), 'user-1', { metric: 'weight_kg' })
   ).map(({ date, value }) => [date, value]);
 
-const render = () => renderUi(<LogWeightCard />, { wrap: api.wrap });
+const render = () =>
+  renderUi(<LogWeightCard today={today} />, { wrap: api.wrap });
 
 const card = () => screen.findByRole('region', { name: 'Log weight' });
 
@@ -76,7 +77,7 @@ describe('LogWeightCard', () => {
     await logWeight('user-1', addDays(today, -1), 72.8);
     renderUi(
       <>
-        <LogWeightCard />
+        <LogWeightCard today={today} />
         <WeightLog />
       </>,
       { wrap: api.wrap },

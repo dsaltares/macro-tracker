@@ -4,13 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useId } from 'react';
 import { WeightForm } from '@/components/body/weight-form';
 import { formatWeight } from '@/lib/domain/body';
-import { formatDay, localDateOf } from '@/lib/domain/dates';
+import { formatDay } from '@/lib/domain/dates';
 import { useTRPC } from '@/lib/trpc/client';
 
-export function LogWeightCard() {
+export function LogWeightCard({ today }: { today: string }) {
   const trpc = useTRPC();
   const headingId = useId();
-  const today = localDateOf(new Date());
   const latest = useQuery(
     trpc.body.latest.queryOptions({ metric: 'weight_kg', onOrBefore: today }),
   );
