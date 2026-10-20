@@ -1,12 +1,22 @@
 import { createLabelReader, type LabelReader } from './label-reader.ts';
+import { createMealEstimator, type MealEstimator } from './meal-estimator.ts';
 import { resolveLanguageModel } from './model.ts';
 
-let instance: LabelReader | null | undefined;
+let labelReader: LabelReader | null | undefined;
+let mealEstimator: MealEstimator | null | undefined;
 
 export const getLabelReader = (): LabelReader | null => {
-  if (instance === undefined) {
+  if (labelReader === undefined) {
     const model = resolveLanguageModel();
-    instance = model === null ? null : createLabelReader({ model });
+    labelReader = model === null ? null : createLabelReader({ model });
   }
-  return instance;
+  return labelReader;
+};
+
+export const getMealEstimator = (): MealEstimator | null => {
+  if (mealEstimator === undefined) {
+    const model = resolveLanguageModel();
+    mealEstimator = model === null ? null : createMealEstimator({ model });
+  }
+  return mealEstimator;
 };
