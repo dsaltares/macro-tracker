@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Page } from '@playwright/test';
+import { devUser } from '../lib/auth/dev-user.ts';
 import { readOutbox } from '../lib/email/outbox.ts';
 import { e2eOutboxDir } from '../playwright.config.ts';
 
@@ -49,6 +50,12 @@ export const signInAs = async (
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill(secret);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+};
+
+export const signInAsDevUser = async (page: Page) => {
+  await page.goto('/sign-in');
+  await signInAs(page, devUser.email, devUser.password);
+  await signedInAs(page, devUser.email);
 };
 
 export const completeOnboarding = async (page: Page) => {

@@ -1,6 +1,7 @@
 import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { accountDeletion } from './accounts.ts';
 import {
   diaryDayQuery,
   diaryEntryDeletion,
@@ -261,6 +262,25 @@ describe('query plans', () => {
 
   it("reads a user's profile by its key", () => {
     expectSearch(profileQuery(db, 'u').compile(), 'profiles');
+  });
+
+  it('deletes an account and cascades to what it owns without a scan', () => {
+    expectNoScan(accountDeletion(db, 'u', 'u@example.test').compile(), [
+      'users',
+      'sessions',
+      'accounts',
+      'profiles',
+      'food_source_preferences',
+      'diary_entries',
+      'favourites',
+    ]);
+  });
+
+  it("finds a deleted user's portions with a search", () => {
+    expectSearch(
+      db.deleteFrom('food_portions').where('user_id', '=', 'u').compile(),
+      'food_portions',
+    );
   });
 
   it("reads a user's day of diary entries with a search", () => {

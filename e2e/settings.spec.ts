@@ -1,0 +1,30 @@
+import { expect, test } from '@playwright/test';
+import { signInAsDevUser } from './auth.ts';
+
+test('the dev user finds every section in settings and their food sources', async ({
+  page,
+}) => {
+  await signInAsDevUser(page);
+
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
+  await expect(page).toHaveURL('/settings');
+  for (const section of ['Profile', 'Food sources', 'Account']) {
+    await expect(
+      page.getByRole('link', { name: new RegExp(`^${section}`) }),
+    ).toBeVisible();
+  }
+  for (const section of ['Goals', 'API keys', 'Export']) {
+    await expect(page.getByText(section, { exact: true })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: /^Food sources/ }).click();
+  await expect(page).toHaveURL('/settings/food-sources');
+  await expect(
+    page.getByRole('switch', { name: 'Open Food Facts' }),
+  ).toBeChecked();
+  await expect(page.getByRole('switch', { name: 'CIQUAL' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL('/settings');
+});

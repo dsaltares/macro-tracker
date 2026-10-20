@@ -5,7 +5,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 
 ## Commands
 
-- `yarn dev` — `yarn db:seed:foods`, then the dev server on 3014 · `yarn build` · `yarn start`
+- `yarn dev` — `yarn db:seed`, then the dev server on 3014 · `yarn build` · `yarn start`
 - `yarn typecheck` · `yarn lint` · `yarn format`
 - `yarn test` — the `unit` project under coverage, then the `ui` project · `yarn test:watch` runs
   both. `vitest run --project ui <path>` narrows to one file.
@@ -19,8 +19,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `DATABASE_URL` after migrating it: the named source adapters, every registered one when none is
   named, or the fixture alone. Refused while another import is running. `off-deltas` is only ever
   run by name
-- `yarn db:seed:foods` — migrate `DATABASE_URL` and import the fixture into it when it has no
-  reference foods, so a fresh clone has something to search. Does nothing otherwise
+- `yarn db:seed` — migrate `DATABASE_URL`, create the dev user (`dev@example.test`, password
+  `macro-tracker-dev`, confirmed, with a profile) when it is not there, and import the fixture when
+  there are no reference foods, so a fresh clone can sign in and search. Refuses under
+  `NODE_ENV=production`
 - `yarn db:backup` — copy the database with SQLite's online backup into `backups/` beside it
   (`BACKUP_DIR` overrides), keeping the last ten
 - `yarn data:sample` — rebuild `test/fixtures/off/sample.csv`, the trimmed Open Food Facts export
@@ -134,7 +136,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/data/background-import.ts` — `serverFoodImport(db)` starts a run that outlives the request
   with the server's clock, logger and work directory: the one code path behind the endpoint and the
   schedule. `lib/data/seed-foods.ts` imports the fixture into a database with no reference foods,
-  for `yarn db:seed:foods` and `e2e/prepare-database.ts`.
+  for `yarn db:seed` and `e2e/prepare-database.ts`.
 - `lib/data/food-import-schedule.ts` — the in-process schedules (`croner`). `FOOD_IMPORT_CRON` is
   the pattern of the full import, every `full` source; unset means the first Sunday of the month
   at 03:00 server time. `FOOD_DELTA_CRON` is the pattern of the delta import, every `delta`
@@ -208,6 +210,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   [0009](docs/adr/0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md)): a body
   without `termsAccepted: true` is refused with `TERMS_NOT_ACCEPTED`, and the user is created with
   `terms_accepted_at`. `client.ts` declares `termsAccepted`, so `signUp.email` needs it to compile.
+  `seed-dev-user.ts` writes the dev user of `dev-user.ts` through `lib/db/users.ts`, hashing with
+  `better-auth/crypto`: it runs under plain Node, which cannot load `auth.ts`'s `.tsx` templates.
+- Account deletion (ADR [0010](docs/adr/0010-delete-an-account-in-one-statement-that-cascades-through-the-schema.md)):
+  `account.delete` (`lib/trpc/routers/account.ts`) takes the typed address and runs
+  `deleteAccount` (`lib/db/accounts.ts`), one `delete from users` on the caller's id and that
+  address. Everything else goes by `on delete cascade` on `users.id`, and the caller's own foods
+  and portions by the `users_delete_owned_foods` trigger. A new table of user data references
+  `users.id` with a cascade; `account.test.ts` checks nothing a user owns survives.
 - `lib/email/` — `sendEmail` (ADR [0007](docs/adr/0007-mail-through-resend-behind-a-send-email-seam.md))
   takes a rendered `EmailMessage` and never throws: Resend with `RESEND_API_KEY` and `EMAIL_FROM`,
   otherwise a pino log of the message, link included. A reserved test address is never handed to
@@ -220,6 +230,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   mounted in `root.ts`. Components call them through `useTRPC()` and TanStack Query;
   `TRPCReactProvider` sits in the root layout. `accountProcedure` answers `UNAUTHORIZED` without a
   caller and hands the procedure a non-null one.
+- `app/settings/` — `/settings` lists `settingsSections` (`lib/navigation.ts`), each a live page
+  or *Coming soon* until its milestone fills it; every section page renders in `SettingsPage`
+  (`components/settings/`), which links back. Food sources edits the source preferences through
+  `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
@@ -281,7 +295,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
     `mobile-chrome` (Pixel 7) projects. E2e has its own database, `.data/e2e.sqlite`, named once
     in `playwright.config.ts`; `e2e/prepare-database.ts` recreates, migrates and seeds it, and empties
     the mail outbox, in the web server command before the server starts — not in `globalSetup`,
-    which Playwright runs after the server has the old file open.
+    which Playwright runs after the server has the old file open. It seeds the dev user too, whom
+    `signInAsDevUser` (`e2e/auth.ts`) signs in as; a spec that changes an account makes a fresh
+    one, since every worker shares the dev user.
 - Mobile-first: the app is used one-handed, standing in a kitchen or at a supermarket shelf.
   Metric units and kcal, English only.
 - Biome formats and lints; single quotes, 2-space indent. A husky pre-commit hook fixes

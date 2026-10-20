@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { legalDocuments } from './navigation.ts';
+import { legalDocuments, settingsSections } from './navigation.ts';
 
 describe('legalDocuments', () => {
   it('lists the privacy policy, the terms and the cookie policy, in that order', () => {
@@ -7,6 +7,19 @@ describe('legalDocuments', () => {
       { href: '/privacy', label: 'Privacy policy' },
       { href: '/terms', label: 'Terms and conditions' },
       { href: '/cookies', label: 'Cookie policy' },
+    ]);
+  });
+});
+
+describe('settingsSections', () => {
+  it('lists every section in order, with Profile, Food sources and Account live', () => {
+    expect(settingsSections.map(({ label, href }) => [label, href])).toEqual([
+      ['Profile', '/settings/profile'],
+      ['Goals', null],
+      ['Food sources', '/settings/food-sources'],
+      ['API keys', null],
+      ['Export', null],
+      ['Account', '/settings/account'],
     ]);
   });
 });

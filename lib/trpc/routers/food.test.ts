@@ -26,6 +26,16 @@ beforeEach(async () => {
     now: () => new Date(Date.UTC(2026, 9, 19, 12, 0, seconds++)).toISOString(),
   };
   workDir = await mkdtemp(join(tmpdir(), 'macro-tracker-food-router-'));
+  await database()
+    .insertInto('users')
+    .values(
+      ['user-1', 'user-2'].map((id) => ({
+        id,
+        name: id,
+        email: `${id}@example.test`,
+      })),
+    )
+    .execute();
   await importFoods({
     db: database(),
     sources: [createFixtureSource()],
