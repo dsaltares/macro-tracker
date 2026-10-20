@@ -169,6 +169,33 @@ export const searchQuery = (
     .offset(offset);
 };
 
+export const userFoodsQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  match: string | null,
+  offset: number,
+) => {
+  const own = db
+    .selectFrom('foods')
+    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
+    .select(summaryColumns)
+    .where('foods.owner_user_id', '=', userId)
+    .where('foods.archived_at', 'is', null);
+  const ordered =
+    match === null
+      ? own.orderBy(sql`foods.name collate nocase`)
+      : own
+          .innerJoin('foods_fts', 'foods_fts.rowid', 'foods.rowid')
+          .where(sql<boolean>`foods_fts match ${match}`)
+          .orderBy(
+            sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`,
+          );
+  return ordered
+    .orderBy('foods.rowid')
+    .limit(searchPageSize + 1)
+    .offset(offset);
+};
+
 const labelAndGrams = ({ label, grams }: Portion): Portion => ({
   label,
   grams,
@@ -242,6 +269,22 @@ export const withLastLoggedAmounts = async (
   });
 };
 
+const searchPage = async (
+  reader: FoodReader,
+  rows: readonly SummaryRow[],
+  cursor: number,
+): Promise<FoodSearchPage> => {
+  const page = rows.slice(0, searchPageSize);
+  const portions = await portionsByFood(
+    reader,
+    page.map(({ id }) => id),
+  );
+  return {
+    foods: page.map((row) => summaryOf(row, portions.get(row.id) ?? [])),
+    nextCursor: rows.length > searchPageSize ? cursor + searchPageSize : null,
+  };
+};
+
 export const searchFoods = async (
   reader: FoodReader,
   { query, cursor }: { query: string; cursor: number },
@@ -256,15 +299,21 @@ export const searchFoods = async (
     match,
     cursor,
   ).execute();
-  const page = rows.slice(0, searchPageSize);
-  const portions = await portionsByFood(
-    reader,
-    page.map(({ id }) => id),
-  );
-  return {
-    foods: page.map((row) => summaryOf(row, portions.get(row.id) ?? [])),
-    nextCursor: rows.length > searchPageSize ? cursor + searchPageSize : null,
-  };
+  return searchPage(reader, rows, cursor);
+};
+
+export const listUserFoods = async (
+  db: Kysely<Database>,
+  userId: string,
+  { query, cursor }: { query: string; cursor: number },
+): Promise<FoodSearchPage> => {
+  const rows = await userFoodsQuery(
+    db,
+    userId,
+    matchExpression(query),
+    cursor,
+  ).execute();
+  return searchPage({ db, userId }, rows, cursor);
 };
 
 const foodColumns = [
@@ -303,11 +352,11 @@ export const foodByBarcodeQuery = (
             eb('foods.owner_user_id', 'is', null),
             eb('foods.archived_at', 'is', null),
           ])
-        : or([
-            eb('foods.owner_user_id', '=', userId),
-            and([
+        : and([
+            eb('foods.archived_at', 'is', null),
+            or([
               eb('foods.owner_user_id', 'is', null),
-              eb('foods.archived_at', 'is', null),
+              eb('foods.owner_user_id', '=', userId),
             ]),
           ]),
     )

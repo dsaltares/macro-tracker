@@ -183,6 +183,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
   subquery on the same statement.
+  `food.mine` (`listUserFoods`) is the caller's live foods by name, or matching a query, paged
+  the same way. `user-foods.ts` creates, updates and archives a user food over
+  `userFoodSchema` (`lib/domain/foods/user-food.ts`): per 100 g, each amount at most what 100 g
+  holds in its unit, a barcode normalised and no other live food of the owner's with it, and the
+  portions, which an update replaces. `food.create`, `food.update` and `food.archive` are these
+  over the caller; an update or archive of anything but the caller's live food is `NOT_FOUND`.
   `food-portions.ts` adds and removes a user's portions: an add reads the food through the same
   visibility as `food.get` and refuses a label the food already shows that user; a remove deletes
   only on `source = 'user'` and the caller's `user_id`. `food.get` returns stored portions with
@@ -347,6 +353,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   requests); `detector.test.ts` fails until a `barcode-detector` upgrade copies the new
   `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm` there. Component tests fake the camera
   and the detector with `fakeCamera` (`test/camera.ts`).
+- `app/(app)/foods/` — `UserFoods` (`components/foods/`), the user's foods with a search box,
+  each linking to `/foods/[id]`, and *New food* to `/foods/new` (`?barcode=` fills the barcode).
+  Both pages render `UserFoodForm` through `NewUserFood` and `EditUserFood`: name, brand,
+  barcode, pack size, the EU label with salt, the rest of the canon behind *All nutrients*
+  (`nutrientNames`), and the portions. Amounts typed per serving are scaled to 100 g and rounded
+  to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
+  it did not touch. Editing also archives, once confirmed.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
