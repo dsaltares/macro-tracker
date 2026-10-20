@@ -72,6 +72,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
   the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
   `lib/domain/diary/` is gated at 100%.
+- `lib/domain/goals/` — derived goals (ADR [0011](docs/adr/0011-derive-goals-live-from-the-profile-and-the-latest-weight.md)).
+  `energy.ts` is Mifflin-St Jeor `bmr` with the age on the date, `tdee`, `kcalTarget` at 7,700 kcal
+  per kg and `energyWarnings`; `macros.ts` is `macroGoal`: protein by body weight, fat by share of
+  energy, carbohydrate as the remainder floored at zero, fibre at 14 g per 1,000 kcal.
+  `derivedGoal` (`derived.ts`) puts them together into a goal vector with its warnings, codes the
+  UI words. Coverage on it is gated at 100%.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
