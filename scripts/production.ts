@@ -75,6 +75,14 @@ export const connectToProduction = (): Production => {
     '-o',
     'ControlPersist=60',
   ];
+  // The master connection is the one that logs in, so it is opened on the terminal alone: opened
+  // by a call whose output is captured, it never shows the Access login or the password prompt.
+  try {
+    execFileSync('ssh', [...multiplex, host, 'true'], { stdio: 'inherit' });
+  } catch (error) {
+    rmSync(work, { recursive: true, force: true });
+    throw error;
+  }
   return {
     host,
     service,
