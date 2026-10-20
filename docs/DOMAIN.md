@@ -223,6 +223,12 @@ a date with no logged day in its seven has none.
 way. A logged day without a goal (a derived goal before the first weight) is not counted, and a
 range without one such day has no adherence.
 
+A nutrient's **days with data** are the logged days whose totals declare it; with none it has no
+data over the range. The **nutrient report** is the nutrient panel over the last 7, 30 or 90 days
+or the last year: each nutrient's average against the average goal, its percentage and its days
+with data, by group or by percentage. By percentage, the targets least reached come first, then
+the upper limits most used, then the nutrients with no percentage, so deficiencies float up.
+
 ## Recipes
 
 A **recipe** has a name, a number of **servings**, an optional **cooked weight** in grams and

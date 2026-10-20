@@ -1,5 +1,6 @@
 import { addDays, daysBetween } from '../dates.ts';
 import { dayTotals } from '../diary/entries.ts';
+import type { NutrientKey } from '../nutrition/nutrients.ts';
 import { type NutrientVector, scale, sum } from '../nutrition/vector.ts';
 
 export const rollingAverageDays = 7;
@@ -83,11 +84,22 @@ export const adherence = (days: readonly GoalDay[]) => {
     : judged.filter(Boolean).length / judged.length;
 };
 
+export const daysWithData = (days: readonly DailyTotal[]) => {
+  const counts: Partial<Record<NutrientKey, number>> = {};
+  for (const { totals } of loggedOnly(days)) {
+    for (const key of Object.keys(totals) as NutrientKey[]) {
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  return counts;
+};
+
 export const nutrientAverages = (days: readonly GoalDay[]) => {
   const logged = loggedOnly(days);
   return {
     days: days.length,
     loggedDays: logged.length,
+    daysWithData: daysWithData(logged),
     average: loggedAverage(logged),
     goal: averageOf(logged.flatMap(({ goal }) => (goal ? [goal] : []))),
   };

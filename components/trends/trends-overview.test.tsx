@@ -94,6 +94,9 @@ describe('TrendsOverview', () => {
     expect(shown('Average carbohydrate')).toBe('250 g');
     expect(shown('Average fat')).toBe('80 g');
     expect(shown('Adherence')).toBe('50%');
+    expect(
+      within(section('Summary')).getByRole('link', { name: 'Nutrient report' }),
+    ).toHaveAttribute('href', routes.nutrientReport);
   });
 
   it('summarises the energy and macro charts for screen readers', async () => {

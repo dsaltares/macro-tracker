@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { nutrientKeys } from '../nutrition/nutrients.ts';
-import { goalShare, nutrientProgress, progressOf } from './progress.ts';
+import {
+  byShare,
+  goalShare,
+  nutrientProgress,
+  progressOf,
+} from './progress.ts';
 
 describe('progressOf', () => {
   it('is under a target below 90% of it, near up to 110% and over beyond', () => {
@@ -75,5 +80,40 @@ describe('nutrientProgress', () => {
       amount: undefined,
       goal: undefined,
     });
+  });
+});
+
+describe('byShare', () => {
+  it('puts the targets least reached first, then the limits most used, then what has no share', () => {
+    const rows = nutrientProgress(
+      { protein: 90, fibre: 10, vitamin_c: 95, sodium: 1000, sugars: 80 },
+      {
+        protein: 100,
+        fibre: 30,
+        vitamin_c: 95,
+        iron: 16,
+        sodium: 2000,
+        sugars: 90,
+      },
+    );
+
+    expect(
+      byShare(rows)
+        .slice(0, 6)
+        .map(({ key }) => key),
+    ).toEqual([
+      'fibre',
+      'protein',
+      'vitamin_c',
+      'sugars',
+      'sodium',
+      'energy_kcal',
+    ]);
+  });
+
+  it('keeps the display order among nutrients with no share', () => {
+    const rows = nutrientProgress({}, {});
+
+    expect(byShare(rows)).toEqual(rows);
   });
 });

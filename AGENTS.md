@@ -104,7 +104,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`lib/domain/goals/goal.ts`) is the goal on each date of a range from one read of the weights.
   `lib/db/trends.ts` puts them over `diaryEntries` (`lib/db/diary.ts`) and `findGoalsOver`
   (`lib/db/goals.ts`); the `trends` router is `range` and `nutrients` (`{ from, to }`, at most
-  `maxTrendRangeDays`) over the caller. Coverage on it is gated at 100%.
+  `maxTrendRangeDays`) over the caller; `nutrients` also counts each nutrient's `daysWithData`.
+  Coverage on it is gated at 100%. `/trends/nutrients`, linked from the Trends summary, is `NutrientReport`
+  (`components/nutrients/`): `trends.nutrients` over the last 7, 30 or 90 days or the last year,
+  through `nutrientProgress`, by group or sorted by `byShare` (`lib/domain/goals/progress.ts`).
+  It shares its rows with the nutrient panel (`nutrient-rows.tsx`), adding a note of the days with data.
 - `lib/data/sources/` — source adapters, ADR [0005](docs/adr/0005-import-reference-foods-in-the-server-open-food-facts-first.md).
   A `FoodSource` (`types.ts`) is `{ id, emits, fetch(context) }` yielding `SourceFood`s of the
   sources in `emits`; it never touches SQLite. `open-food-facts/mapping.ts` is the one table from Open Food Facts nutriment keys to
@@ -434,7 +438,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `app/(app)/trends/` — `TrendsOverview` (`components/trends/`): range chips (7, 30 or 90 days
   ending today, 30 by default) over `trends.range`, kept on screen while the next range loads. A
   summary (the averages of energy and the macros over the logged days, adherence and the weekly
-  rate of the trend weight in the range), then, with a logged day in the range, the Energy chart
+  rate of the trend weight in the range, and a link to the nutrient report), then, with a logged day in the range, the Energy chart
   (daily kcal bars, the goal as a dashed step line, the rolling average) and the Macros chart
   (protein, carbohydrate and fat stacked, coloured per theme through `ChartConfig`'s `theme`), and
   the Weight section: `WeightTrendFigure` (`components/body/weight-chart.tsx`) over the range and a
