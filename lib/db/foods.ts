@@ -176,38 +176,82 @@ const foodColumns = ({
   quantity_label,
 });
 
+const userPortionsOf = (ownerUserId: string): PortionOwner => ({
+  source: 'user',
+  user_id: ownerUserId,
+});
+
+export const writeNewFood = async (
+  trx: Transaction<Database>,
+  food: FoodInput,
+  { now, nextId }: FoodWriteContext,
+) => {
+  const id = nextId();
+  const at = now();
+  const isUserFood = food.source === 'user';
+  await trx
+    .insertInto('foods')
+    .values({
+      id,
+      source: food.source,
+      source_id: isUserFood ? null : food.source_id,
+      owner_user_id: isUserFood ? food.owner_user_id : null,
+      fetched_live_at: isUserFood ? null : (food.fetched_live_at ?? null),
+      ...foodColumns(food),
+      created_at: at,
+      updated_at: at,
+    })
+    .execute();
+  await writeNutrients(trx, id, food.nutrients);
+  await insertPortions(
+    trx,
+    id,
+    food.portions,
+    isUserFood ? userPortionsOf(food.owner_user_id) : upstream,
+    nextId,
+  );
+  return id;
+};
+
 export const insertFood = (
   db: Kysely<Database>,
   food: FoodInput,
-  { now, nextId }: FoodWriteContext,
+  context: FoodWriteContext,
+) => db.transaction().execute((trx) => writeNewFood(trx, food, context));
+
+export const userPortionsDeletion = (
+  db: Writer,
+  foodId: string,
+  ownerUserId: string,
 ) =>
-  db.transaction().execute(async (trx) => {
-    const id = nextId();
-    const at = now();
-    const isUserFood = food.source === 'user';
-    await trx
-      .insertInto('foods')
-      .values({
-        id,
-        source: food.source,
-        source_id: isUserFood ? null : food.source_id,
-        owner_user_id: isUserFood ? food.owner_user_id : null,
-        fetched_live_at: isUserFood ? null : (food.fetched_live_at ?? null),
-        ...foodColumns(food),
-        created_at: at,
-        updated_at: at,
-      })
-      .execute();
-    await writeNutrients(trx, id, food.nutrients);
-    await insertPortions(
-      trx,
-      id,
-      food.portions,
-      isUserFood ? { source: 'user', user_id: food.owner_user_id } : upstream,
-      nextId,
-    );
-    return id;
-  });
+  db
+    .deleteFrom('food_portions')
+    .where('food_id', '=', foodId)
+    .where('source', '=', 'user')
+    .where('user_id', '=', ownerUserId);
+
+export const rewriteUserFood = async (
+  trx: Transaction<Database>,
+  foodId: string,
+  food: UserFoodInput,
+  { now, nextId }: FoodWriteContext,
+) => {
+  await trx
+    .updateTable('foods')
+    .set({ ...foodColumns(food), updated_at: now() })
+    .where('id', '=', foodId)
+    .where('owner_user_id', '=', food.owner_user_id)
+    .execute();
+  await writeNutrients(trx, foodId, food.nutrients);
+  await userPortionsDeletion(trx, foodId, food.owner_user_id).execute();
+  await insertPortions(
+    trx,
+    foodId,
+    food.portions,
+    userPortionsOf(food.owner_user_id),
+    nextId,
+  );
+};
 
 export const upsertFoods = (
   db: Kysely<Database>,

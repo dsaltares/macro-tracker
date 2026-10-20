@@ -25,6 +25,32 @@ export const energyPer100g = ({ energyKcal }: FoodSummary) =>
 const detailsOf = ({ brand, quantityLabel }: FoodSummary) =>
   [brand, quantityLabel].filter((detail) => detail !== null).join(' · ');
 
+export const foodRowClass =
+  'flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted';
+
+export function FoodRowContent({ food }: { food: FoodSummary }) {
+  const details = detailsOf(food);
+
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate font-medium">{food.name}</span>
+        {details === '' ? null : (
+          <span className="truncate text-muted-foreground text-xs">
+            {details}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span className="font-medium text-sm tabular-nums">
+          {energyPer100g(food)}
+        </span>
+        <SourceBadge source={food.source} />
+      </span>
+    </>
+  );
+}
+
 export function FoodRow({
   food,
   onSelect,
@@ -32,35 +58,16 @@ export function FoodRow({
   food: FoodSummary;
   onSelect: () => void;
 }) {
-  const details = detailsOf(food);
-
   return (
     <li>
-      <button
-        type="button"
-        onClick={onSelect}
-        className="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted"
-      >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate font-medium">{food.name}</span>
-          {details === '' ? null : (
-            <span className="truncate text-muted-foreground text-xs">
-              {details}
-            </span>
-          )}
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="font-medium text-sm tabular-nums">
-            {energyPer100g(food)}
-          </span>
-          <SourceBadge source={food.source} />
-        </span>
+      <button type="button" onClick={onSelect} className={foodRowClass}>
+        <FoodRowContent food={food} />
       </button>
     </li>
   );
 }
 
-function ResultsSkeleton() {
+export function ResultsSkeleton() {
   return (
     <div role="status" aria-label="Loading" className="flex flex-col gap-2 p-4">
       <Skeleton className="h-12 w-full" />
@@ -70,7 +77,7 @@ function ResultsSkeleton() {
   );
 }
 
-function useWhenVisible(onVisible: () => void) {
+export function useWhenVisible(onVisible: () => void) {
   const latest = useRef(onVisible);
   latest.current = onVisible;
 

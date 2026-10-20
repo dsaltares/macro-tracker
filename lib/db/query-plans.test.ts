@@ -21,11 +21,13 @@ import {
   foodByIdQuery,
   portionsQuery,
   searchQuery,
+  userFoodsQuery,
 } from './food-search.ts';
 import {
   liveFoodCountsQuery,
   sourcePreferencesQuery,
 } from './food-source-preferences.ts';
+import { userPortionsDeletion } from './foods.ts';
 import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
@@ -35,6 +37,11 @@ import {
   signInMethodDisconnection,
   signInMethodsQuery,
 } from './sign-in-methods.ts';
+import {
+  ownBarcodeQuery,
+  ownFoodQuery,
+  userFoodArchival,
+} from './user-foods.ts';
 
 const sqlite = new SQLite(':memory:');
 const db = new Kysely<Database>({
@@ -255,6 +262,36 @@ describe('query plans', () => {
     expectNoScan(foodByBarcodeQuery(db, null, '3017620422003').compile(), [
       'foods',
     ]);
+  });
+
+  it("lists a user's live foods without a scan", () => {
+    expectNoScan(userFoodsQuery(db, 'u', null, 0).compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
+  });
+
+  it("searches a user's live foods without a scan", () => {
+    expectNoScan(userFoodsQuery(db, 'u', '"nut"*', 30).compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
+  });
+
+  it("finds a user's live food by id with a search", () => {
+    expectSearch(ownFoodQuery(db, 'u', 'f').compile(), 'foods');
+  });
+
+  it("finds a user's live foods by barcode with a search", () => {
+    expectSearch(ownBarcodeQuery(db, 'u', '3017620422003').compile(), 'foods');
+  });
+
+  it("archives a user's food with a search", () => {
+    expectSearch(userFoodArchival(db, 'u', 'f', 't').compile(), 'foods');
+  });
+
+  it("replaces a user's portions of their food with a search", () => {
+    expectSearch(userPortionsDeletion(db, 'f', 'u').compile(), 'food_portions');
   });
 
   it('counts the live foods of every source from a covering index', () => {

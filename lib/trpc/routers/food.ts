@@ -6,18 +6,44 @@ import {
   type FoodReader,
   findFood,
   findFoodByBarcode,
+  listUserFoods,
   searchFoods,
 } from '../../db/food-search.ts';
 import {
   listFoodSources,
   setFoodSourcePreferences,
 } from '../../db/food-source-preferences.ts';
+import {
+  archiveUserFood,
+  createUserFood,
+  type UserFoodWrite,
+  updateUserFood,
+} from '../../db/user-foods.ts';
 import { maxPortionLabelLength } from '../../domain/foods/portions.ts';
 import { genericSources } from '../../domain/foods/sources.ts';
+import { userFoodSchema } from '../../domain/foods/user-food.ts';
 import type { Context } from '../context.ts';
 import { accountProcedure, publicProcedure, router } from '../trpc.ts';
 
 const maxQueryLength = 200;
+
+const searchInput = z.object({
+  query: z.string().max(maxQueryLength),
+  cursor: z.number().int().nonnegative().nullish(),
+});
+
+const savedId = (written: UserFoodWrite) => {
+  if (written.outcome === 'food-not-found') {
+    throw new TRPCError({ code: 'NOT_FOUND' });
+  }
+  if (written.outcome === 'barcode-taken') {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: 'You already have a food with this barcode',
+    });
+  }
+  return written.id;
+};
 
 const readerOf = ({ db, caller }: Context): FoodReader => ({
   db,
@@ -47,19 +73,12 @@ const portionInput = z.object({
 });
 
 export const foodRouter = router({
-  search: publicProcedure
-    .input(
-      z.object({
-        query: z.string().max(maxQueryLength),
-        cursor: z.number().int().nonnegative().nullish(),
-      }),
-    )
-    .query(({ ctx, input }) =>
-      searchFoods(readerOf(ctx), {
-        query: input.query,
-        cursor: input.cursor ?? 0,
-      }),
-    ),
+  search: publicProcedure.input(searchInput).query(({ ctx, input }) =>
+    searchFoods(readerOf(ctx), {
+      query: input.query,
+      cursor: input.cursor ?? 0,
+    }),
+  ),
   get: publicProcedure
     .input(z.string().min(1))
     .query(async ({ ctx, input }) => {
@@ -72,6 +91,29 @@ export const foodRouter = router({
   byBarcode: publicProcedure
     .input(z.string())
     .query(({ ctx, input }) => findFoodByBarcode(readerOf(ctx), input)),
+  mine: accountProcedure.input(searchInput).query(({ ctx, input }) =>
+    listUserFoods(ctx.db, ctx.caller.userId, {
+      query: input.query,
+      cursor: input.cursor ?? 0,
+    }),
+  ),
+  create: accountProcedure
+    .input(userFoodSchema)
+    .mutation(async ({ ctx, input }) =>
+      savedId(await createUserFood(ctx.db, ctx.caller.userId, input, ctx)),
+    ),
+  update: accountProcedure
+    .input(userFoodSchema.extend({ id: z.string().min(1) }))
+    .mutation(async ({ ctx, input: { id, ...food } }) =>
+      savedId(await updateUserFood(ctx.db, ctx.caller.userId, id, food, ctx)),
+    ),
+  archive: accountProcedure
+    .input(z.string().min(1))
+    .mutation(async ({ ctx, input }) => {
+      if (!(await archiveUserFood(ctx.db, ctx.caller.userId, input, ctx.now))) {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+    }),
   sources: publicProcedure.query(({ ctx }) =>
     listFoodSources(ctx.db, ctx.caller?.userId ?? null),
   ),

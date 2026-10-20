@@ -103,6 +103,18 @@ const portionsByFood = async (
   return byFood;
 };
 
+const summaryColumns = [
+  'foods.id',
+  'foods.name',
+  'foods.brand',
+  'foods.quantity_label',
+  'foods.source',
+  'food_nutrients.energy_kcal',
+  'food_nutrients.protein',
+  'food_nutrients.carbohydrate',
+  'food_nutrients.fat',
+] as const;
+
 export const searchQuery = (
   db: Kysely<Database>,
   userId: string | null,
@@ -113,17 +125,7 @@ export const searchQuery = (
     .selectFrom('foods_fts')
     .innerJoin('foods', 'foods.rowid', 'foods_fts.rowid')
     .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
-    .select([
-      'foods.id',
-      'foods.name',
-      'foods.brand',
-      'foods.quantity_label',
-      'foods.source',
-      'food_nutrients.energy_kcal',
-      'food_nutrients.protein',
-      'food_nutrients.carbohydrate',
-      'food_nutrients.fat',
-    ])
+    .select(summaryColumns)
     .where(sql<boolean>`foods_fts match ${match}`)
     .where('foods.archived_at', 'is', null)
     .where(visibleFoods(userId));
@@ -144,25 +146,55 @@ export const searchQuery = (
     .offset(offset);
 };
 
+export const userFoodsQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  match: string | null,
+  offset: number,
+) => {
+  const own = db
+    .selectFrom('foods')
+    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
+    .select(summaryColumns)
+    .where('foods.owner_user_id', '=', userId)
+    .where('foods.archived_at', 'is', null);
+  const ordered =
+    match === null
+      ? own.orderBy(sql`foods.name collate nocase`)
+      : own
+          .innerJoin('foods_fts', 'foods_fts.rowid', 'foods.rowid')
+          .where(sql<boolean>`foods_fts match ${match}`)
+          .orderBy(
+            sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`,
+          );
+  return ordered
+    .orderBy('foods.rowid')
+    .limit(searchPageSize + 1)
+    .offset(offset);
+};
+
 const labelAndGrams = ({ label, grams }: Portion): Portion => ({
   label,
   grams,
 });
 
-export const searchFoods = async (
+type SummaryRow = {
+  id: string;
+  name: string;
+  brand: string | null;
+  quantity_label: string | null;
+  source: Source;
+  energy_kcal: number | null;
+  protein: number | null;
+  carbohydrate: number | null;
+  fat: number | null;
+};
+
+const searchPage = async (
   reader: FoodReader,
-  { query, cursor }: { query: string; cursor: number },
+  rows: readonly SummaryRow[],
+  cursor: number,
 ): Promise<FoodSearchPage> => {
-  const match = matchExpression(query);
-  if (match === null) {
-    return { foods: [], nextCursor: null };
-  }
-  const rows = await searchQuery(
-    reader.db,
-    reader.userId,
-    match,
-    cursor,
-  ).execute();
   const page = rows.slice(0, searchPageSize);
   const portions = await portionsByFood(
     reader,
@@ -183,6 +215,37 @@ export const searchFoods = async (
     })),
     nextCursor: rows.length > searchPageSize ? cursor + searchPageSize : null,
   };
+};
+
+export const searchFoods = async (
+  reader: FoodReader,
+  { query, cursor }: { query: string; cursor: number },
+): Promise<FoodSearchPage> => {
+  const match = matchExpression(query);
+  if (match === null) {
+    return { foods: [], nextCursor: null };
+  }
+  const rows = await searchQuery(
+    reader.db,
+    reader.userId,
+    match,
+    cursor,
+  ).execute();
+  return searchPage(reader, rows, cursor);
+};
+
+export const listUserFoods = async (
+  db: Kysely<Database>,
+  userId: string,
+  { query, cursor }: { query: string; cursor: number },
+): Promise<FoodSearchPage> => {
+  const rows = await userFoodsQuery(
+    db,
+    userId,
+    matchExpression(query),
+    cursor,
+  ).execute();
+  return searchPage({ db, userId }, rows, cursor);
 };
 
 const foodColumns = [
@@ -221,11 +284,11 @@ export const foodByBarcodeQuery = (
             eb('foods.owner_user_id', 'is', null),
             eb('foods.archived_at', 'is', null),
           ])
-        : or([
-            eb('foods.owner_user_id', '=', userId),
-            and([
+        : and([
+            eb('foods.archived_at', 'is', null),
+            or([
               eb('foods.owner_user_id', 'is', null),
-              eb('foods.archived_at', 'is', null),
+              eb('foods.owner_user_id', '=', userId),
             ]),
           ]),
     )

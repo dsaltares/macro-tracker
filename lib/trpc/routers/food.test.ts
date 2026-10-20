@@ -604,6 +604,32 @@ describe('food.byBarcode', () => {
     });
   });
 
+  it("prefers the owner's food created through food.create", async () => {
+    await as('user-1').food.create({
+      ...homemadeGranola,
+      name: 'My hazelnut spread',
+      barcode: '3017620422003',
+    });
+
+    expect(await as('user-1').food.byBarcode('3017620422003')).toMatchObject({
+      name: 'My hazelnut spread',
+      source: 'user',
+    });
+    expect(await anonymous().food.byBarcode('3017620422003')).toMatchObject({
+      source: 'off',
+    });
+  });
+
+  it("falls back to the reference food once the owner's is archived", async () => {
+    const id = await userFood({ name: 'My Nutella', barcode: '3017620422003' });
+    await as('user-1').food.archive(id);
+
+    expect(await as('user-1').food.byBarcode('3017620422003')).toMatchObject({
+      name: 'Nutella',
+      source: 'off',
+    });
+  });
+
   it('finds nothing for an archived reference food', async () => {
     await database()
       .updateTable('foods')
@@ -727,5 +753,280 @@ describe('food.setSourcePreferences', () => {
     await expect(
       anonymous().food.setSourcePreferences([...allGenericEnabled]),
     ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+const homemadeGranola = {
+  name: 'Homemade granola',
+  brand: null,
+  barcode: null,
+  quantityLabel: null,
+  nutrients: { energy_kcal: 450, protein: 12, carbohydrate: 55, fat: 18 },
+  portions: [{ label: '1 bowl', grams: 45 }],
+};
+
+describe('food.create', () => {
+  it('creates a food only its owner sees, with its portions first', async () => {
+    const id = await as('user-1').food.create({
+      ...homemadeGranola,
+      brand: '  Grandma  ',
+      barcode: '035650166738',
+      quantityLabel: '',
+    });
+
+    expect(await as('user-1').food.get(id)).toMatchObject({
+      source: 'user',
+      name: 'Homemade granola',
+      brand: 'Grandma',
+      barcode: '0035650166738',
+      quantityLabel: null,
+      archived: false,
+      nutrients: homemadeGranola.nutrients,
+      portions: [
+        { label: '1 bowl', grams: 45, source: 'user' },
+        { label: '100 g', grams: 100 },
+        { label: '1 g', grams: 1 },
+        { label: '1 ml', grams: 1 },
+      ],
+    });
+    expect(await namesFor('granola', as('user-1'))).toContain(
+      'Homemade granola',
+    );
+    expect(await namesFor('granola', as('user-2'))).not.toContain(
+      'Homemade granola',
+    );
+    await expect(as('user-2').food.get(id)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('refuses a second food of the same owner with the same barcode', async () => {
+    await as('user-1').food.create({
+      ...homemadeGranola,
+      barcode: '3017620422003',
+    });
+
+    await expect(
+      as('user-1').food.create({
+        ...homemadeGranola,
+        name: 'Granola again',
+        barcode: '3017620422003',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(
+      as('user-2').food.create({
+        ...homemadeGranola,
+        barcode: '3017620422003',
+      }),
+    ).resolves.toEqual(expect.any(String));
+  });
+
+  it('refuses an invalid barcode, a duplicate portion and an impossible amount', async () => {
+    const create = as('user-1').food.create;
+
+    await expect(
+      create({ ...homemadeGranola, barcode: '3017620422004' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      create({
+        ...homemadeGranola,
+        portions: [
+          { label: '1 bowl', grams: 45 },
+          { label: '1 bowl', grams: 60 },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      create({ ...homemadeGranola, portions: [{ label: '100 g', grams: 90 }] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      create({ ...homemadeGranola, nutrients: { fat: 101 } }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      create({ ...homemadeGranola, name: '   ' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
+  it('answers unauthorized when signed out', async () => {
+    await expect(
+      anonymous().food.create(homemadeGranola),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+});
+
+describe('food.update', () => {
+  it("replaces the food's fields, nutrients and portions", async () => {
+    const id = await as('user-1').food.create(homemadeGranola);
+
+    await as('user-1').food.update({
+      id,
+      ...homemadeGranola,
+      name: 'Granola, less sugar',
+      quantityLabel: '500 g',
+      nutrients: { energy_kcal: 420, fibre: 9 },
+      portions: [
+        { label: '1 handful', grams: 30 },
+        { label: '1 bowl', grams: 50 },
+      ],
+    });
+
+    const food = await as('user-1').food.get(id);
+    expect(food).toMatchObject({
+      name: 'Granola, less sugar',
+      quantityLabel: '500 g',
+      nutrients: { energy_kcal: 420, fibre: 9 },
+    });
+    expect(food.portions.slice(0, 2)).toMatchObject([
+      { label: '1 handful', grams: 30 },
+      { label: '1 bowl', grams: 50 },
+    ]);
+    expect(await namesFor('less sugar', as('user-1'))).toEqual([
+      'Granola, less sugar',
+    ]);
+  });
+
+  it('keeps entries already logged from the food as they were', async () => {
+    const id = await as('user-1').food.create(homemadeGranola);
+    await as('user-1').diary.addFood({
+      date: '2026-10-19',
+      meal: 'breakfast',
+      foodId: id,
+      portion: '1 bowl',
+      quantity: 1,
+      time: null,
+    });
+
+    await as('user-1').food.update({
+      id,
+      ...homemadeGranola,
+      nutrients: { energy_kcal: 300 },
+      portions: [],
+    });
+
+    const { meals } = await as('user-1').diary.day('2026-10-19');
+    expect(meals[0]?.entries[0]).toMatchObject({
+      grams: 45,
+      nutrients: { energy_kcal: 202.5 },
+    });
+  });
+
+  it("answers not found for another user's, a reference or an archived food", async () => {
+    const id = await as('user-1').food.create(homemadeGranola);
+    const archived = await as('user-1').food.create({
+      ...homemadeGranola,
+      name: 'Old granola',
+    });
+    await as('user-1').food.archive(archived);
+
+    for (const [caller, foodId] of [
+      [as('user-2'), id],
+      [as('user-1'), await idOf('nutella')],
+      [as('user-1'), archived],
+    ] as const) {
+      await expect(
+        caller.food.update({ id: foodId, ...homemadeGranola, name: 'Mine' }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    }
+    expect((await as('user-1').food.get(id)).name).toBe('Homemade granola');
+  });
+
+  it('keeps its own barcode and refuses one another of its foods has', async () => {
+    const id = await as('user-1').food.create({
+      ...homemadeGranola,
+      barcode: '3017620422003',
+    });
+    await as('user-1').food.create({
+      ...homemadeGranola,
+      name: 'Muesli',
+      barcode: '4006381333931',
+    });
+
+    await expect(
+      as('user-1').food.update({
+        id,
+        ...homemadeGranola,
+        barcode: '3017620422003',
+      }),
+    ).resolves.toBe(id);
+    await expect(
+      as('user-1').food.update({
+        id,
+        ...homemadeGranola,
+        barcode: '4006381333931',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+});
+
+describe('food.archive', () => {
+  it('hides the food from its owner and keeps it resolvable', async () => {
+    const id = await as('user-1').food.create({
+      ...homemadeGranola,
+      barcode: '3017620422003',
+    });
+
+    await as('user-1').food.archive(id);
+
+    expect(await namesFor('granola', as('user-1'))).not.toContain(
+      'Homemade granola',
+    );
+    expect((await as('user-1').food.mine({ query: '' })).foods).toEqual([]);
+    expect(await as('user-1').food.byBarcode('3017620422003')).toMatchObject({
+      source: 'off',
+    });
+    expect(await as('user-1').food.get(id)).toMatchObject({ archived: true });
+  });
+
+  it("answers not found for another user's, a reference or an archived food", async () => {
+    const id = await as('user-1').food.create(homemadeGranola);
+
+    await expect(as('user-2').food.archive(id)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    await expect(
+      as('user-1').food.archive(await idOf('nutella')),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await as('user-1').food.archive(id);
+    await expect(as('user-1').food.archive(id)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+});
+
+describe('food.mine', () => {
+  it("lists the caller's live foods by name, and searches them", async () => {
+    for (const name of ['muesli', 'Banana bread', 'Granola bar']) {
+      await as('user-1').food.create({ ...homemadeGranola, name });
+    }
+    await as('user-2').food.create({ ...homemadeGranola, name: 'Bagel' });
+
+    const names = async (query: string) =>
+      (await as('user-1').food.mine({ query })).foods.map(({ name }) => name);
+
+    expect(await names('')).toEqual(['Banana bread', 'Granola bar', 'muesli']);
+    expect(await names('gran')).toEqual(['Granola bar']);
+    expect(await names('nutella')).toEqual([]);
+  });
+
+  it('pages 30 at a time', async () => {
+    for (let index = 0; index < 31; index++) {
+      await as('user-1').food.create({
+        ...homemadeGranola,
+        name: `Food ${String(index).padStart(2, '0')}`,
+      });
+    }
+
+    const first = await as('user-1').food.mine({ query: '' });
+    expect(first.foods).toHaveLength(30);
+    expect(first.nextCursor).toBe(30);
+    const second = await as('user-1').food.mine({ query: '', cursor: 30 });
+    expect(second.foods.map(({ name }) => name)).toEqual(['Food 30']);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it('answers unauthorized when signed out', async () => {
+    await expect(anonymous().food.mine({ query: '' })).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+    });
   });
 });
