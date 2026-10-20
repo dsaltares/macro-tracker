@@ -578,6 +578,43 @@ describe('diary.copyMeal', () => {
   });
 });
 
+describe('diary.clearMeal', () => {
+  it('deletes every entry of one meal on one date, and nothing else', async () => {
+    const user = as('user-1');
+    await logNutella();
+    await user.diary.addQuick({ ...coffee, meal: 'breakfast' });
+    await user.diary.addQuick(coffee);
+    await logNutella({ date: '2026-10-21' });
+
+    expect(await user.diary.clearMeal({ date, meal: 'breakfast' })).toEqual({
+      cleared: 2,
+    });
+
+    expect(await labelsOn(date)).toMatchObject({
+      breakfast: [],
+      snack: ['Coffee with milk'],
+    });
+    expect(await labelsOn('2026-10-21')).toMatchObject({
+      breakfast: ['Nutella'],
+    });
+  });
+
+  it('clears nothing from an empty meal', async () => {
+    expect(
+      await as('user-1').diary.clearMeal({ date, meal: 'dinner' }),
+    ).toEqual({ cleared: 0 });
+  });
+
+  it("never clears another user's entries", async () => {
+    await logNutella();
+
+    expect(
+      await as('user-2').diary.clearMeal({ date, meal: 'breakfast' }),
+    ).toEqual({ cleared: 0 });
+    expect(await labelsOn(date)).toMatchObject({ breakfast: ['Nutella'] });
+  });
+});
+
 const logOn = async (
   day: string,
   foodId: string,

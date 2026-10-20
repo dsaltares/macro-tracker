@@ -194,7 +194,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
-  a move keeps it. `copyDiaryMeal` copies snapshots as they are. `logQuickEntry`
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are; `clearDiaryMeal` deletes one
+  meal of a date. `logQuickEntry`
   logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
   in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
@@ -322,7 +323,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   named after the search: a label and either amounts per 100 g (the three macros, optional energy,
   and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
   `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
-  next time. Source badges are `SourceBadge` (`components/foods/`).
+  next time. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Copy from
+  yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
+  tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
+  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`).
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app

@@ -6,6 +6,7 @@ import {
   mealNames,
   servingOf,
 } from '@/components/diary/amounts';
+import { MealMenu } from '@/components/diary/meal-menu';
 import { Button } from '@/components/ui/button';
 import type { DiaryEntry } from '@/lib/db/diary';
 import type { Meal } from '@/lib/domain/diary/entries';
@@ -45,12 +46,14 @@ function EntryRow({
 }
 
 export function MealSection({
+  date,
   meal,
   entries,
   totals,
   onSelectEntry,
   onAdd,
 }: {
+  date: string;
   meal: Meal;
   entries: readonly DiaryEntry[];
   totals: NutrientVector;
@@ -76,10 +79,18 @@ export function MealSection({
             </p>
           ) : null}
         </div>
-        <Button variant="ghost" size="icon" className="size-11" onClick={onAdd}>
-          <IconPlus className="size-5" />
-          <span className="sr-only">Add to {name.toLowerCase()}</span>
-        </Button>
+        <div className="flex items-center">
+          <MealMenu date={date} meal={meal} count={entries.length} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11"
+            onClick={onAdd}
+          >
+            <IconPlus className="size-5" />
+            <span className="sr-only">Add to {name.toLowerCase()}</span>
+          </Button>
+        </div>
       </div>
       {entries.length > 0 ? (
         <ul className="flex flex-col divide-y border-t">
