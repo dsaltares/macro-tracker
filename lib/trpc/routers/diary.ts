@@ -7,6 +7,7 @@ import {
   frequentFoods,
   logFood,
   logQuickEntry,
+  logRecipe,
   recentFoods,
   removeDiaryEntry,
   updateDiaryEntry,
@@ -88,6 +89,53 @@ export const diaryRouter = router({
       }
       return logged.entry;
     }),
+  addRecipe: accountProcedure
+    .input(
+      z.union([
+        z.strictObject({
+          date: dateInput,
+          meal: mealInput,
+          recipeId: z.string().min(1),
+          servings: quantityInput,
+          time: timeInput.default(null),
+        }),
+        z.strictObject({
+          date: dateInput,
+          meal: mealInput,
+          recipeId: z.string().min(1),
+          grams: quantityInput,
+          time: timeInput.default(null),
+        }),
+      ]),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { date, meal, time, recipeId } = input;
+      const logged = await logRecipe(
+        ctx.db,
+        ctx.caller.userId,
+        {
+          date,
+          meal,
+          time,
+          recipeId,
+          amount:
+            'servings' in input
+              ? { servings: input.servings }
+              : { grams: input.grams },
+        },
+        ctx,
+      );
+      if (logged.outcome === 'recipe-not-found') {
+        throw new TRPCError({ code: 'NOT_FOUND' });
+      }
+      if (logged.outcome === 'empty-recipe') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'The recipe has no ingredients',
+        });
+      }
+      return logged.entry;
+    }),
   addQuick: accountProcedure
     .input(
       z
@@ -150,7 +198,8 @@ export const diaryRouter = router({
         case 'food-gone':
           throw new TRPCError({
             code: 'PRECONDITION_FAILED',
-            message: 'The food this entry was logged from no longer exists',
+            message:
+              'The food or recipe this entry was logged from no longer exists',
           });
         case 'portion-not-found':
           throw portionNotFound();

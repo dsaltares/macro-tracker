@@ -39,8 +39,15 @@ import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import {
+  containedRecipeQuery,
+  containingRecipeQuery,
+  lastPositionQuery,
+  liveRecipeIngredientQuery,
+  liveRecipeQuery,
+  recipeArchival,
   recipeIngredientsQuery,
   recipeQuery,
+  recipeUpdate,
   userRecipesQuery,
 } from './recipes.ts';
 import type { Database } from './schema.ts';
@@ -385,6 +392,37 @@ describe('query plans', () => {
       'recipes',
       'recipe_ingredients',
     ]);
+  });
+
+  it("reads, updates and archives a user's live recipe with a search", () => {
+    expectSearch(liveRecipeQuery(db, 'u', 'r').compile(), 'recipes');
+    expectSearch(
+      recipeUpdate(
+        db,
+        'u',
+        'r',
+        { name: 'n', servings: 1, cookedWeightG: null, notes: null },
+        't',
+      ).compile(),
+      'recipes',
+    );
+    expectSearch(recipeArchival(db, 'u', 'r', 't').compile(), 'recipes');
+  });
+
+  it("reads an ingredient of a user's live recipe without a scan", () => {
+    expectNoScan(liveRecipeIngredientQuery(db, 'u', 'i').compile(), [
+      'recipes',
+      'recipe_ingredients',
+    ]);
+  });
+
+  it('reads the nesting facts and the last position with a search', () => {
+    expectSearch(containedRecipeQuery(db, 'r').compile(), 'recipe_ingredients');
+    expectSearch(
+      containingRecipeQuery(db, 'r').compile(),
+      'recipe_ingredients',
+    );
+    expectSearch(lastPositionQuery(db, 'r').compile(), 'recipe_ingredients');
   });
 
   it("finds a deleted user's portions with a search", () => {
