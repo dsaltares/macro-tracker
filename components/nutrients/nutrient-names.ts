@@ -1,4 +1,7 @@
-import type { NutrientKey } from '@/lib/domain/nutrition/nutrients';
+import type {
+  NutrientGroup,
+  NutrientKey,
+} from '@/lib/domain/nutrition/nutrients';
 
 export const nutrientNames: Record<NutrientKey, string> = {
   energy_kcal: 'Energy',
@@ -49,4 +52,14 @@ export const nutrientNames: Record<NutrientKey, string> = {
   pantothenic_acid: 'Pantothenic acid',
   choline: 'Choline',
   caffeine: 'Caffeine',
+};
+
+export const nutrientGroupNames: Record<NutrientGroup, string> = {
+  energy: 'Energy',
+  macros: 'Macros',
+  fat_detail: 'Fat detail',
+  carbohydrate_detail: 'Carbohydrate detail',
+  minerals: 'Minerals',
+  vitamins: 'Vitamins',
+  other: 'Other',
 };

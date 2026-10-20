@@ -1,6 +1,7 @@
 export const routes = {
   home: '/',
   diary: '/diary',
+  nutrients: '/diary/nutrients',
   foods: '/foods',
   newFood: '/foods/new',
   trends: '/trends',
@@ -21,6 +22,12 @@ export const routes = {
   terms: '/terms',
   cookies: '/cookies',
 } as const;
+
+export const diaryHref = (date: string | null) =>
+  date === null ? routes.diary : `${routes.diary}?date=${date}`;
+
+export const nutrientsHref = (date: string) =>
+  `${routes.nutrients}?date=${date}`;
 
 export const foodRoute = (id: string) =>
   `${routes.foods}/${encodeURIComponent(id)}`;

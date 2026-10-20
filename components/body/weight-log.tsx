@@ -25,7 +25,12 @@ export function WeightLog() {
   const remove = useMutation(
     trpc.body.remove.mutationOptions({
       onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: trpc.body.pathKey() }),
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.body.pathKey() }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.goals.forDate.pathKey(),
+          }),
+        ]),
     }),
   );
 
