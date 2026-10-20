@@ -83,7 +83,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   goal is a `target` or an `upper` limit. `settings.ts` is the goal settings' schema and defaults;
   `goalOn(profile, weightKg, date, settings)` (`goal.ts`) is the goal vector for a date: the micro
   defaults at the goal's kcal, the derived energy and macros (none without a weight) or a manual
-  goal's own, then the overrides. Coverage on it is gated at 100%.
+  goal's own, then the overrides. `progress.ts` is `progressOf` (under, near or over a goal, by its
+  kind), `goalShare` and `nutrientProgress(totals, goal)`, a row per nutrient in display order
+  that keeps a nutrient no entry declares apart from zero. Coverage on it is gated at 100%.
 - `lib/domain/trends/aggregations.ts` — the trends over a range of dates: `dailyTotals` per date,
   flagging the dates with no entries, `trendDays` adding each date's `rollingAverage` over the
   seven ending on it (the entries read from `rollingWindowStart(from)`), `adherence` within 10% of
@@ -344,6 +346,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
   *Scan the label* on a miss.
+  `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
+  for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
+  each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
+  what tests read), and links to `/diary/nutrients`, `NutrientPanel`: every nutrient of the `date`,
+  or of the `meal` in the address, grouped, with *No data* for a nutrient nothing declared.
 - `components/scanner/` — `BarcodeScanner`: the rear camera through `getUserMedia`, read every
   `scanIntervalMs` for EAN-8, EAN-13 and UPC-A, a code reported once it reads the same twice in a
   row; a torch toggle where the track has one; the denied, no-camera and failed states; the stream

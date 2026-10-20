@@ -1,16 +1,17 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { NuqsTestingAdapter, type UrlUpdateEvent } from 'nuqs/adapters/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { noGoal } from '@/components/diary/day-totals';
 import { DiaryDay, loadFailed } from '@/components/diary/diary-day';
 import { clearFailed, copyFailed } from '@/components/diary/meal-menu';
 import { Toaster } from '@/components/ui/sonner';
 import { listMeasurements } from '@/lib/db/body-measurements';
-import { diaryDay, insertDiaryEntry, logFood } from '@/lib/db/diary';
-import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
+import { diaryDay } from '@/lib/db/diary';
 import { dayTotals } from '@/lib/domain/diary/entries';
 import { formatAmount } from '@/lib/domain/nutrition/format';
 import { salt } from '@/lib/domain/nutrition/vector';
 import { serveApi } from '@/test/api';
+import { seedDiaryDay, seedManualGoal } from '@/test/diary';
 import { renderUi } from '@/test/ui';
 
 const api = serveApi({ signedInAs: 'user-1' });
@@ -37,115 +38,7 @@ const render = (search = `?date=${day}`) => {
   };
 };
 
-const seeding = (): FoodWriteContext => {
-  let ids = 0;
-  let minutes = 0;
-  return {
-    nextId: () => `seed-${++ids}`,
-    now: () => new Date(Date.UTC(2026, 9, 19, 7, minutes++)).toISOString(),
-  };
-};
-
-const logged = (outcome: Awaited<ReturnType<typeof logFood>>) => {
-  if (outcome.outcome !== 'logged') {
-    throw new Error(`Could not log the fixture: ${outcome.outcome}`);
-  }
-  return outcome.entry;
-};
-
-const seedDay = async (date = day) => {
-  const db = api.database();
-  const context = seeding();
-  const oats = await insertFood(
-    db,
-    {
-      source: 'ciqual',
-      source_id: '9310',
-      barcode: null,
-      name: 'Rolled oats',
-      brand: null,
-      quantity_label: null,
-      nutrients: {
-        energy_kcal: 379,
-        protein: 13.2,
-        carbohydrate: 60.6,
-        fat: 6.5,
-        fibre: 10.1,
-        sugars: 1.1,
-        saturated_fat: 1.1,
-        sodium: 6,
-      },
-      portions: [{ label: '1 cup', grams: 80 }],
-    },
-    context,
-  );
-  const nutella = await insertFood(
-    db,
-    {
-      source: 'off',
-      source_id: '3017620422003',
-      barcode: '3017620422003',
-      name: 'Nutella',
-      brand: 'Ferrero',
-      quantity_label: '400 g',
-      nutrients: {
-        energy_kcal: 539,
-        protein: 6.3,
-        carbohydrate: 57.5,
-        fat: 30.9,
-        saturated_fat: 10.6,
-        sugars: 56.3,
-        sodium: 42,
-      },
-      portions: [{ label: '1 serving', grams: 15 }],
-    },
-    context,
-  );
-  const oatsEntry = logged(
-    await logFood(
-      db,
-      'user-1',
-      {
-        date,
-        meal: 'breakfast',
-        time: '08:00',
-        foodId: oats,
-        portion: '1 cup',
-        quantity: 1,
-      },
-      context,
-    ),
-  );
-  const nutellaEntry = logged(
-    await logFood(
-      db,
-      'user-1',
-      {
-        date,
-        meal: 'breakfast',
-        time: null,
-        foodId: nutella,
-        portion: '1 serving',
-        quantity: 2,
-      },
-      context,
-    ),
-  );
-  const pizzaEntry = await insertDiaryEntry(
-    db,
-    'user-1',
-    {
-      kind: 'quick',
-      date,
-      meal: 'dinner',
-      time: '21:00',
-      label: "Pizza at Luigi's",
-      nutrients: { energy_kcal: 900, protein: 35, carbohydrate: 100, fat: 38 },
-    },
-    context,
-  );
-  return { nutellaEntry, oatsEntry, pizzaEntry };
-};
+const seedDay = (date = day) => seedDiaryDay(api.database(), date);
 
 const meal = (name: string) => screen.getByRole('region', { name });
 
@@ -248,6 +141,64 @@ describe('DiaryDay', () => {
     expect(shown('Salt')).toHaveTextContent(
       formatAmount(salt(expected.sodium ?? Number.NaN), 'g'),
     );
+  });
+
+  it('rings the energy left against the goal and bars each macro, coloured under, on or over target', async () => {
+    await seedDay();
+    await seedManualGoal(api.database(), {
+      energy_kcal: 1500,
+      protein: 120,
+      carbohydrate: 150,
+      fat: 50,
+    });
+    render();
+
+    expect(
+      await screen.findByRole('meter', { name: 'Energy' }),
+    ).toHaveAttribute('aria-valuetext', '91%, on target');
+    expect(totals()).toHaveTextContent('135 kcal left');
+    expect(shown('Energy')).toHaveTextContent('1,365 kcal of 1,500 kcal');
+    expect(shown('Protein')).toHaveTextContent('47.5 g of 120 g');
+    expect(screen.getByRole('meter', { name: 'Protein' })).toHaveAttribute(
+      'aria-valuetext',
+      '40%, under target',
+    );
+    expect(screen.getByRole('meter', { name: 'Carbs' })).toHaveAttribute(
+      'aria-valuetext',
+      '110%, over target',
+    );
+    expect(screen.getByRole('meter', { name: 'Fat' })).toHaveAttribute(
+      'aria-valuetext',
+      '105%, on target',
+    );
+  });
+
+  it('counts the energy over the goal once the day passes it', async () => {
+    await seedDay();
+    await seedManualGoal(api.database(), { energy_kcal: 1200 });
+    render();
+
+    expect(
+      await screen.findByRole('meter', { name: 'Energy' }),
+    ).toHaveAttribute('aria-valuetext', '114%, over target');
+    expect(totals()).toHaveTextContent('165 kcal over');
+  });
+
+  it('shows the totals without progress on a day with no goal', async () => {
+    await seedDay();
+    render();
+
+    expect(await screen.findByText(noGoal)).toBeInTheDocument();
+    expect(screen.queryByRole('meter')).not.toBeInTheDocument();
+    expect(shown('Energy')).toHaveTextContent('1,365 kcal');
+  });
+
+  it('links to every nutrient of the day', async () => {
+    render();
+
+    expect(
+      await screen.findByRole('link', { name: 'All nutrients' }),
+    ).toHaveAttribute('href', `/diary/nutrients?date=${day}`);
   });
 
   it('opens on today and steps a day at a time', async () => {
