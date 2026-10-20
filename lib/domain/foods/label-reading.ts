@@ -61,7 +61,7 @@ export const convertAmount = (
   to: PrintedUnit,
 ) => (amount / unitScales[from].perBase) * unitScales[to].perBase;
 
-const confidenceSchema = z
+export const confidenceSchema = z
   .number()
   .min(0)
   .max(1)

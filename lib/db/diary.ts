@@ -1,8 +1,12 @@
 import { type Kysely, type Selectable, sql } from 'kysely';
 import { addDays } from '../domain/dates.ts';
 import { type Meal, meals, resolveEntry } from '../domain/diary/entries.ts';
-import { hundredGrams, type Portion } from '../domain/foods/portions.ts';
+import type { Portion } from '../domain/foods/portions.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
+import {
+  type RecipeAmount,
+  recipePortionOf,
+} from '../domain/recipes/recipes.ts';
 import {
   type Food,
   findFood,
@@ -248,7 +252,7 @@ export const logFood = (
     return { outcome: 'logged', entry };
   });
 
-export type RecipeAmount = { servings: number } | { grams: number };
+export type { RecipeAmount };
 
 export type RecipeToLog = {
   date: string;
@@ -262,20 +266,6 @@ export type LoggedRecipe =
   | { outcome: 'logged'; entry: DiaryEntry }
   | { outcome: 'recipe-not-found' }
   | { outcome: 'empty-recipe' };
-
-const recipePortionOf = (
-  portions: readonly Portion[],
-  amount: RecipeAmount,
-) => {
-  if ('grams' in amount) {
-    return {
-      portion: hundredGrams,
-      quantity: amount.grams / hundredGrams.grams,
-    };
-  }
-  const [serving = hundredGrams] = portions;
-  return { portion: serving, quantity: amount.servings };
-};
 
 export const logRecipe = (
   db: Kysely<Database>,
