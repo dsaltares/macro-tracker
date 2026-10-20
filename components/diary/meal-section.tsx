@@ -7,6 +7,7 @@ import {
   servingOf,
 } from '@/components/diary/amounts';
 import { MealMenu } from '@/components/diary/meal-menu';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { DiaryEntry } from '@/lib/db/diary';
 import type { Meal } from '@/lib/domain/diary/entries';
@@ -28,8 +29,13 @@ function EntryRow({
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate font-medium">{entry.label}</span>
-          <span className="truncate text-muted-foreground text-xs">
-            {servingOf(entry)}
+          <span className="flex min-w-0 items-center gap-1.5">
+            {entry.kind === 'recipe' ? (
+              <Badge variant="outline">Recipe</Badge>
+            ) : null}
+            <span className="truncate text-muted-foreground text-xs">
+              {servingOf(entry)}
+            </span>
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-0.5 tabular-nums">

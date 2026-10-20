@@ -18,6 +18,7 @@ import {
   foodLoadFailed,
 } from '@/components/diary/food-step';
 import { QuickAddStep } from '@/components/diary/quick-add-step';
+import { RecipeList, RecipeStep } from '@/components/diary/recipe-step';
 import { ScanStep } from '@/components/diary/scan-step';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import type { Food, FoodSummary } from '@/lib/db/food-search';
+import type { RecipeSummary } from '@/lib/db/recipes';
 import type { Meal } from '@/lib/domain/diary/entries';
 import { newFoodHref } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
@@ -59,7 +61,7 @@ const foodLists = [
   },
 ] as const;
 
-type FoodList = (typeof foodLists)[number]['value'] | 'all';
+type FoodList = (typeof foodLists)[number]['value'] | 'all' | 'recipes';
 
 function SearchStep({
   date,
@@ -69,6 +71,7 @@ function SearchStep({
   list,
   onListChange,
   onSelectFood,
+  onSelectRecipe,
   onScan,
 }: {
   date: string;
@@ -78,6 +81,7 @@ function SearchStep({
   list: FoodList;
   onListChange: (list: FoodList) => void;
   onSelectFood: (food: FoodSummary) => void;
+  onSelectRecipe: (recipe: RecipeSummary) => void;
   onScan: () => void;
 }) {
   const debouncedQuery = useDebouncedValue(query, searchDebounceMs);
@@ -97,7 +101,7 @@ function SearchStep({
             value={query}
             onChange={(event) => {
               onQueryChange(event.target.value);
-              if (event.target.value.trim() !== '') {
+              if (event.target.value.trim() !== '' && list !== 'recipes') {
                 onListChange('all');
               }
             }}
@@ -127,6 +131,9 @@ function SearchStep({
           <TabsTrigger value="all" className="text-sm">
             All
           </TabsTrigger>
+          <TabsTrigger value="recipes" className="text-sm">
+            Recipes
+          </TabsTrigger>
         </TabsList>
         {foodLists.map(({ value, empty, List }) => (
           <TabsContent
@@ -147,6 +154,9 @@ function SearchStep({
             query={debouncedQuery}
             onSelectFood={onSelectFood}
           />
+        </TabsContent>
+        <TabsContent value="recipes" className="min-h-0 overflow-y-auto">
+          <RecipeList query={query} onSelectRecipe={onSelectRecipe} />
         </TabsContent>
       </Tabs>
     </>
@@ -231,6 +241,7 @@ function FoodSearch({
   const [list, setList] = useState<FoodList>('recent');
   const [scanning, setScanning] = useState(false);
   const [chosen, setChosen] = useState<FoodHeader | null>(null);
+  const [chosenRecipe, setChosenRecipe] = useState<RecipeSummary | null>(null);
   const [created, setCreated] = useState(createdFoodId);
   const [quickAdding, setQuickAdding] = useState(false);
 
@@ -253,6 +264,17 @@ function FoodSearch({
         date={date}
         meal={meal}
         onBack={() => setQuickAdding(false)}
+        onAdded={onAdded}
+      />
+    );
+  }
+  if (chosenRecipe !== null) {
+    return (
+      <RecipeStep
+        recipe={chosenRecipe}
+        date={date}
+        meal={meal}
+        onBack={() => setChosenRecipe(null)}
         onAdded={onAdded}
       />
     );
@@ -292,6 +314,7 @@ function FoodSearch({
         list={list}
         onListChange={setList}
         onSelectFood={setChosen}
+        onSelectRecipe={setChosenRecipe}
         onScan={() => setScanning(true)}
       />
       <div className="grid grid-cols-2 gap-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

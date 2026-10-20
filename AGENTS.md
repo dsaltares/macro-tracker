@@ -417,14 +417,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
-  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. The first three
-  are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
+  view, and the Recent, Frequent, Favourites, All and Recipes tabs, typing moving to All unless on
+  Recipes, which filters `recipe.list` by name. The first three are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
   date and meal in one tap, leaving the sheet open. Choosing a food
   opens `FoodStep` in the same sheet, which reads it with `food.get` and logs it with
-  `diary.addFood`. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
+  `diary.addFood`. Choosing a recipe opens `RecipeStep` (`recipe-step.tsx`), which reads it with
+  `recipe.get` and logs servings or grams of it with `diary.addRecipe`, or offers to open a recipe
+  without ingredients. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
   quantity and portion, a live preview of the nutrients (`resolveEntry`, or an entry's snapshot
   until its amount changes), *Add portion* inline (`food.addPortion`), meal, time and the
-  favourite toggle. *Quick add* opens `QuickAddStep` in the same sheet,
+  favourite toggle, the last two only for a food. A recipe entry is badged *Recipe* in its meal;
+  its editor reads `recipe.get` for the portions and links to the recipe. *Quick add* opens `QuickAddStep` in the same sheet,
   named after the search: a label and either amounts per 100 g (the three macros, optional energy,
   and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
   `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
