@@ -478,9 +478,7 @@ describe('food.setFavourite', () => {
     await user.food.setFavourite({ foodId: id, favourite: true });
     await user.food.setFavourite({ foodId: id, favourite: true });
 
-    expect((await user.food.favourites()).map(({ foodId }) => foodId)).toEqual([
-      id,
-    ]);
+    expect((await user.food.favourites()).map(({ id }) => id)).toEqual([id]);
 
     await user.food.setFavourite({ foodId: id, favourite: false });
     await user.food.setFavourite({ foodId: id, favourite: false });
@@ -1028,5 +1026,39 @@ describe('food.mine', () => {
     await expect(anonymous().food.mine({ query: '' })).rejects.toMatchObject({
       code: 'UNAUTHORIZED',
     });
+  });
+});
+
+describe('food.favourites', () => {
+  it('is the newest favourite first, each with the portion and quantity it was last logged with, or one default portion', async () => {
+    const nutellaId = await idOf('nutella');
+    const ownId = await userFood({ name: 'Peanut butter' });
+    await as('user-1').food.setFavourite({
+      foodId: nutellaId,
+      favourite: true,
+    });
+    await as('user-1').food.setFavourite({ foodId: ownId, favourite: true });
+    for (const quantity of [1, 3]) {
+      await as('user-1').diary.addFood({
+        date: '2026-10-19',
+        meal: 'breakfast',
+        foodId: nutellaId,
+        portion: '100 g',
+        quantity,
+      });
+    }
+
+    expect(
+      (await as('user-1').food.favourites()).map(
+        ({ name, portion, quantity }) => ({ name, portion, quantity }),
+      ),
+    ).toEqual([
+      {
+        name: 'Peanut butter',
+        portion: { label: '1 tsp', grams: 5 },
+        quantity: 1,
+      },
+      { name: 'Nutella', portion: { label: '100 g', grams: 100 }, quantity: 3 },
+    ]);
   });
 });

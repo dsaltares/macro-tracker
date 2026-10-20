@@ -1,24 +1,26 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import {
+  clearDiaryMeal,
   copyDiaryMeal,
   diaryDay,
-  insertDiaryEntry,
+  frequentFoods,
   logFood,
+  logQuickEntry,
+  recentFoods,
   removeDiaryEntry,
   updateDiaryEntry,
 } from '../../db/diary.ts';
 import { isDate } from '../../domain/dates.ts';
 import {
   dayTotals,
+  maxEntryLabelLength,
   meals,
   mealTotals,
   quickEntryNutrients,
 } from '../../domain/diary/entries.ts';
 import { nutrientVectorSchema } from '../../domain/foods/source-food.ts';
 import { accountProcedure, router } from '../trpc.ts';
-
-const maxLabelLength = 100;
 
 const dateInput = z.string().refine(isDate, { message: 'Not a date' });
 const mealInput = z.enum(meals);
@@ -59,6 +61,12 @@ export const diaryRouter = router({
       totals: dayTotals(entries),
     };
   }),
+  recentFoods: accountProcedure.query(({ ctx }) =>
+    recentFoods(ctx.db, ctx.caller.userId),
+  ),
+  frequentFoods: accountProcedure
+    .input(dateInput)
+    .query(({ ctx, input }) => frequentFoods(ctx.db, ctx.caller.userId, input)),
   addFood: accountProcedure
     .input(
       z.object({
@@ -82,25 +90,32 @@ export const diaryRouter = router({
     }),
   addQuick: accountProcedure
     .input(
-      z.object({
-        date: dateInput,
-        meal: mealInput,
-        label: z.string().trim().min(1).max(maxLabelLength),
-        nutrients: quickNutrientsInput,
-        time: timeInput.default(null),
-      }),
+      z
+        .object({
+          date: dateInput,
+          meal: mealInput,
+          label: z.string().trim().min(1).max(maxEntryLabelLength),
+          nutrients: quickNutrientsInput,
+          time: timeInput.default(null),
+          saveAsFood: z.boolean().default(false),
+        })
+        .refine(
+          ({ saveAsFood, nutrients }) => !saveAsFood || 'per100g' in nutrients,
+          {
+            message: 'Only amounts per 100 g can be saved as a food',
+            path: ['saveAsFood'],
+          },
+        ),
     )
-    .mutation(({ ctx, input }) =>
-      insertDiaryEntry(
+    .mutation(({ ctx, input: { saveAsFood, nutrients, ...entry } }) =>
+      logQuickEntry(
         ctx.db,
         ctx.caller.userId,
         {
-          kind: 'quick',
-          date: input.date,
-          meal: input.meal,
-          time: input.time,
-          label: input.label,
-          nutrients: quickEntryNutrients(input.nutrients),
+          ...entry,
+          nutrients: quickEntryNutrients(nutrients),
+          foodPer100g:
+            saveAsFood && 'per100g' in nutrients ? nutrients.per100g : null,
         },
         ctx,
       ),
@@ -162,4 +177,9 @@ export const diaryRouter = router({
     .mutation(({ ctx, input }) =>
       copyDiaryMeal(ctx.db, ctx.caller.userId, input, ctx),
     ),
+  clearMeal: accountProcedure
+    .input(z.object({ date: dateInput, meal: mealInput }))
+    .mutation(async ({ ctx, input }) => ({
+      cleared: await clearDiaryMeal(ctx.db, ctx.caller.userId, input),
+    })),
 });

@@ -39,6 +39,32 @@ test('a new account is sent to onboarding until it has a profile', async ({
   await expect(page).toHaveURL('/diary');
 });
 
+test('onboarding asks for goals after the profile, and settings keeps them', async ({
+  page,
+}) => {
+  await confirmed(page);
+  await expect(page).toHaveURL('/onboarding?next=%2Fdiary');
+
+  await page.goto('/onboarding/goals?next=%2Fdiary');
+  await expect(page).toHaveURL('/onboarding?next=%2Fdiary');
+
+  await completeOnboarding(page);
+  await expect(page).toHaveURL('/diary');
+
+  await page.goto('/settings/goals');
+  await ready(page, 'Save goals');
+  await expect(page.getByLabel('Protein (g per kg)')).toHaveValue('1.6');
+  await page.getByLabel('Vitamin C (mg)').fill('200');
+  await page.getByRole('button', { name: 'Save goals' }).click();
+  await expect(page.getByText('Goals saved.')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel('Vitamin C (mg)')).toHaveValue('200');
+  await expect(
+    page.getByRole('button', { name: 'Reset Vitamin C' }),
+  ).toBeVisible();
+});
+
 test('someone changes their profile from settings', async ({ page }) => {
   await confirmed(page);
   await completeOnboarding(page);

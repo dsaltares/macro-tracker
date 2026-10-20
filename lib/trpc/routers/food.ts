@@ -1,6 +1,10 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { addFavourite, favourites, removeFavourite } from '../../db/diary.ts';
+import {
+  addFavourite,
+  favouriteFoods,
+  removeFavourite,
+} from '../../db/diary.ts';
 import { addUserPortion, removeUserPortion } from '../../db/food-portions.ts';
 import {
   type FoodReader,
@@ -124,7 +128,7 @@ export const foodRouter = router({
       return listFoodSources(ctx.db, ctx.caller.userId);
     }),
   favourites: accountProcedure.query(({ ctx }) =>
-    favourites(ctx.db, ctx.caller.userId),
+    favouriteFoods(ctx.db, ctx.caller.userId),
   ),
   setFavourite: accountProcedure
     .input(favouriteInput)

@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { type ReactNode, useCallback, useRef } from 'react';
 import { FormError } from '@/components/auth/fields';
 import { SourceBadge } from '@/components/foods/source-badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import type { FoodSummary } from '@/lib/db/food-search';
 import { searchTerms } from '@/lib/domain/foods/search';
 import { formatAmount } from '@/lib/domain/nutrition/format';
 import { useTRPC } from '@/lib/trpc/client';
+import { cn } from '@/lib/utils';
 
 export const searchFailed = 'Foods could not be searched. Try again.';
 
@@ -54,15 +55,22 @@ export function FoodRowContent({ food }: { food: FoodSummary }) {
 export function FoodRow({
   food,
   onSelect,
+  action,
 }: {
   food: FoodSummary;
   onSelect: () => void;
+  action?: ReactNode;
 }) {
   return (
-    <li>
-      <button type="button" onClick={onSelect} className={foodRowClass}>
+    <li className="flex items-center">
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(foodRowClass, 'min-w-0 flex-1')}
+      >
         <FoodRowContent food={food} />
       </button>
+      {action}
     </li>
   );
 }
@@ -95,7 +103,7 @@ export function useWhenVisible(onVisible: () => void) {
   }, []);
 }
 
-function Message({ children }: { children: string }) {
+export function Message({ children }: { children: string }) {
   return (
     <p className="px-4 py-6 text-center text-muted-foreground text-sm">
       {children}

@@ -1,9 +1,16 @@
-import type { Kysely, Selectable } from 'kysely';
+import { type Kysely, type Selectable, sql } from 'kysely';
+import { addDays } from '../domain/dates.ts';
 import { type Meal, meals, resolveEntry } from '../domain/diary/entries.ts';
 import type { Portion } from '../domain/foods/portions.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
-import { type Food, findFood, foodByIdQuery } from './food-search.ts';
-import type { FoodWriteContext } from './foods.ts';
+import {
+  type Food,
+  findFood,
+  foodByIdQuery,
+  type LastLoggedAmount,
+  withLastLoggedAmounts,
+} from './food-search.ts';
+import { type FoodWriteContext, writeFood } from './foods.ts';
 import type { Database, DiaryEntriesTable } from './schema.ts';
 
 type EntryFields = {
@@ -123,6 +130,36 @@ export const insertDiaryEntry = async (
     .executeTakeFirstOrThrow();
   return diaryEntry(row);
 };
+
+export type QuickEntryToLog = Omit<QuickEntryInput, 'kind'> & {
+  foodPer100g: NutrientVector | null;
+};
+
+export const logQuickEntry = (
+  db: Kysely<Database>,
+  userId: string,
+  { foodPer100g, ...entry }: QuickEntryToLog,
+  context: FoodWriteContext,
+) =>
+  db.transaction().execute(async (trx) => {
+    if (foodPer100g !== null) {
+      await writeFood(
+        trx,
+        {
+          source: 'user',
+          owner_user_id: userId,
+          barcode: null,
+          name: entry.label,
+          brand: null,
+          quantity_label: null,
+          nutrients: foodPer100g,
+          portions: [],
+        },
+        context,
+      );
+    }
+    return insertDiaryEntry(trx, userId, { kind: 'quick', ...entry }, context);
+  });
 
 export type FoodToLog = {
   date: string;
@@ -338,6 +375,35 @@ export const removeDiaryEntry = async (
   return numDeletedRows > 0n;
 };
 
+export type DiaryMeal = {
+  date: string;
+  meal: Meal;
+};
+
+export const diaryMealDeletion = (
+  db: Kysely<Database>,
+  userId: string,
+  { date, meal }: DiaryMeal,
+) =>
+  db
+    .deleteFrom('diary_entries')
+    .where('user_id', '=', userId)
+    .where('date', '=', date)
+    .where('meal', '=', meal);
+
+export const clearDiaryMeal = async (
+  db: Kysely<Database>,
+  userId: string,
+  meal: DiaryMeal,
+) => {
+  const { numDeletedRows } = await diaryMealDeletion(
+    db,
+    userId,
+    meal,
+  ).executeTakeFirst();
+  return Number(numDeletedRows);
+};
+
 export const favouritesQuery = (db: Kysely<Database>, userId: string) =>
   db
     .selectFrom('favourites')
@@ -392,4 +458,88 @@ export const removeFavourite = async (
     foodId,
   ).executeTakeFirst();
   return numDeletedRows > 0n;
+};
+
+export const foodListLength = 30;
+
+export const frequentFoodsDays = 90;
+
+const loggedFoodsQuery = (db: Kysely<Database>, userId: string) =>
+  db
+    .selectFrom('diary_entries')
+    .where('user_id', '=', userId)
+    .where('kind', '=', 'food')
+    .where('food_id', 'is not', null)
+    .groupBy('food_id')
+    // SQLite fills bare columns beside a lone max() from the row holding that max, so
+    // portion_label and quantity are those of the food's latest entry.
+    .select([
+      'food_id as foodId',
+      'portion_label as portionLabel',
+      'quantity',
+      sql<string>`max(created_at)`.as('lastLoggedAt'),
+    ])
+    .$narrowType<{ foodId: string }>();
+
+export const recentFoodsQuery = (db: Kysely<Database>, userId: string) =>
+  loggedFoodsQuery(db, userId)
+    .orderBy('lastLoggedAt', 'desc')
+    .limit(foodListLength);
+
+export const frequentFoodsQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  date: string,
+) =>
+  loggedFoodsQuery(db, userId)
+    .where('date', '>', addDays(date, -frequentFoodsDays))
+    .where('date', '<=', date)
+    .select(sql<number>`count(*)`.as('timesLogged'))
+    .orderBy('timesLogged', 'desc')
+    .orderBy('lastLoggedAt', 'desc')
+    .limit(foodListLength);
+
+export const lastLoggedAmountsQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  foodIds: readonly string[],
+) => loggedFoodsQuery(db, userId).where('food_id', 'in', foodIds);
+
+export const recentFoods = async (db: Kysely<Database>, userId: string) =>
+  withLastLoggedAmounts(
+    { db, userId },
+    await recentFoodsQuery(db, userId).execute(),
+  );
+
+export const frequentFoods = async (
+  db: Kysely<Database>,
+  userId: string,
+  date: string,
+) =>
+  withLastLoggedAmounts(
+    { db, userId },
+    await frequentFoodsQuery(db, userId, date).execute(),
+  );
+
+export const favouriteFoods = async (db: Kysely<Database>, userId: string) => {
+  const foodIds = (await favourites(db, userId)).map(({ foodId }) => foodId);
+  if (foodIds.length === 0) {
+    return [];
+  }
+  const lastLogged = new Map(
+    (await lastLoggedAmountsQuery(db, userId, foodIds).execute()).map(
+      (amount) => [amount.foodId, amount],
+    ),
+  );
+  return withLastLoggedAmounts(
+    { db, userId },
+    foodIds.map(
+      (foodId): LastLoggedAmount =>
+        lastLogged.get(foodId) ?? {
+          foodId,
+          portionLabel: null,
+          quantity: null,
+        },
+    ),
+  );
 };

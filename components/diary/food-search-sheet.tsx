@@ -3,8 +3,14 @@
 import { IconBarcode, IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
 import { mealNames } from '@/components/diary/amounts';
+import {
+  FavouriteFoods,
+  FrequentFoods,
+  RecentFoods,
+} from '@/components/diary/food-lists';
 import { FoodSearchResults } from '@/components/diary/food-search-results';
 import { FoodStep } from '@/components/diary/food-step';
+import { QuickAddStep } from '@/components/diary/quick-add-step';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,28 +27,39 @@ import type { Meal } from '@/lib/domain/diary/entries';
 export const searchDebounceMs = 300;
 
 const foodLists = [
-  { value: 'recent', label: 'Recent', empty: 'Foods you log appear here.' },
+  {
+    value: 'recent',
+    label: 'Recent',
+    empty: 'Foods you log appear here.',
+    List: RecentFoods,
+  },
   {
     value: 'frequent',
     label: 'Frequent',
     empty: 'The foods you log most often appear here.',
+    List: FrequentFoods,
   },
   {
     value: 'favourites',
     label: 'Favourites',
     empty: 'Foods you mark as favourites appear here.',
+    List: FavouriteFoods,
   },
 ] as const;
 
 type FoodList = (typeof foodLists)[number]['value'] | 'all';
 
 function SearchStep({
+  date,
+  meal,
   query,
   onQueryChange,
   list,
   onListChange,
   onSelectFood,
 }: {
+  date: string;
+  meal: Meal;
   query: string;
   onQueryChange: (query: string) => void;
   list: FoodList;
@@ -92,15 +109,18 @@ function SearchStep({
             All
           </TabsTrigger>
         </TabsList>
-        {foodLists.map(({ value, empty }) => (
+        {foodLists.map(({ value, empty, List }) => (
           <TabsContent
             key={value}
             value={value}
             className="min-h-0 overflow-y-auto"
           >
-            <p className="px-4 py-6 text-center text-muted-foreground text-sm">
-              {empty}
-            </p>
+            <List
+              date={date}
+              meal={meal}
+              empty={empty}
+              onSelectFood={onSelectFood}
+            />
           </TabsContent>
         ))}
         <TabsContent value="all" className="min-h-0 overflow-y-auto">
@@ -126,7 +146,19 @@ function FoodSearch({
   const [query, setQuery] = useState('');
   const [list, setList] = useState<FoodList>('recent');
   const [chosen, setChosen] = useState<FoodSummary | null>(null);
+  const [quickAdding, setQuickAdding] = useState(false);
 
+  if (quickAdding) {
+    return (
+      <QuickAddStep
+        label={query.trim()}
+        date={date}
+        meal={meal}
+        onBack={() => setQuickAdding(false)}
+        onAdded={onAdded}
+      />
+    );
+  }
   if (chosen !== null) {
     return (
       <FoodStep
@@ -142,6 +174,8 @@ function FoodSearch({
   return (
     <>
       <SearchStep
+        date={date}
+        meal={meal}
         query={query}
         onQueryChange={setQuery}
         list={list}
@@ -152,7 +186,12 @@ function FoodSearch({
         <Button variant="outline" size="lg" className="h-11" disabled>
           Create food
         </Button>
-        <Button variant="outline" size="lg" className="h-11" disabled>
+        <Button
+          variant="outline"
+          size="lg"
+          className="h-11"
+          onClick={() => setQuickAdding(true)}
+        >
           Quick add
         </Button>
       </div>

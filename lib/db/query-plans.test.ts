@@ -11,14 +11,19 @@ import {
   diaryDayQuery,
   diaryEntryDeletion,
   diaryEntryQuery,
+  diaryMealDeletion,
   favouriteDeletion,
   favouritesQuery,
+  frequentFoodsQuery,
+  lastLoggedAmountsQuery,
+  recentFoodsQuery,
 } from './diary.ts';
 import { lastSucceededFoodImportQuery } from './food-imports.ts';
 import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
   foodByIdQuery,
+  foodSummariesQuery,
   portionsQuery,
   searchQuery,
   userFoodsQuery,
@@ -362,6 +367,16 @@ describe('query plans', () => {
     expectSearch(diaryEntryDeletion(db, 'u', 'e').compile(), 'diary_entries');
   });
 
+  it("clears one meal of a user's day with a search", () => {
+    expectSearch(
+      diaryMealDeletion(db, 'u', {
+        date: '2026-10-20',
+        meal: 'lunch',
+      }).compile(),
+      'diary_entries',
+    );
+  });
+
   it("clears a deleted food's link from the diary with a search", () => {
     expectSearch(
       db
@@ -371,6 +386,41 @@ describe('query plans', () => {
         .compile(),
       'diary_entries',
     );
+  });
+
+  it('reads the foods a user logged last with a search on their entries', () => {
+    expect(planOf(recentFoodsQuery(db, 'u').compile())).toContainEqual(
+      expect.stringMatching(
+        /^SEARCH diary_entries USING INDEX diary_entries_user_id_date \(user_id=\?\)/,
+      ),
+    );
+    expectNoScan(recentFoodsQuery(db, 'u').compile(), ['diary_entries']);
+  });
+
+  it('counts the foods a user logged over a range of dates with a search on the range', () => {
+    expect(
+      planOf(frequentFoodsQuery(db, 'u', '2026-10-20').compile()),
+    ).toContainEqual(
+      expect.stringMatching(
+        /^SEARCH diary_entries USING INDEX diary_entries_user_id_date \(user_id=\? AND date>\? AND date<\?\)/,
+      ),
+    );
+    expectNoScan(frequentFoodsQuery(db, 'u', '2026-10-20').compile(), [
+      'diary_entries',
+    ]);
+  });
+
+  it('reads the amounts a user last logged of some foods with a search', () => {
+    expectNoScan(lastLoggedAmountsQuery(db, 'u', ['f', 'g']).compile(), [
+      'diary_entries',
+    ]);
+  });
+
+  it('reads what search shows of some foods with a search', () => {
+    expectNoScan(foodSummariesQuery(db, 'u', ['f', 'g']).compile(), [
+      'foods',
+      'food_nutrients',
+    ]);
   });
 
   it("reads a user's favourites without a scan", () => {

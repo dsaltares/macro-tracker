@@ -71,7 +71,7 @@ const noQuantity = 0;
 const usableQuantity = (quantity: number) =>
   Number.isFinite(quantity) && quantity > 0 ? quantity : noQuantity;
 
-function SelectField({
+export function SelectField({
   label,
   className,
   children,
@@ -96,7 +96,7 @@ function SelectField({
   );
 }
 
-function NutrientPreview({ grams, nutrients }: LoggedAmount) {
+export function NutrientPreview({ grams, nutrients }: LoggedAmount) {
   const headingId = useId();
 
   return (
@@ -260,8 +260,7 @@ function FavouriteToggle({ foodId }: { foodId: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const favourites = useQuery(trpc.food.favourites.queryOptions());
-  const favourite =
-    favourites.data?.some((entry) => entry.foodId === foodId) ?? false;
+  const favourite = favourites.data?.some(({ id }) => id === foodId) ?? false;
   const set = useMutation(
     trpc.food.setFavourite.mutationOptions({
       onSuccess: () =>

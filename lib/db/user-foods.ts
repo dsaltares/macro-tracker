@@ -4,7 +4,7 @@ import {
   type FoodWriteContext,
   rewriteUserFood,
   type UserFoodInput,
-  writeNewFood,
+  writeFood,
 } from './foods.ts';
 import type { Database } from './schema.ts';
 
@@ -74,7 +74,7 @@ export const createUserFood = (
     if (await barcodeTaken(trx, userId, food, null)) {
       return { outcome: 'barcode-taken' };
     }
-    const id = await writeNewFood(trx, userFoodInput(userId, food), context);
+    const id = await writeFood(trx, userFoodInput(userId, food), context);
     return { outcome: 'saved', id };
   });
 

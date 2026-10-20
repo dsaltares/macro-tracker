@@ -200,11 +200,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
-  a move keeps it. `copyDiaryMeal` copies snapshots as they are. The `diary` router
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are; `clearDiaryMeal` deletes one
+  meal of a date. `logQuickEntry`
+  logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
+  in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
   (`lib/trpc/routers/diary.ts`) is these over the caller. Adding a favourite
-  reads the food through the same visibility as `food.get`; `food.favourites` and
-  `food.setFavourite` (`{ foodId, favourite }`, idempotent) are them over the caller. Meals and entry kinds are in
-  `lib/domain/diary/entries.ts`.
+  reads the food through the same visibility as `food.get`; `food.setFavourite`
+  (`{ foodId, favourite }`, idempotent) is it over the caller. `recentFoods`
+  (`diary.recentFoods`), `frequentFoods` (`diary.frequentFoods`, the 90 days up to a date) and
+  `favouriteFoods` (`food.favourites`) group the caller's food entries by food, the last logged
+  amount coming from SQLite's bare columns beside a lone `max(created_at)`, and hand them to
+  `withLastLoggedAmounts` (`food-search.ts`), which reads the summaries search shows and falls back
+  to one default portion. Meals and entry kinds are in `lib/domain/diary/entries.ts`.
 - `lib/db/body-measurements.ts` — the weight log: one row per user, metric and date (unique on
   `(user_id, metric, date)`, which also serves every read). `logMeasurement` upserts the day,
   keeping its id and `created_at`; `listMeasurements` reads an optional inclusive range, newest
@@ -220,7 +227,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/db/goals.ts` — the goal settings, one row per user in `goals` with the overrides as a JSON
   object, keeping no history; without a row they are `defaultGoalSettings`. `findGoalOn` reads the
   profile, the latest weight on or before the date and the settings, and hands them to `goalOn`.
-  The `goals` router (`get`, `set`, `forDate`) is these over the caller.
+  The `goals` router (`get`, `set`, `forDate`) is these over the caller. `GoalSettingsForm`
+  (`components/goals/`) edits them on `/settings/goals` and at `/onboarding/goals`, the step after
+  the profile. It previews the goal with `goalOn` as the settings change, from the profile and
+  `body.latest`, and asks for a weight inline when a derived goal has none. The energy and macro
+  overrides are the manual mode's inputs, and are dropped when a derived goal is saved; every
+  other override is a micro goal's field, empty for its default. Nutrient names are
+  `nutrientNames` (`components/nutrients/`).
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
   the container needs nothing run before it, fails imports a restart interrupted, and starts the
   food import schedule. Anything else that must start with the server goes
@@ -305,12 +318,21 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
   pauses (`searchDebounceMs`), paged by `useInfiniteQuery` as the end of the list scrolls into
-  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. Choosing a food
+  view, and the Recent, Frequent, Favourites and All tabs, typing moving to All. The first three
+  are `food-lists.tsx`: each row's add button logs the food's last logged amount to the sheet's
+  date and meal in one tap, leaving the sheet open. Choosing a food
   opens `FoodStep` in the same sheet, which reads it with `food.get` and logs it with
   `diary.addFood`. `FoodStep` and `EditEntryDialog` share `EntryForm` (`entry-form.tsx`):
   quantity and portion, a live preview of the nutrients (`resolveEntry`, or an entry's snapshot
   until its amount changes), *Add portion* inline (`food.addPortion`), meal, time and the
-  favourite toggle. Source badges are `SourceBadge` (`components/foods/`).
+  favourite toggle. *Quick add* opens `QuickAddStep` in the same sheet,
+  named after the search: a label and either amounts per 100 g (the three macros, optional energy,
+  and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
+  `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
+  next time. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Copy from
+  yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
+  tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
+  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`).
 - `app/(app)/foods/` — `UserFoods` (`components/foods/`), the user's foods with a search box,
   each linking to `/foods/[id]`, and *New food* to `/foods/new` (`?barcode=` fills the barcode).
   Both pages render `UserFoodForm` through `NewUserFood` and `EditUserFood`: name, brand,

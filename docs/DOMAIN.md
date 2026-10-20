@@ -131,8 +131,17 @@ food, a recipe or re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
 
+**Copying a meal** adds a copy of each of its entries, snapshots as they are, to another date and
+meal; the originals stay. **Clearing a meal** deletes every entry of one meal on one date.
+
 A **favourite** is a food a user has marked to find again quickly. It is theirs alone, and goes
 when the food does.
+
+A user's **recent foods** are the last 30 foods they logged, each once, last logged first. Their
+**frequent foods** are the 30 they logged most often over the 90 days up to a date, ties going to
+the one logged last. Recent foods, frequent foods and favourites each carry the food's **last
+logged amount**, the portion and quantity of its latest food entry, so one tap logs it again; a
+food never logged, or whose portion is gone, carries one of its default portion.
 
 ## Body and goals
 
@@ -140,7 +149,8 @@ A **profile** is sex (female or male, what the energy and reference value equati
 of birth, height in cm and an **activity level** (sedentary, light, moderate, active, very active,
 with the usual 1.2 to 1.9 multipliers). An account is between 16 and 120 years old by its date of
 birth. A new account goes through **onboarding**, which asks for the profile, before anything
-else, and is sent back to it until a profile exists; after that the profile is edited in settings.
+else, and is sent back to it until a profile exists; then it offers the goal settings with their
+defaults chosen, to keep or change. After that both are edited in settings.
 
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
 The **trend weight** is an exponential moving average over the log: it starts at the first weight

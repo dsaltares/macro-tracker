@@ -181,7 +181,7 @@ const userPortionsOf = (ownerUserId: string): PortionOwner => ({
   user_id: ownerUserId,
 });
 
-export const writeNewFood = async (
+export const writeFood = async (
   trx: Transaction<Database>,
   food: FoodInput,
   { now, nextId }: FoodWriteContext,
@@ -217,7 +217,7 @@ export const insertFood = (
   db: Kysely<Database>,
   food: FoodInput,
   context: FoodWriteContext,
-) => db.transaction().execute((trx) => writeNewFood(trx, food, context));
+) => db.transaction().execute((trx) => writeFood(trx, food, context));
 
 export const userPortionsDeletion = (
   db: Writer,
