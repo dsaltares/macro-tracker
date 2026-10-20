@@ -269,6 +269,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   (`components/settings/`), whose top bar links back. The settings page also holds the theme
   (`ThemeSetting`), and below `md` the `AccountSummary`. Food sources edits the source preferences through
   `food.sources` and `food.setSourcePreferences`, saving every change as it is made.
+- `app/(app)/diary/` — the day view, `DiaryDay` (`components/diary/`). The day is the `date` search
+  parameter through nuqs (`NuqsAdapter` in the root layout, `NuqsTestingAdapter` in tests), absent
+  for today, which is the browser's day and so only known after hydration. The top bar steps a day
+  either way and opens the native date picker; `diary.day` fills the day totals card (energy and
+  macros, the rest of the EU label behind *More nutrients*) and the four meals. Tapping an entry
+  opens `EditEntryDialog`, which sends `diary.update` only the fields that changed, since a
+  quantity or portion re-resolves the snapshot, or deletes it.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
