@@ -1,4 +1,5 @@
 import type { ColumnType, Generated } from 'kysely';
+import type { BodyMetric } from '../domain/body.ts';
 import type { EntryKind, Meal } from '../domain/diary/entries.ts';
 import type {
   GenericSource,
@@ -163,6 +164,15 @@ export type FavouritesTable = {
   created_at: string;
 };
 
+export type BodyMeasurementsTable = {
+  id: string;
+  user_id: string;
+  date: string;
+  metric: BodyMetric;
+  value: number;
+  created_at: ColumnType<string, string, never>;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -178,4 +188,5 @@ export type Database = {
   profiles: ProfilesTable;
   diary_entries: DiaryEntriesTable;
   favourites: FavouritesTable;
+  body_measurements: BodyMeasurementsTable;
 };

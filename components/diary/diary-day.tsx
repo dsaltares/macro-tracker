@@ -2,16 +2,18 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { createParser, useQueryState } from 'nuqs';
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
 import { FormError } from '@/components/auth/fields';
+import { LogWeightCard } from '@/components/body/log-weight-card';
 import { DayNavigation } from '@/components/diary/day-navigation';
 import { DayTotals } from '@/components/diary/day-totals';
 import { EditEntryDialog } from '@/components/diary/edit-entry-dialog';
 import { MealSection } from '@/components/diary/meal-section';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToday } from '@/components/use-today';
 import type { DiaryEntry } from '@/lib/db/diary';
-import { isDate, localDateOf } from '@/lib/domain/dates';
+import { isDate } from '@/lib/domain/dates';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const loadFailed = 'This day could not be loaded.';
@@ -20,15 +22,6 @@ const dateParser = createParser({
   parse: (value) => (isDate(value) ? value : null),
   serialize: (date: string) => date,
 });
-
-const subscribeToNothing = () => () => {};
-
-const useToday = () =>
-  useSyncExternalStore(
-    subscribeToNothing,
-    () => localDateOf(new Date()),
-    () => null,
-  );
 
 function DaySkeleton() {
   return (
@@ -89,6 +82,9 @@ export function DiaryDay() {
         )
       }
     >
+      {today !== null && date === today ? (
+        <LogWeightCard today={today} />
+      ) : null}
       {date === null ? <DaySkeleton /> : <Day key={date} date={date} />}
     </AppPage>
   );

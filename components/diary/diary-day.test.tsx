@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { NuqsTestingAdapter, type UrlUpdateEvent } from 'nuqs/adapters/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DiaryDay, loadFailed } from '@/components/diary/diary-day';
+import { listMeasurements } from '@/lib/db/body-measurements';
 import { diaryDay, insertDiaryEntry, logFood } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { dayTotals } from '@/lib/domain/diary/entries';
@@ -375,6 +376,36 @@ describe('DiaryDay', () => {
     );
     expect((await storedDay()).map(({ id }) => id)).not.toContain(oatsEntry.id);
     expect(meal('Breakfast')).toHaveTextContent('162 kcal');
+  });
+
+  it('asks for a weight on today only, until today has one', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 20, 12));
+    const { user } = render('');
+
+    expect(
+      await screen.findByRole('region', { name: 'Log weight' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Previous day' }));
+
+    expect(await screen.findByLabelText('Date, Yesterday')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Log weight' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next day' }));
+    await user.type(await screen.findByLabelText('Weight (kg)'), '72.4');
+    await user.click(screen.getByRole('button', { name: 'Log weight' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('region', { name: 'Log weight' }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      await listMeasurements(api.database(), 'user-1', { metric: 'weight_kg' }),
+    ).toEqual([expect.objectContaining({ date: '2026-10-20', value: 72.4 })]);
   });
 
   it('says so when the day cannot be loaded', async () => {

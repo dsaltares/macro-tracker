@@ -1,7 +1,6 @@
-import { IconChevronLeft } from '@tabler/icons-react';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
+import { BackLink } from '@/components/app-shell/back-link';
 import { routes } from '@/lib/routes';
 
 export function SettingsPage({
@@ -14,15 +13,7 @@ export function SettingsPage({
   return (
     <AppPage
       title={title}
-      start={
-        <Link
-          href={routes.settings}
-          aria-label="Back to settings"
-          className="-ml-3 flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
-        >
-          <IconChevronLeft className="size-5" />
-        </Link>
-      }
+      start={<BackLink href={routes.settings} label="Back to settings" />}
     >
       {children}
     </AppPage>
