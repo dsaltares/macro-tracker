@@ -1,6 +1,7 @@
 export const routes = {
   home: '/',
   diary: '/diary',
+  nutrients: '/diary/nutrients',
   foods: '/foods',
   trends: '/trends',
   body: '/body',
@@ -20,3 +21,9 @@ export const routes = {
   terms: '/terms',
   cookies: '/cookies',
 } as const;
+
+export const diaryHref = (date: string | null) =>
+  date === null ? routes.diary : `${routes.diary}?date=${date}`;
+
+export const nutrientsHref = (date: string) =>
+  `${routes.nutrients}?date=${date}`;

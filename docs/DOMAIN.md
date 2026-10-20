@@ -176,6 +176,14 @@ another body: saturated fat from the WHO, sugars and chromium from the EU refere
 drops from 16 to 11 mg at 51, EFSA's postmenopausal value. Sources and retrieval are in
 [`DATA-SOURCES.md`](DATA-SOURCES.md).
 
+A day's **progress** toward a goal is how far its day totals (or one meal's totals) have come,
+as a share of the goal: **under**, **near** or **over**. A target is near from 90% to 110% of
+it and over beyond; an upper limit is near from 90% of it and over as soon as it is passed. The
+day view shows energy as a ring of the kcal left (or over) and protein, carbohydrate and fat as
+bars; the **nutrient panel** lists every nutrient of the day, or of one meal against the day's
+goals, by group and display order. A nutrient no logged entry declares has **no data**, which is
+shown as such and never as zero.
+
 Goals **warn, never block**: an aggressive goal shows a warning, and still saves. A derived goal
 warns when its kcal target is under 1,200 for a woman or 1,500 for a man, when its weekly rate is
 over 1 kg either way, and when protein and fat leave no energy for carbohydrate, which is then
