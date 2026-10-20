@@ -38,6 +38,11 @@ import { userPortionsDeletion } from './foods.ts';
 import { goalSettingsQuery } from './goals.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
+import {
+  recipeIngredientsQuery,
+  recipeQuery,
+  userRecipesQuery,
+} from './recipes.ts';
 import type { Database } from './schema.ts';
 import {
   passwordCreation,
@@ -335,6 +340,50 @@ describe('query plans', () => {
       'favourites',
       'body_measurements',
       'goals',
+      'recipes',
+      'recipe_ingredients',
+    ]);
+  });
+
+  it("drops a deleted user's foods from recipes with a search", () => {
+    expectSearch(
+      db.deleteFrom('recipe_ingredients').where('food_id', '=', 'f').compile(),
+      'recipe_ingredients',
+    );
+  });
+
+  it('drops a deleted recipe from the recipes it is in with a search', () => {
+    expectSearch(
+      db
+        .deleteFrom('recipe_ingredients')
+        .where('child_recipe_id', '=', 'r')
+        .compile(),
+      'recipe_ingredients',
+    );
+  });
+
+  it("lists a user's live recipes with a search, in order from the index", () => {
+    expect(planOf(userRecipesQuery(db, 'u').compile())).toEqual([
+      expect.stringMatching(/^SEARCH recipes USING INDEX recipes_user_id_name/),
+    ]);
+  });
+
+  it("reads a user's recipe by id with a search", () => {
+    expectSearch(recipeQuery(db, 'u', 'r').compile(), 'recipes');
+  });
+
+  it("reads a user's recipe's ingredients in order without a scan", () => {
+    const plan = planOf(recipeIngredientsQuery(db, 'u', 'r').compile());
+
+    expect(plan).toContainEqual(
+      expect.stringMatching(
+        /^SEARCH recipe_ingredients USING INDEX recipe_ingredients_recipe_id_position/,
+      ),
+    );
+    expect(plan).not.toContainEqual(expect.stringMatching(/TEMP B-TREE/));
+    expectNoScan(recipeIngredientsQuery(db, 'u', 'r').compile(), [
+      'recipes',
+      'recipe_ingredients',
     ]);
   });
 
