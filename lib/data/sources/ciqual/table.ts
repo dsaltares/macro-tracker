@@ -144,6 +144,7 @@ export const createCiqualSource = ({
   datasetUrl = ciqualDatasetUrl,
 }: TableOptions = {}): FoodSource => ({
   id: 'ciqual',
+  kind: 'full',
   emits: ['ciqual'],
   async *fetch(context) {
     const { logger } = context;

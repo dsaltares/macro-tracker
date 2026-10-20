@@ -26,6 +26,7 @@ const contextWith = (signal = new AbortController().signal): SourceContext => ({
   tempDir,
   logger: pino({ enabled: false }),
   signal,
+  lastSucceededAt: null,
 });
 
 const readAll = async (

@@ -7,6 +7,7 @@ import * as foodImports from './migrations/0003-food-imports.ts';
 import * as foodOriginalNames from './migrations/0004-food-original-names.ts';
 import * as foodSourcePreferences from './migrations/0005-food-source-preferences.ts';
 import * as accounts from './migrations/0006-accounts.ts';
+import * as foodImportHistory from './migrations/0007-food-import-history.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -16,6 +17,7 @@ const migrations: Record<string, Migration> = {
   '0004-food-original-names': foodOriginalNames,
   '0005-food-source-preferences': foodSourcePreferences,
   '0006-accounts': accounts,
+  '0007-food-import-history': foodImportHistory,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

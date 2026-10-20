@@ -43,6 +43,7 @@ export const createFixtureSource = (
   path: string = sampleFixturePath,
 ): FoodSource => ({
   id: 'fixture',
+  kind: 'full',
   emits: referenceSources,
   async *fetch({ logger, signal }) {
     const lines = createInterface({

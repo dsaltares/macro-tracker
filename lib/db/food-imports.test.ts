@@ -3,6 +3,7 @@ import { migratedDatabasePerTest } from '@/test/db';
 import {
   failInterruptedFoodImports,
   interrupted,
+  lastSucceededFoodImport,
   startFoodImport,
 } from './food-imports.ts';
 
@@ -122,5 +123,57 @@ describe('failInterruptedFoodImports', () => {
 
   it('does nothing when no import is running', async () => {
     expect(await failInterruptedFoodImports(database(), now)).toEqual([]);
+  });
+});
+
+describe('lastSucceededFoodImport', () => {
+  it('is the latest succeeded import that read the source', async () => {
+    await database()
+      .insertInto('food_imports')
+      .values([
+        {
+          id: 'older',
+          sources: 'off-deltas',
+          status: 'succeeded',
+          started_at: '2026-10-17T04:00:00.000Z',
+        },
+        {
+          id: 'latest',
+          sources: 'usda,off-deltas',
+          status: 'succeeded',
+          started_at: '2026-10-18T04:00:00.000Z',
+        },
+        {
+          id: 'failed',
+          sources: 'off-deltas',
+          status: 'failed',
+          started_at: '2026-10-19T04:00:00.000Z',
+        },
+        {
+          id: 'other',
+          sources: 'off',
+          status: 'succeeded',
+          started_at: '2026-10-19T05:00:00.000Z',
+        },
+      ])
+      .execute();
+
+    expect(
+      await lastSucceededFoodImport(database(), 'off-deltas'),
+    ).toMatchObject({ id: 'latest' });
+  });
+
+  it('does not take a source for another whose id contains it', async () => {
+    await database()
+      .insertInto('food_imports')
+      .values({
+        id: 'deltas',
+        sources: 'off-deltas',
+        status: 'succeeded',
+        started_at: '2026-10-19T04:00:00.000Z',
+      })
+      .execute();
+
+    expect(await lastSucceededFoodImport(database(), 'off')).toBeUndefined();
   });
 });

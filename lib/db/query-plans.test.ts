@@ -1,6 +1,7 @@
 import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { lastSucceededFoodImportQuery } from './food-imports.ts';
 import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
@@ -177,6 +178,12 @@ describe('query plans', () => {
         .compile(),
       'food_imports',
     );
+  });
+
+  it('finds the last succeeded import of a source without a scan', () => {
+    expectNoScan(lastSucceededFoodImportQuery(db, 'off-deltas').compile(), [
+      'food_imports',
+    ]);
   });
 
   it('fails the running food import without a scan', () => {

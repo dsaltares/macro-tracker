@@ -107,13 +107,17 @@ mail is only logged and nobody can confirm an address. `GOOGLE_CLIENT_ID` and
 `<BETTER_AUTH_URL>/api/auth/callback/google`; with either empty, the Google button is not shown.
 
 `INTERNAL_API_TOKEN` (`openssl rand -hex 32`) unlocks the internal import endpoint; left empty,
-the endpoint answers `404` to everyone. The server imports reference foods on its own on the first
-Sunday of each month at 03:00 in the container's time zone; `FOOD_IMPORT_CRON` sets another cron
-pattern, and an empty one turns the schedule off. To start an import by hand, or see recent ones:
+the endpoint answers `404` to everyone. The server imports reference foods on its own: every
+source in full on the first Sunday of each month at 03:00 in the container's time zone, and the
+Open Food Facts deltas every day at 04:00. `FOOD_IMPORT_CRON` and `FOOD_DELTA_CRON` set other cron
+patterns, and an empty one turns that schedule off. To start an import by hand, or see recent
+ones:
 
 ```sh
 curl -X POST -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
   -d '{"sources":["off"]}' https://macros.saltares.dev/api/internal/imports/foods
+curl -X POST -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+  -d '{"sources":["off-deltas"]}' https://macros.saltares.dev/api/internal/imports/foods
 curl -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
   https://macros.saltares.dev/api/internal/imports/foods
 ```

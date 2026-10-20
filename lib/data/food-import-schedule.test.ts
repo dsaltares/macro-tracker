@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import { importFoodsInBackground } from './background-import.ts';
 import {
+  defaultFoodDeltaCron,
   defaultFoodImportCron,
+  foodDeltaCron,
   foodImportCron,
   scheduleFoodImports,
 } from './food-import-schedule.ts';
@@ -39,6 +41,35 @@ describe('foodImportCron', () => {
     expect(
       foodImportCron({ NODE_ENV: 'test', FOOD_IMPORT_CRON: '0 4 * * *' }),
     ).toBeUndefined();
+  });
+});
+
+describe('foodDeltaCron', () => {
+  it('runs every day at 04:00 by default', () => {
+    expect(foodDeltaCron({ NODE_ENV: 'production' })).toBe(
+      defaultFoodDeltaCron,
+    );
+    expect(defaultFoodDeltaCron).toBe('0 4 * * *');
+  });
+
+  it('takes the schedule from FOOD_DELTA_CRON alone', () => {
+    expect(
+      foodDeltaCron({
+        NODE_ENV: 'production',
+        FOOD_IMPORT_CRON: '',
+        FOOD_DELTA_CRON: '30 5 * * *',
+      }),
+    ).toBe('30 5 * * *');
+  });
+
+  it.each(['', '  '])('is off when FOOD_DELTA_CRON is %j', (value) => {
+    expect(
+      foodDeltaCron({ NODE_ENV: 'production', FOOD_DELTA_CRON: value }),
+    ).toBeUndefined();
+  });
+
+  it('is off under test', () => {
+    expect(foodDeltaCron({ NODE_ENV: 'test' })).toBeUndefined();
   });
 });
 

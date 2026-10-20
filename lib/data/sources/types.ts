@@ -7,10 +7,14 @@ export type SourceContext = {
   tempDir: string;
   logger: Logger;
   signal: AbortSignal;
+  lastSucceededAt: string | null;
 };
+
+export type SourceKind = 'full' | 'delta';
 
 export type FoodSource = {
   id: string;
+  kind: SourceKind;
   emits: readonly ReferenceSource[];
   fetch: (context: SourceContext) => AsyncIterable<SourceFood>;
 };

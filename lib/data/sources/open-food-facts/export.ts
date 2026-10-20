@@ -1,14 +1,13 @@
-import { Readable } from 'node:stream';
 import { setTimeout } from 'node:timers/promises';
-import { createGunzip } from 'node:zlib';
-import { normaliseBarcode } from '../../../domain/foods/barcode.ts';
-import { isSoldInEurope } from '../../../domain/foods/countries.ts';
 import type { FoodSource, SourceContext } from '../types.ts';
+import { decompressedLines } from './lines.ts';
+import type { OffProduct } from './mapping.ts';
 import {
-  declaresNutritionFacts,
-  type OffProduct,
-  sourceFoodFromOff,
-} from './mapping.ts';
+  emptyProductCounts,
+  keptFood,
+  type ProductCounts,
+  type ProductRead,
+} from './products.ts';
 
 export const offExportUrl =
   'https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz';
@@ -24,12 +23,7 @@ export type ExportCounts = {
   resumes: number;
   lines: number;
   malformed: number;
-  notInEurope: number;
-  invalidBarcode: number;
-  noNutritionFacts: number;
-  rejected: number;
-  foods: number;
-};
+} & ProductCounts;
 
 const defaultMaxResumes = 5;
 const defaultResumeDelayMs = 5_000;
@@ -46,11 +40,7 @@ const emptyCounts = (): ExportCounts => ({
   resumes: 0,
   lines: 0,
   malformed: 0,
-  notInEurope: 0,
-  invalidBarcode: 0,
-  noNutritionFacts: 0,
-  rejected: 0,
-  foods: 0,
+  ...emptyProductCounts(),
 });
 
 type Resume = { from: number; validator: string };
@@ -123,33 +113,12 @@ async function* exportBytes(
   }
 }
 
-async function* linesOf(
-  chunks: AsyncIterable<Uint8Array>,
-): AsyncGenerator<string> {
-  const decoder = new TextDecoder();
-  let pending = '';
-  for await (const chunk of chunks) {
-    const lines = (pending + decoder.decode(chunk, { stream: true })).split(
-      '\n',
-    );
-    pending = lines.pop() ?? '';
-    yield* lines;
-  }
-  pending += decoder.decode();
-  if (pending !== '') {
-    yield pending;
-  }
-}
-
-const decompressedLines = (bytes: AsyncIterable<Uint8Array>) =>
-  linesOf(Readable.from(bytes).compose(createGunzip()));
-
 const readerOf = (header: string[]) => {
   const index = new Map(header.map((column, at) => [column, at]));
   const nutrimentColumns = header.flatMap((column, at) =>
     column.endsWith(nutrimentSuffix) ? [[column, at] as const] : [],
   );
-  return (fields: string[]) => {
+  return (fields: string[]): ProductRead => {
     const field = (column: string) => {
       const at = index.get(column);
       return at === undefined ? undefined : fields[at] || undefined;
@@ -163,7 +132,7 @@ const readerOf = (header: string[]) => {
             fields[at] ? [[column, fields[at]]] : [],
           ),
         ),
-      product: (nutriments: Record<string, string>): OffProduct => ({
+      product: (nutriments): OffProduct => ({
         code: field('code') ?? '',
         product_name: field('product_name'),
         brands: field('brands') ?? field('brands_en'),
@@ -187,6 +156,7 @@ export const createOpenFoodFactsSource = ({
   resumeDelayMs = defaultResumeDelayMs,
 }: ExportOptions = {}): FoodSource => ({
   id: 'off',
+  kind: 'full',
   emits: ['off'],
   async *fetch(context) {
     const { logger } = context;
@@ -220,28 +190,10 @@ export const createOpenFoodFactsSource = ({
         );
         continue;
       }
-      const row = read(fields);
-      if (!isSoldInEurope(row.countryTags())) {
-        counts.notInEurope += 1;
-        continue;
+      const food = keptFood(read(fields), counts, logger);
+      if (food) {
+        yield food;
       }
-      if (normaliseBarcode(row.code()) === null) {
-        counts.invalidBarcode += 1;
-        continue;
-      }
-      const nutriments = row.nutriments();
-      if (!declaresNutritionFacts(nutriments)) {
-        counts.noNutritionFacts += 1;
-        continue;
-      }
-      const mapped = sourceFoodFromOff(row.product(nutriments));
-      if (!mapped.success) {
-        counts.rejected += 1;
-        logger.debug({ reason: mapped.reason }, 'rejected a product');
-        continue;
-      }
-      counts.foods += 1;
-      yield mapped.food;
     }
     logger.info(
       { ...counts, ms: Math.round(performance.now() - startedAt) },

@@ -16,6 +16,7 @@ const run = async () => {
     tempDir: '',
     logger: getLogger('usda'),
     signal: controller.signal,
+    lastSucceededAt: null,
   })) {
     foods += 1;
     portions.total += food.portions.length;

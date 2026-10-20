@@ -89,6 +89,7 @@ const contextWith = (
   tempDir: '',
   logger: pino({ enabled: false }),
   signal: new AbortController().signal,
+  lastSucceededAt: null,
   ...overrides,
 });
 

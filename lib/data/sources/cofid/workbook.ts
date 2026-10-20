@@ -73,6 +73,7 @@ export const createCofidSource = ({
   url?: string;
 } = {}): FoodSource => ({
   id: 'cofid',
+  kind: 'full',
   emits: ['cofid'],
   async *fetch({ fetch, logger, signal }) {
     const startedAt = performance.now();

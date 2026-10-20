@@ -22,6 +22,7 @@ const run = async () => {
       tempDir,
       logger: getLogger('open-food-facts'),
       signal: controller.signal,
+      lastSucceededAt: null,
     })) {
       foods += 1;
     }

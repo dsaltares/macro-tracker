@@ -62,6 +62,7 @@ export default defineConfig({
       RESEND_API_KEY: '',
       EMAIL_FROM: '',
       EMAIL_OUTBOX_DIR: e2eOutboxDir,
+      FOOD_DELTA_CRON: '',
       GOOGLE_CLIENT_ID: e2eGoogleClientId,
       GOOGLE_CLIENT_SECRET: 'a-throwaway-secret-google-never-sees',
     },
