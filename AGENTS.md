@@ -177,7 +177,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `requireSession(here)` sends someone signed out to sign in and back. `redirect.ts` keeps `next`
   inside the app and off the auth pages. `client.ts` is the browser client; component tests mock it
   with `test/auth-client.ts` and `next/navigation` with `test/next-navigation.ts`. The pages are in
-  `app/(auth)/`, the forms in `components/auth/`.
+  `app/(auth)/`, the forms in `components/auth/`. Sign-up requires consent (ADR
+  [0009](docs/adr/0009-process-the-diary-on-explicit-consent-recorded-at-sign-up.md)): a body
+  without `termsAccepted: true` is refused with `TERMS_NOT_ACCEPTED`, and the user is created with
+  `terms_accepted_at`. `client.ts` declares `termsAccepted`, so `signUp.email` needs it to compile.
 - `lib/email/` — `sendEmail` (ADR [0007](docs/adr/0007-mail-through-resend-behind-a-send-email-seam.md))
   takes a rendered `EmailMessage` and never throws: Resend with `RESEND_API_KEY` and `EMAIL_FROM`,
   otherwise a pino log of the message, link included. A reserved test address is never handed to
@@ -190,6 +193,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   mounted in `root.ts`. Components call them through `useTRPC()` and TanStack Query;
   `TRPCReactProvider` sits in the root layout. `accountProcedure` answers `UNAUTHORIZED` without a
   caller and hands the procedure a non-null one.
+- `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
+  `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
+  `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app
+  collects, keeps, sets in the browser or shares with someone changes the privacy or cookie policy
+  in the same change and bumps `lastUpdated`. `legalDocuments` in `lib/navigation.ts` is the one
+  list the footer (`components/site-footer.tsx`, on every page) links from; the account menu links
+  the first two.
 - `lib/logger.ts` — pino; pretty in development, JSON in production.
 - `test/api.tsx` — `serveApi()` serves the real router over MSW on a fresh in-memory database per
   test, with a ticking clock and sequential ids. `api.wrap(<Component />)` renders with the client

@@ -11,6 +11,10 @@ nothing to own. A **session** is what the app holds once a confirmed user signs 
 datum is reached through the session's user, never an id from input. A forgotten password is
 replaced by following a **reset link**, which signs out every session.
 
+What a user logs about their food and weight is health data, so signing up records their
+**consent**: agreeing to the terms and acknowledging the privacy policy, with the time they did,
+before an account exists. A later change to those documents does not ask again.
+
 ## Nutrients
 
 A **nutrient** is one entry in the canonical list in `lib/domain/nutrition/nutrients.ts`: a key,

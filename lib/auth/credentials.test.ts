@@ -5,6 +5,7 @@ import {
   minPasswordLength,
   newPasswordSchema,
   signUpSchema,
+  termsRequired,
 } from './credentials.ts';
 
 const issuesOf = (result: {
@@ -18,6 +19,7 @@ describe('signUpSchema', () => {
       email: '  Eater@Example.TEST ',
       password: 'a'.repeat(minPasswordLength),
       confirmPassword: 'a'.repeat(minPasswordLength),
+      termsAccepted: true,
     });
 
     expect(parsed.email).toBe('eater@example.test');
@@ -30,9 +32,23 @@ describe('signUpSchema', () => {
           email: 'eater',
           password: 'a'.repeat(minPasswordLength),
           confirmPassword: 'a'.repeat(minPasswordLength),
+          termsAccepted: true,
         }),
       ),
     ).toEqual(['That does not look like an email address.']);
+  });
+
+  it('refuses a sign-up that does not agree to the terms', () => {
+    expect(
+      issuesOf(
+        signUpSchema.safeParse({
+          email: 'eater@example.test',
+          password: 'a'.repeat(minPasswordLength),
+          confirmPassword: 'a'.repeat(minPasswordLength),
+          termsAccepted: false,
+        }),
+      ),
+    ).toEqual([termsRequired]);
   });
 });
 

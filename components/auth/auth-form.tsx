@@ -14,14 +14,17 @@ import { authUrl } from '@/lib/auth/redirect';
 
 export function AuthLink({
   href,
+  newTab = false,
   children,
 }: {
   href: string;
+  newTab?: boolean;
   children: ReactNode;
 }) {
   return (
     <Link
       href={href}
+      {...(newTab ? { target: '_blank', rel: 'noreferrer' } : {})}
       className="font-medium text-foreground underline underline-offset-4"
     >
       {children}
