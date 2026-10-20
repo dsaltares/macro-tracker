@@ -436,8 +436,19 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   from the photo, never from the source's data; `score.ts` compares a reading to it field by field,
   amounts by value whatever the decimal separator or unit. The schema
   sent to the model drops `minLength` and `maxLength`, which strict structured outputs refuse; the
-  answer is still validated by the Zod one. Tests drive it with `MockLanguageModelV4` from
-  `ai/test`. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
+  answer is still validated by the Zod one (`strictOutput`, `structured-output.ts`, with the
+  failures `failureOf` maps errors to). Tests drive it with `MockLanguageModelV4` from
+  `ai/test`. `createMealEstimator({ model })` (`meal-estimator.ts`, ADR
+  [0016](docs/adr/0016-estimate-meals-with-an-agent-over-the-users-own-search.md)) is
+  `estimateMeal({ photos, description, foods, previous? })`, which never throws either: the
+  `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10) `unreadable`. It is a tool
+  loop with `prompts/meal.ts` and two tools over `foods`, a `MealEstimatorFoods` port:
+  `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo.
+  `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
+  caller: `searchFoods`' first page and the live recipes whose names hold every word
+  (`nameMatchesEveryTerm`), and a live food with its portions. `previous` is `{ draft, feedback }`,
+  sent as the model's earlier answer and the user's correction; the photos are sent again.
+  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
   per 100 g winning over those per serving, the first of a nutrient read twice winning. It keeps

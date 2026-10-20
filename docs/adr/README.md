@@ -25,6 +25,7 @@ order).
 | [0013](0013-read-labels-through-a-provider-agnostic-ai-seam-and-discard-the-photo.md) | Read labels through a provider-agnostic AI seam, and discard the photo | Accepted | 2026-10-20 |
 | [0014](0014-install-from-the-manifest-alone-with-no-service-worker.md) | Install from the manifest alone, with no service worker | Accepted | 2026-10-20 |
 | [0015](0015-prompt-install-with-an-inline-banner-behind-sign-in.md) | Prompt the install with an inline banner in the signed-in app | Accepted | 2026-10-20 |
+| [0016](0016-estimate-meals-with-an-agent-over-the-users-own-search.md) | Estimate meals with an agent over the user's own food search | Accepted | 2026-10-20 |
 
 ## How to add one
 

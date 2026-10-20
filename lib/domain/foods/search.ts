@@ -14,3 +14,11 @@ export const matchExpression = (query: string): string | null => {
     .map((word, index) => (index === last ? `"${word}"*` : `"${word}"`))
     .join(' ');
 };
+
+const lowerCase = (text: string) => text.toLocaleLowerCase('en');
+
+export const nameMatchesEveryTerm = (name: string, query: string) => {
+  const terms = searchTerms(lowerCase(query));
+  const words = lowerCase(name);
+  return terms.length > 0 && terms.every((word) => words.includes(word));
+};
