@@ -93,7 +93,11 @@ function SearchStep({
           </TabsTrigger>
         </TabsList>
         {foodLists.map(({ value, empty }) => (
-          <TabsContent key={value} value={value} className="min-h-0 overflow-y-auto">
+          <TabsContent
+            key={value}
+            value={value}
+            className="min-h-0 overflow-y-auto"
+          >
             <p className="px-4 py-6 text-center text-muted-foreground text-sm">
               {empty}
             </p>
