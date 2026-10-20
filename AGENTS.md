@@ -319,6 +319,18 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
   per 100 g winning over those per serving, the first of a nutrient read twice winning.
+- `lib/label-scan/route.ts` — `POST /api/label-scan`, a route handler, not tRPC, since the body is
+  bytes. `labelScanRoute({ readLabel, resolveCaller, logger })` answers `401` without a session,
+  `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
+  again while reading the body), `415` for anything but a JPEG or WebP by its leading bytes, and
+  otherwise the `LabelReading` or the reader's failure, logged without the photo. The route in
+  `app/api/label-scan/` only wires it to the server.
+- `components/label-scan/` — `LabelCapture`: *Take a photo* (a file input with
+  `capture="environment"`) or *Choose a photo*, shrunk in the browser to 1,600 px on the long edge
+  as WebP, JPEG where the browser cannot encode WebP (`shrinkPhoto`, `photo.ts`), sent with
+  `XMLHttpRequest` for its upload progress (`uploadPhoto`), then *Reading the label…*, handing the
+  reading to `onRead`. A failure that may pass offers *Try again* with the same photo; every failure
+  offers another. Tests mock `photo.ts`, which needs a real canvas.
 - `lib/trpc/` — tRPC 11 over the fetch adapter at `app/api/trpc/[trpc]`. `createContext({ headers })`
   hands every procedure its database, `now()`, `nextId()` and `caller`, resolved from the session
   (`null` without a confirmed one), so tests swap any of them. Procedures live in `routers/`,
@@ -368,7 +380,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
-  *Scan the label* on a miss.
+  *Scan the label* on a miss, the last two linking to `/foods/new` with the barcode
+  (`newFoodHref`), the last starting it with the camera.
   `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
   for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
@@ -390,7 +403,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   barcode, pack size, the EU label with salt, the rest of the canon behind *All nutrients*
   (`nutrientNames`), and the portions. Amounts typed per serving are scaled to 100 g and rounded
   to two decimals (`per100gOfEntered`); an edit keeps the stored amount of every nutrient field
-  it did not touch. Editing also archives, once confirmed.
+  it did not touch. Editing also archives, once confirmed. While label scanning is on, a new food
+  offers *Scan a label instead* (`?scan=label` starts with it): `LabelCapture`, whose reading
+  fills the form through `labelReadingToFood`, keeping the barcode.
 - `app/(site)/` — the privacy policy, terms and cookie policy, prerendered, built from
   `components/legal/legal-document.tsx` (`LegalDocument`, `LegalSection`, `LegalTable`,
   `Callout`, and `lastUpdated`, `supportEmail`, `operator` in one place). A change to what the app

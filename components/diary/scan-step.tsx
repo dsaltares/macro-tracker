@@ -3,12 +3,15 @@
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useState } from 'react';
 import { FormError } from '@/components/auth/fields';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Food } from '@/lib/db/food-search';
+import { newFoodHref } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
+import { cn } from '@/lib/utils';
 
 export const lookupFailed = 'The barcode could not be looked up. Try again.';
 
@@ -40,12 +43,24 @@ function NotFound({
       <Button size="lg" className="h-11" onClick={onSearchByName}>
         Search by name
       </Button>
-      <Button variant="outline" size="lg" className="h-11" disabled>
+      <Link
+        href={newFoodHref({ barcode: code })}
+        className={cn(
+          buttonVariants({ variant: 'outline', size: 'lg' }),
+          'h-11',
+        )}
+      >
         Create food
-      </Button>
-      <Button variant="outline" size="lg" className="h-11" disabled>
+      </Link>
+      <Link
+        href={newFoodHref({ barcode: code, scanLabel: true })}
+        className={cn(
+          buttonVariants({ variant: 'outline', size: 'lg' }),
+          'h-11',
+        )}
+      >
         Scan the label
-      </Button>
+      </Link>
       <Button variant="ghost" size="lg" className="h-11" onClick={onScanAgain}>
         Scan again
       </Button>
