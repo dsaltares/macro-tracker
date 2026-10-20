@@ -32,6 +32,23 @@ to this page.
   Energy for a food that declares only its macros is computed from them.
 - **Adapter:** `lib/data/sources/ciqual/`
 
+## McCance and Widdowson's CoFID
+
+- **What:** the UK food composition table, the 2021 integrated dataset: 2,886 generic foods from
+  its Proximates, Inorganics and Vitamins sheets, joined on the food code. "Tr" is a trace; "N"
+  (present, amount unknown) and a blank are left out. A food CoFID gives no energy for keeps none,
+  rather than one computed from the macros it has (33 in 2021: spices, stock cubes and a
+  takeaway). The fatty-acid sheets break the totals in Proximates down by chain length, which the
+  canon has no keys for, so they are not read. Alcoholic drinks are given per 100 ml and stored
+  as per 100 g. The 2021 workbook gives code 13-669 to two foods; the first, aubergine, is kept
+  and watercress is skipped with a warning.
+- **Where:** <https://www.gov.uk/government/publications/composition-of-foods-integrated-dataset-cofid>
+- **Licence:** [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+- **Attribution:** Contains public sector information licensed under the Open Government Licence
+  v3.0. Source: Public Health England, McCance and Widdowson's The Composition of Foods Integrated
+  Dataset 2021.
+- **Adapter:** `lib/data/sources/cofid/`
+
 ## USDA FoodData Central
 
 - **What:** generic foods from three datasets: Foundation Foods (2026-04-30 release) and SR Legacy

@@ -1,4 +1,5 @@
 import { createCiqualSource } from './ciqual/table.ts';
+import { createCofidSource } from './cofid/workbook.ts';
 import { createOpenFoodFactsDeltasSource } from './open-food-facts/deltas.ts';
 import { createOpenFoodFactsSource } from './open-food-facts/export.ts';
 import type { FoodSource } from './types.ts';
@@ -10,6 +11,7 @@ export const sourceAdapters: SourceAdapters = {
   off: () => createOpenFoodFactsSource(),
   'off-deltas': () => createOpenFoodFactsDeltasSource(),
   ciqual: () => createCiqualSource(),
+  cofid: () => createCofidSource(),
   usda: () => createUsdaSource(),
 };
 

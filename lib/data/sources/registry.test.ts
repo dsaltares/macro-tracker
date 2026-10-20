@@ -56,10 +56,11 @@ describe('registeredSources', () => {
     expect(idsOf(registeredSources(adapters))).toEqual(['usda', 'cofid']);
   });
 
-  it('registers Open Food Facts, CIQUAL and USDA in full', () => {
+  it('registers Open Food Facts, CIQUAL, CoFID and USDA in full', () => {
     expect(idsOf(registeredSources(sourceAdapters))).toEqual([
       'off',
       'ciqual',
+      'cofid',
       'usda',
     ]);
   });

@@ -2,6 +2,7 @@ import SQLite from 'better-sqlite3';
 import { type CompiledQuery, Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lastSucceededFoodImportQuery } from './food-imports.ts';
+import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
   foodByIdQuery,
@@ -217,6 +218,10 @@ describe('query plans', () => {
     expectNoScan(portionsQuery(db, 'u', ['f', 'g']).compile(), [
       'food_portions',
     ]);
+  });
+
+  it("removes a user's portion by id with a search", () => {
+    expectSearch(userPortionDeletion(db, 'u', 'p').compile(), 'food_portions');
   });
 
   it('finds a food a user sees by id with a search', () => {
