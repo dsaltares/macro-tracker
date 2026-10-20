@@ -170,7 +170,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `accounts` and `verifications`, snake_case, mapped field by field in `auth.ts`: a new Better Auth
   field needs its column there too. Email and password with a confirmed address required: sign-up
   mails a link and opens no session, the link confirms and signs in, a reset signs out every
-  session. `BETTER_AUTH_URL` is mandatory in production (`base-url.ts`); Better Auth's per-IP rate
+  session. Google is on when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set (`google.ts`)
+  and links onto the user with the same address (ADR
+  [0008](docs/adr/0008-link-google-to-the-account-on-the-same-confirmed-address.md)), confirming
+  it and dropping its password if it was never confirmed; a password sign-in on a Google-only
+  account answers `USES_GOOGLE`. A Google sign-in creates a user only with `termsAccepted` in its
+  OAuth state, which the Create account button sends once its box is checked. `BETTER_AUTH_URL`
+  is mandatory in production (`base-url.ts`); Better Auth's per-IP rate
   limit is on in production unless `DISABLE_AUTH_RATE_LIMIT=1`. Password rules and every form
   schema are in `credentials.ts`, shared by the forms and the server's limits. `resolveCaller`
   turns a confirmed session into the tRPC caller; `session.ts` reads it in a server component and

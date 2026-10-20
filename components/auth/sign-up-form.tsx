@@ -38,7 +38,7 @@ function Consent() {
   );
 }
 
-export function SignUpForm() {
+export function SignUpForm({ google }: { google: boolean }) {
   const router = useRouter();
   const next = useSearchParams().get(nextParam);
   const [failure, setFailure] = useState<string>();
@@ -46,6 +46,7 @@ export function SignUpForm() {
     register,
     control,
     handleSubmit,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<SignUpCredentials>({
     resolver: zodResolver(signUpSchema),
@@ -84,6 +85,8 @@ export function SignUpForm() {
       working="Creating your account…"
       pending={isSubmitting}
       next={next}
+      google={google}
+      consentToGoogle={() => trigger('termsAccepted')}
       footer={{
         prompt: 'Already have an account?',
         href: routes.signIn,

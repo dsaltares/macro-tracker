@@ -11,6 +11,8 @@ export const e2eDistDir = '.next-e2e';
 
 export const e2eOutboxDir = '.data/e2e-outbox';
 
+export const e2eGoogleClientId = 'e2e-google-client.apps.googleusercontent.com';
+
 // next dev rewrites its prerender manifest in place and compiles each route
 // on its first request, so under parallel workers a request reads the
 // manifest half-written or a navigation outlasts its assertion. A production
@@ -61,6 +63,8 @@ export default defineConfig({
       EMAIL_FROM: '',
       EMAIL_OUTBOX_DIR: e2eOutboxDir,
       FOOD_DELTA_CRON: '',
+      GOOGLE_CLIENT_ID: e2eGoogleClientId,
+      GOOGLE_CLIENT_SECRET: 'a-throwaway-secret-google-never-sees',
     },
   },
 });

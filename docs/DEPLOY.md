@@ -90,6 +90,8 @@ BETTER_AUTH_URL=https://macros.saltares.dev
 BETTER_AUTH_SECRET=
 RESEND_API_KEY=
 EMAIL_FROM=Macro Tracker <noreply@macros.saltares.dev>
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
 
 `DATA_PATH` is a host directory such as `/mnt/store/homelab/macro-tracker`, so borgmatic backs it
@@ -100,7 +102,9 @@ the data lives in a named volume instead.
 link it mails is built from it. `BETTER_AUTH_SECRET` (`openssl rand -base64 32`) signs sessions and
 confirmation links; changing it signs everyone out. `RESEND_API_KEY` and `EMAIL_FROM` send the
 confirmation and reset mail through Resend, from a domain verified there; with either empty, the
-mail is only logged and nobody can confirm an address.
+mail is only logged and nobody can confirm an address. `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` are a Google Cloud OAuth web client whose authorised redirect URI is
+`<BETTER_AUTH_URL>/api/auth/callback/google`; with either empty, the Google button is not shown.
 
 `INTERNAL_API_TOKEN` (`openssl rand -hex 32`) unlocks the internal import endpoint; left empty,
 the endpoint answers `404` to everyone. The server imports reference foods on its own: every

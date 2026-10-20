@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api';
 import type { Kysely } from 'kysely';
 import { getDatabase } from '../db/client.ts';
 import type { Database } from '../db/schema.ts';
@@ -13,6 +13,13 @@ import {
   minPasswordLength,
   termsNotAccepted,
 } from './credentials.ts';
+import { usesGoogleCode } from './errors.ts';
+import {
+  credentialProviderId,
+  type GoogleOptions,
+  googleOptions,
+  googleProviderId,
+} from './google.ts';
 
 const day = 60 * 60 * 24;
 
@@ -28,14 +35,48 @@ const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' };
 
 const emailSignUpPath = '/sign-up/email';
 
-const requireTermsOnSignUp = createAuthMiddleware(async (ctx) => {
+const emailSignInPath = '/sign-in/email';
+
+const socialSignInPath = '/sign-in/social';
+
+const termsRefused = () =>
+  new APIError('BAD_REQUEST', {
+    code: termsNotAccepted,
+    message: 'Agreeing to the terms is required to create an account.',
+  });
+
+type HookContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+const requireTermsOnSignUp = (ctx: HookContext) => {
   if (ctx.path === emailSignUpPath && ctx.body?.termsAccepted !== true) {
-    throw new APIError('BAD_REQUEST', {
-      code: termsNotAccepted,
-      message: 'Agreeing to the terms is required to create an account.',
+    throw termsRefused();
+  }
+};
+
+const sendGoogleOnlyToGoogle = async (ctx: HookContext) => {
+  if (ctx.path !== emailSignInPath || typeof ctx.body?.email !== 'string') {
+    return;
+  }
+  const found = await ctx.context.internalAdapter.findUserByEmail(
+    ctx.body.email.toLowerCase(),
+    { includeAccounts: true },
+  );
+  const providers = found?.accounts.map(({ providerId }) => providerId);
+  if (
+    providers?.includes(googleProviderId) &&
+    !providers.includes(credentialProviderId)
+  ) {
+    throw new APIError('UNAUTHORIZED', {
+      code: usesGoogleCode,
+      message: 'This account signs in with Google.',
     });
   }
-});
+};
+
+const acceptedTermsOnGoogle = async (ctx: HookContext) =>
+  (await getOAuthState())?.termsAccepted === true ||
+  (ctx.path === socialSignInPath &&
+    ctx.body?.additionalData?.termsAccepted === true);
 
 export type AuthOptions = {
   db?: Kysely<Database>;
@@ -43,6 +84,7 @@ export type AuthOptions = {
   baseUrl?: string;
   sendEmail?: SendEmail;
   limitRequests?: boolean;
+  google?: GoogleOptions | undefined;
 };
 
 export const createAuth = ({
@@ -51,6 +93,7 @@ export const createAuth = ({
   baseUrl = authBaseUrl(),
   sendEmail = sendEmailThroughTransport,
   limitRequests = defaultLimitRequests(),
+  google = googleOptions(),
 }: AuthOptions = {}) =>
   betterAuth({
     database: { db, type: 'sqlite' },
@@ -65,17 +108,6 @@ export const createAuth = ({
           required: false,
           input: false,
           fieldName: 'terms_accepted_at',
-        },
-      },
-    },
-    hooks: { before: requireTermsOnSignUp },
-    databaseHooks: {
-      user: {
-        create: {
-          before: async (user, ctx) =>
-            ctx?.path === emailSignUpPath
-              ? { data: { ...user, termsAcceptedAt: new Date() } }
-              : { data: user },
         },
       },
     },
@@ -104,6 +136,12 @@ export const createAuth = ({
         refreshTokenExpiresAt: 'refresh_token_expires_at',
         ...timestamps,
       },
+      accountLinking: {
+        enabled: true,
+        trustedProviders: [],
+        requireLocalEmailVerified: false,
+        allowDifferentEmails: false,
+      },
     },
     verification: {
       modelName: 'verifications',
@@ -128,6 +166,51 @@ export const createAuth = ({
       sendVerificationEmail: async ({ user, url }) => {
         await sendEmail(await verifyAddressEmail({ to: user.email, url }));
       },
+    },
+    socialProviders: google ? { [googleProviderId]: google } : {},
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user, ctx) => {
+            if (!ctx) {
+              return { data: user };
+            }
+            if (
+              ctx.path !== emailSignUpPath &&
+              !(await acceptedTermsOnGoogle(ctx))
+            ) {
+              throw termsRefused();
+            }
+            return { data: { ...user, termsAcceptedAt: new Date() } };
+          },
+        },
+      },
+      account: {
+        create: {
+          after: async (account, ctx) => {
+            if (account.providerId === credentialProviderId || !ctx) {
+              return;
+            }
+            const { internalAdapter } = ctx.context;
+            const owner = await internalAdapter.findUserById(account.userId);
+            if (owner?.emailVerified) {
+              return;
+            }
+            const unconfirmedPasswords = (
+              await internalAdapter.findAccounts(account.userId)
+            ).filter(({ providerId }) => providerId === credentialProviderId);
+            for (const { id } of unconfirmedPasswords) {
+              await internalAdapter.deleteAccount(id);
+            }
+          },
+        },
+      },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        requireTermsOnSignUp(ctx);
+        await sendGoogleOnlyToGoogle(ctx);
+      }),
     },
   });
 

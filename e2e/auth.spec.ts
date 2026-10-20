@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { e2eGoogleClientId } from '../playwright.config.ts';
 import {
   freshEmail,
   linkMailedTo,
@@ -95,4 +96,23 @@ test('someone who forgot their password chooses a new one from the mailed link',
   await signInAs(page, email, newPassword);
 
   await signedInAs(page, email);
+});
+
+test('continuing with Google goes to Google with this app as the client', async ({
+  page,
+}) => {
+  await page.route('https://accounts.google.com/**', (route) =>
+    route.fulfill({ body: 'Google' }),
+  );
+  await page.goto('/sign-in?next=%2Fdiary');
+  await ready(page, 'Continue with Google');
+
+  await page.getByRole('button', { name: 'Continue with Google' }).click();
+
+  await expect(page).toHaveURL(/^https:\/\/accounts\.google\.com\//);
+  const authorization = new URL(page.url());
+  expect(authorization.searchParams.get('client_id')).toBe(e2eGoogleClientId);
+  expect(authorization.searchParams.get('redirect_uri')).toMatch(
+    /\/api\/auth\/callback\/google$/,
+  );
 });
