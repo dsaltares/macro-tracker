@@ -61,7 +61,7 @@ export const settingsSections: readonly SettingsSection[] = [
   {
     label: 'Goals',
     description: 'Your energy and nutrient targets',
-    href: null,
+    href: routes.goals,
   },
   {
     label: 'Food sources',
