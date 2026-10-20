@@ -10,6 +10,7 @@ import type { FoodSummary } from '@/lib/db/food-search';
 import { searchTerms } from '@/lib/domain/foods/search';
 import { formatAmount } from '@/lib/domain/nutrition/format';
 import { useTRPC } from '@/lib/trpc/client';
+import { cn } from '@/lib/utils';
 
 export const searchFailed = 'Foods could not be searched. Try again.';
 
@@ -19,11 +20,39 @@ export const noMatches = (query: string) => `No foods match “${query}”.`;
 
 const unknownEnergy = '—';
 
-export const energyPer100g = ({ energyKcal }: FoodSummary) =>
+export const energyPer100g = ({
+  energyKcal,
+}: Pick<FoodSummary, 'energyKcal'>) =>
   `${energyKcal === null ? unknownEnergy : formatAmount(energyKcal, 'kcal')} / 100 g`;
 
 const detailsOf = ({ brand, quantityLabel }: FoodSummary) =>
   [brand, quantityLabel].filter((detail) => detail !== null).join(' · ');
+
+export const foodRowClass =
+  'flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left hover:bg-muted';
+
+export function FoodRowContent({ food }: { food: FoodSummary }) {
+  const details = detailsOf(food);
+
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate font-medium">{food.name}</span>
+        {details === '' ? null : (
+          <span className="truncate text-muted-foreground text-xs">
+            {details}
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <span className="font-medium text-sm tabular-nums">
+          {energyPer100g(food)}
+        </span>
+        <SourceBadge source={food.source} />
+      </span>
+    </>
+  );
+}
 
 export function FoodRow({
   food,
@@ -34,29 +63,14 @@ export function FoodRow({
   onSelect: () => void;
   action?: ReactNode;
 }) {
-  const details = detailsOf(food);
-
   return (
     <li className="flex items-center">
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 px-4 py-2 text-left hover:bg-muted"
+        className={cn(foodRowClass, 'min-w-0 flex-1')}
       >
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate font-medium">{food.name}</span>
-          {details === '' ? null : (
-            <span className="truncate text-muted-foreground text-xs">
-              {details}
-            </span>
-          )}
-        </span>
-        <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="font-medium text-sm tabular-nums">
-            {energyPer100g(food)}
-          </span>
-          <SourceBadge source={food.source} />
-        </span>
+        <FoodRowContent food={food} />
       </button>
       {action}
     </li>
@@ -73,7 +87,7 @@ export function ResultsSkeleton() {
   );
 }
 
-function useWhenVisible(onVisible: () => void) {
+export function useWhenVisible(onVisible: () => void) {
   const latest = useRef(onVisible);
   latest.current = onVisible;
 

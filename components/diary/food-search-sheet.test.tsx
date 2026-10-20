@@ -10,10 +10,17 @@ import {
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { addFailed } from '@/components/diary/food-step';
 import { enterAnAmount } from '@/components/diary/quick-add-step';
+import { lookupFailed, notFound } from '@/components/diary/scan-step';
+import {
+  cameraDenied,
+  cameraFailed,
+  noCamera,
+} from '@/components/scanner/barcode-scanner';
 import { addFavourite, diaryDay, favourites, logFood } from '@/lib/db/diary';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { searchPageSize } from '@/lib/domain/foods/search';
 import { serveApi } from '@/test/api';
+import { fakeCamera } from '@/test/camera';
 import { renderUi } from '@/test/ui';
 
 const api = serveApi({ signedInAs: 'user-1' });
@@ -719,5 +726,197 @@ describe('FoodSearchSheet', () => {
     expect(
       await within(sheet()).findByText(foodListFailed),
     ).toBeInTheDocument();
+  });
+
+  describe('scanning a barcode', () => {
+    const scanner = () =>
+      within(sheet()).findByRole('region', { name: 'Scan a barcode' });
+
+    const openScanner = async (user: ReturnType<typeof render>['user']) => {
+      await screen.findByRole('dialog', { name: 'Add to lunch' });
+      await user.click(
+        within(sheet()).getByRole('button', { name: 'Scan a barcode' }),
+      );
+      return scanner();
+    };
+
+    it('opens the food with that barcode and stops the camera', async () => {
+      await seedFoods();
+      const camera = fakeCamera({ codes: ['3017620422003'] });
+      const { user } = render();
+
+      await openScanner(user);
+
+      const food = await within(sheet()).findByRole('region', {
+        name: 'Nutella',
+      });
+      expect(
+        await within(food).findByRole('button', { name: 'Save' }),
+      ).toBeInTheDocument();
+      expect(camera.getUserMedia).toHaveBeenCalledWith(
+        expect.objectContaining({
+          video: { facingMode: { ideal: 'environment' } },
+        }),
+      );
+      expect(camera.track.stop).toHaveBeenCalled();
+    });
+
+    it('finds a UPC-A barcode under its EAN-13', async () => {
+      await insertFood(
+        api.database(),
+        {
+          source: 'off',
+          source_id: '0035650166738',
+          barcode: '0035650166738',
+          name: 'Peanut butter',
+          brand: null,
+          quantity_label: null,
+          nutrients: { energy_kcal: 588 },
+          portions: [],
+        },
+        seeding(),
+      );
+      fakeCamera({ codes: ['035650166738'] });
+      const { user } = render();
+
+      await openScanner(user);
+
+      expect(
+        await within(sheet()).findByRole('region', { name: 'Peanut butter' }),
+      ).toBeInTheDocument();
+    });
+
+    it('offers to search by name, create the food or scan its label when no food has the barcode', async () => {
+      await seedFoods();
+      const camera = fakeCamera({ codes: ['8412345678905'] });
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(
+        await within(region).findByText(notFound('8412345678905')),
+      ).toBeInTheDocument();
+      expect(camera.track.stop).toHaveBeenCalled();
+      expect(
+        within(region).getByRole('button', { name: 'Create food' }),
+      ).toBeDisabled();
+      expect(
+        within(region).getByRole('button', { name: 'Scan the label' }),
+      ).toBeDisabled();
+
+      await user.click(
+        within(region).getByRole('button', { name: 'Search by name' }),
+      );
+
+      expect(
+        within(sheet()).getByRole('searchbox', { name: 'Search foods' }),
+      ).toBeInTheDocument();
+    });
+
+    it('scans again after a miss', async () => {
+      const camera = fakeCamera({ codes: ['8412345678905'] });
+      const { user } = render();
+
+      const region = await openScanner(user);
+      await within(region).findByText(notFound('8412345678905'));
+      await user.click(
+        within(region).getByRole('button', { name: 'Scan again' }),
+      );
+
+      expect(
+        await within(region).findByLabelText('Camera'),
+      ).toBeInTheDocument();
+      expect(camera.getUserMedia).toHaveBeenCalledTimes(2);
+    });
+
+    it('says so when the camera is blocked', async () => {
+      fakeCamera({ error: 'NotAllowedError' });
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(await within(region).findByText(cameraDenied)).toBeInTheDocument();
+    });
+
+    it('says so when there is no camera', async () => {
+      fakeCamera({ error: 'NotFoundError' });
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(await within(region).findByText(noCamera)).toBeInTheDocument();
+    });
+
+    it('says so when the camera cannot be started', async () => {
+      fakeCamera({ error: 'NotReadableError' });
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(await within(region).findByText(cameraFailed)).toBeInTheDocument();
+    });
+
+    it('turns the torch on and off where the camera has one', async () => {
+      const camera = fakeCamera({ torch: true });
+      const { user } = render();
+
+      const region = await openScanner(user);
+      const torch = await within(region).findByRole('button', {
+        name: 'Torch',
+      });
+      await user.click(torch);
+
+      expect(camera.track.applyConstraints).toHaveBeenCalledWith({
+        advanced: [{ torch: true }],
+      });
+      expect(torch).toHaveAttribute('aria-pressed', 'true');
+
+      await user.click(torch);
+
+      expect(camera.track.applyConstraints).toHaveBeenLastCalledWith({
+        advanced: [{ torch: false }],
+      });
+      expect(torch).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('offers no torch where the camera has none', async () => {
+      fakeCamera();
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(
+        await within(region).findByText('Point the camera at a barcode.'),
+      ).toBeInTheDocument();
+      expect(
+        within(region).queryByRole('button', { name: 'Torch' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says so when the barcode cannot be looked up', async () => {
+      api.fails('food.byBarcode');
+      fakeCamera({ codes: ['3017620422003'] });
+      const { user } = render();
+
+      const region = await openScanner(user);
+
+      expect(await within(region).findByText(lookupFailed)).toBeInTheDocument();
+    });
+
+    it('goes back to search, stopping the camera', async () => {
+      const camera = fakeCamera();
+      const { user } = render();
+
+      const region = await openScanner(user);
+      await within(region).findByText('Point the camera at a barcode.');
+      await user.click(
+        within(region).getByRole('button', { name: 'Back to search' }),
+      );
+
+      expect(
+        within(sheet()).getByRole('searchbox', { name: 'Search foods' }),
+      ).toBeInTheDocument();
+      expect(camera.track.stop).toHaveBeenCalled();
+    });
   });
 });

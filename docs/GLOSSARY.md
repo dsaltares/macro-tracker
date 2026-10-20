@@ -14,7 +14,7 @@ then here. Use these words as they are; do not vary them in code or UI copy.
 | API client | Anything that calls the REST API under `/api/v1` with an API key, never a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
 | API key | A user's named bearer credential, scoped `read` or `write`, stored hashed, shown once, revocable. A user may have several. | [API](DOMAIN.md#api) |
 | app | The installable PWA, which talks tRPC with a session. | [API](DOMAIN.md#api), [ADR 0002](adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md) |
-| archived | A reference food that a later full import no longer saw: hidden from search, still resolvable from the diary. Never deleted. | [Foods](DOMAIN.md#foods) |
+| archived | A reference food that a later full import no longer saw, or a user food its owner archived: hidden from search and barcode lookup, still resolvable from the diary. Never deleted. | [Foods](DOMAIN.md#foods) |
 | average | A nutrient's daily totals over the logged days of a range, divided by their number, read against the average goal of those days. | [Trends](DOMAIN.md#trends) |
 | barcode | An EAN-8 or EAN-13; a UPC-A is normalised to EAN-13 with a leading zero. | [Foods](DOMAIN.md#foods) |
 | BMR | Basal metabolic rate: Mifflin-St Jeor over the profile, the latest weight and the age on the date. | [Body and goals](DOMAIN.md#body-and-goals) |

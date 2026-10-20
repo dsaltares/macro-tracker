@@ -2,6 +2,7 @@ export const routes = {
   home: '/',
   diary: '/diary',
   foods: '/foods',
+  newFood: '/foods/new',
   trends: '/trends',
   body: '/body',
   onboarding: '/onboarding',
@@ -20,3 +21,6 @@ export const routes = {
   terms: '/terms',
   cookies: '/cookies',
 } as const;
+
+export const foodRoute = (id: string) =>
+  `${routes.foods}/${encodeURIComponent(id)}`;
