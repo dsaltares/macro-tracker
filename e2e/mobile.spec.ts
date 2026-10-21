@@ -63,7 +63,7 @@ test('someone logs their weight, a food and a recipe on a phone, and every scree
   await food.getByRole('button', { name: 'Save' }).click();
   await expect(sheet).toBeHidden();
   await expect(
-    breakfast.getByRole('button', { name: /Nutella/ }),
+    breakfast.getByRole('button', { name: /^Nutella/ }),
   ).toBeVisible();
   const totals = page.getByRole('region', { name: 'Day totals' });
   await expect(totals).toContainText('108 kcal');
@@ -83,7 +83,7 @@ test('someone logs their weight, a food and a recipe on a phone, and every scree
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: 'Save recipe' }).click();
   await expect(page).toHaveURL('/foods/recipes');
-  await expect(page.getByRole('link', { name: /Porridge/ })).toContainText(
+  await expect(page.getByRole('link', { name: /^Porridge/ })).toContainText(
     '2 servings',
   );
 
@@ -92,7 +92,7 @@ test('someone logs their weight, a food and a recipe on a phone, and every scree
   await lunch.getByRole('button', { name: 'Add to lunch' }).click();
   const lunchSheet = page.getByRole('dialog', { name: 'Add to lunch' });
   await lunchSheet.getByRole('tab', { name: 'Recipes' }).click();
-  await lunchSheet.getByRole('button', { name: /Porridge/ }).click();
+  await lunchSheet.getByRole('button', { name: /^Porridge/ }).click();
   const recipe = lunchSheet.getByRole('region', { name: 'Porridge' });
   await expect(recipe.getByLabel('Unit')).toHaveValue('servings');
   await expect(
@@ -100,7 +100,7 @@ test('someone logs their weight, a food and a recipe on a phone, and every scree
   ).toBeVisible();
   await recipe.getByRole('button', { name: 'Save' }).click();
   await expect(lunchSheet).toBeHidden();
-  await expect(lunch.getByRole('button', { name: /Porridge/ })).toContainText(
+  await expect(lunch.getByRole('button', { name: /^Porridge/ })).toContainText(
     'Recipe',
   );
 

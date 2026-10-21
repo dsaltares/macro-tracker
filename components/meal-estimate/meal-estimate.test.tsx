@@ -546,7 +546,7 @@ describe('MealDraftReview', () => {
     for (const label of ['Boiled eggs', 'Sourdough bread', 'Latte']) {
       expect(
         await within(lunchSection).findByRole('button', {
-          name: new RegExp(label),
+          name: new RegExp(`^${label}`),
         }),
       ).toBeInTheDocument();
     }

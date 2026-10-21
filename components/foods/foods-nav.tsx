@@ -3,6 +3,7 @@ import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const sections = [
+  { href: routes.foodSearch, label: 'Search' },
   { href: routes.foods, label: 'Your foods' },
   { href: routes.recipes, label: 'Recipes' },
 ] as const;
@@ -15,7 +16,7 @@ export function FoodsNav({
   return (
     <nav
       aria-label="Foods"
-      className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+      className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1"
     >
       {sections.map(({ href, label }) => (
         <Link

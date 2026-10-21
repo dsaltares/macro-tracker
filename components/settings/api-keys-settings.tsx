@@ -1,10 +1,11 @@
 'use client';
 
-import { IconCheck, IconCopy } from '@tabler/icons-react';
+import { IconCheck, IconCopy, IconPlus } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useId, useState } from 'react';
 import { submitButtonClass } from '@/components/auth/auth-form';
 import { CheckboxField, FormError, TextField } from '@/components/auth/fields';
+import { SettingsPage } from '@/components/settings/settings-page';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,8 +65,6 @@ function NewKeyForm({
   const create = useMutation(
     trpc.apiKeys.create.mutationOptions({
       onSuccess: async (created) => {
-        setName('');
-        setScopes(['read']);
         onCreated(created);
         await refreshKeys();
       },
@@ -96,19 +95,11 @@ function NewKeyForm({
 
   return (
     <form
-      aria-labelledby="new-api-key"
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-4"
       method="post"
       noValidate
       onSubmit={onSubmit}
     >
-      <h2 id="new-api-key" className="font-semibold text-lg">
-        New key
-      </h2>
-      <p className="text-muted-foreground text-sm">
-        A key lets a script, a shortcut or an agent use your account through the
-        API. Give each one its own, so you can revoke it alone.
-      </p>
       {create.isError ? <FormError>{failureOf(create.error)}</FormError> : null}
       <TextField
         label="Name"
@@ -141,6 +132,36 @@ function NewKeyForm({
         {create.isPending ? 'Creating…' : 'Create key'}
       </Button>
     </form>
+  );
+}
+
+function CreateKeyDialog({
+  onCreated,
+  onClose,
+}: {
+  onCreated: (key: CreatedApiKey) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="text-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base">New key</DialogTitle>
+          <DialogDescription>
+            A key lets a script, a shortcut or an agent use your account through
+            the API. Give each one its own, so you can revoke it alone.
+          </DialogDescription>
+        </DialogHeader>
+        <NewKeyForm onCreated={onCreated} />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -317,7 +338,10 @@ function KeyList({ onRevoke }: { onRevoke: (apiKey: ApiKey) => void }) {
     }
     if (keys.data.length === 0) {
       return (
-        <p className="text-muted-foreground text-sm">You have no keys yet.</p>
+        <p className="text-muted-foreground text-sm">
+          You have no keys yet. A key lets a script, a shortcut or an agent use
+          your account through the API.
+        </p>
       );
     }
     return (
@@ -335,7 +359,7 @@ function KeyList({ onRevoke }: { onRevoke: (apiKey: ApiKey) => void }) {
 
   return (
     <section aria-labelledby="api-keys" className="flex flex-col gap-4">
-      <h2 id="api-keys" className="font-semibold text-lg">
+      <h2 id="api-keys" className="sr-only">
         Your keys
       </h2>
       {content()}
@@ -344,19 +368,36 @@ function KeyList({ onRevoke }: { onRevoke: (apiKey: ApiKey) => void }) {
 }
 
 export function ApiKeysSettings() {
+  const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
   const [revoking, setRevoking] = useState<ApiKey | null>(null);
 
   return (
-    <div className="flex flex-col gap-8">
-      <NewKeyForm onCreated={setCreated} />
+    <SettingsPage
+      title="API keys"
+      end={
+        <Button size="lg" className="h-11" onClick={() => setCreating(true)}>
+          <IconPlus className="size-5" />
+          New key
+        </Button>
+      }
+    >
       <KeyList onRevoke={setRevoking} />
+      {creating ? (
+        <CreateKeyDialog
+          onCreated={(key) => {
+            setCreating(false);
+            setCreated(key);
+          }}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
       {created ? (
         <NewKeyDialog created={created} onClose={() => setCreated(null)} />
       ) : null}
       {revoking ? (
         <RevokeDialog apiKey={revoking} onClose={() => setRevoking(null)} />
       ) : null}
-    </div>
+    </SettingsPage>
   );
 }

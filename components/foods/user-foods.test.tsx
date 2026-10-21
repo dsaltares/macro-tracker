@@ -1,11 +1,14 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { archiveFailed } from '@/components/foods/archive-food-dialog';
 import {
+  archived,
   loadFailed,
   noFoodsYet,
   noOwnMatches,
   UserFoods,
 } from '@/components/foods/user-foods';
+import { Toaster } from '@/components/ui/sonner';
 import { type FoodWriteContext, insertFood } from '@/lib/db/foods';
 import { serveApi } from '@/test/api';
 import { renderUi } from '@/test/ui';
@@ -45,7 +48,14 @@ const seedFood = (name: string, { owner = 'user-1', archived = false } = {}) =>
     return id;
   });
 
-const render = () => renderUi(<UserFoods />, { wrap: api.wrap });
+const render = () =>
+  renderUi(
+    <>
+      <UserFoods />
+      <Toaster />
+    </>,
+    { wrap: api.wrap },
+  );
 
 const listedNames = () =>
   screen
@@ -95,6 +105,49 @@ describe('UserFoods', () => {
     await user.clear(screen.getByLabelText('Search your foods'));
     await user.type(screen.getByLabelText('Search your foods'), 'pizza');
     expect(await screen.findByText(noOwnMatches('pizza'))).toBeVisible();
+  });
+
+  it('archives a food from the list once confirmed', async () => {
+    const granola = await seedFood('Granola');
+    await seedFood('Banana bread');
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Archive Granola' }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Archive Granola?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    expect(await screen.findByText(archived('Granola'))).toBeInTheDocument();
+    await expect
+      .poll(() => listedNames())
+      .toEqual([expect.stringMatching(/^Banana bread/)]);
+    expect(
+      await api
+        .database()
+        .selectFrom('foods')
+        .select('archived_at')
+        .where('id', '=', granola)
+        .executeTakeFirst(),
+    ).toEqual({ archived_at: expect.any(String) });
+  });
+
+  it('keeps the food when archiving is cancelled or fails', async () => {
+    await seedFood('Granola');
+    api.fails('food.archive');
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Archive Granola' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText(archiveFailed)).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(
+      screen.queryByRole('dialog', { name: 'Archive Granola?' }),
+    ).not.toBeInTheDocument();
+    expect(listedNames()).toEqual([expect.stringMatching(/^Granola/)]);
   });
 
   it('says where foods will appear before there are any', async () => {

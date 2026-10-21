@@ -24,6 +24,7 @@ import {
   type FoodHeader,
   FoodStep,
   foodLoadFailed,
+  headerOf,
 } from '@/components/diary/food-step';
 import { QuickAddStep } from '@/components/diary/quick-add-step';
 import { RecipeList, RecipeStep } from '@/components/diary/recipe-step';
@@ -40,7 +41,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import type { Food, FoodSummary } from '@/lib/db/food-search';
+import type { FoodSummary } from '@/lib/db/food-search';
 import type { RecipeSummary } from '@/lib/db/recipes';
 import type { Meal } from '@/lib/domain/diary/entries';
 import { newFoodHref } from '@/lib/routes';
@@ -142,7 +143,7 @@ function SearchStep({
         onValueChange={onListChange}
         className="min-h-0 flex-1 gap-0"
       >
-        <TabsList className="mx-4 mb-2 h-9! w-auto">
+        <TabsList className="mx-4 mt-3 mb-2 h-9! w-auto">
           {foodLists.map(({ value, label }) => (
             <TabsTrigger key={value} value={value} className="text-sm">
               {label}
@@ -182,20 +183,6 @@ function SearchStep({
     </>
   );
 }
-
-const headerOf = ({
-  id,
-  name,
-  brand,
-  source,
-  nutrients,
-}: Food): FoodHeader => ({
-  id,
-  name,
-  brand,
-  source,
-  energyKcal: nutrients.energy_kcal ?? null,
-});
 
 function CreatedFoodStep({
   foodId,

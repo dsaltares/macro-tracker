@@ -53,6 +53,14 @@ const addingParsers = {
 
 type CreatedFood = { meal: Meal; foodId: string };
 
+const toggledIn = (meals: ReadonlySet<Meal>, meal: Meal) => {
+  const next = new Set(meals);
+  if (!next.delete(meal)) {
+    next.add(meal);
+  }
+  return next;
+};
+
 const adjacentDays = (date: string) => [addDays(date, -1), addDays(date, 1)];
 
 function usePrefetchAdjacentDays(date: string, loaded: boolean) {
@@ -74,11 +82,19 @@ function Day({
   date,
   created,
   mealEstimates,
+  collapsedMeals,
+  copied,
+  onToggleMeal,
+  onCopyEntry,
   onCreatedDone,
 }: {
   date: string;
   created: CreatedFood | null;
   mealEstimates: boolean;
+  collapsedMeals: ReadonlySet<Meal>;
+  copied: DiaryEntry | null;
+  onToggleMeal: (meal: Meal) => void;
+  onCopyEntry: (entry: DiaryEntry) => void;
   onCreatedDone: () => void;
 }) {
   const trpc = useTRPC();
@@ -109,7 +125,11 @@ function Day({
           meal={meal}
           entries={entries}
           totals={totals}
+          collapsed={collapsedMeals.has(meal)}
+          copied={copied}
+          onToggle={() => onToggleMeal(meal)}
           onSelectEntry={setEditing}
+          onCopyEntry={onCopyEntry}
           onAdd={() => setAdding(meal)}
         />
       ))}
@@ -138,6 +158,10 @@ export function DiaryDay({
   const today = useToday();
   const [chosenDate, setChosenDate] = useQueryState('date', dateParser);
   const [{ meal, food }, setAdding] = useQueryStates(addingParsers);
+  const [collapsedMeals, setCollapsedMeals] = useState<ReadonlySet<Meal>>(
+    () => new Set(),
+  );
+  const [copied, setCopied] = useState<DiaryEntry | null>(null);
   const date = chosenDate ?? today;
   const created =
     meal !== null && food !== null ? { meal, foodId: food } : null;
@@ -155,9 +179,6 @@ export function DiaryDay({
         )
       }
     >
-      {today !== null && date === today ? (
-        <LogWeightCard today={today} />
-      ) : null}
       {date === null ? (
         <DaySkeleton />
       ) : (
@@ -166,9 +187,18 @@ export function DiaryDay({
           date={date}
           created={created}
           mealEstimates={mealEstimates}
+          collapsedMeals={collapsedMeals}
+          copied={copied}
+          onCopyEntry={setCopied}
+          onToggleMeal={(toggled) =>
+            setCollapsedMeals((current) => toggledIn(current, toggled))
+          }
           onCreatedDone={() => setAdding({ meal: null, food: null })}
         />
       )}
+      {today !== null && date === today ? (
+        <LogWeightCard today={today} />
+      ) : null}
     </AppPage>
   );
 }

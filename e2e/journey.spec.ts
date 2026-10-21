@@ -29,7 +29,7 @@ test('someone logs breakfast from search, sees the totals and copies it to tomor
   await food.getByRole('button', { name: 'Save' }).click();
   await expect(sheet).toBeHidden();
 
-  const entry = breakfast.getByRole('button', { name: /Nutella/ });
+  const entry = breakfast.getByRole('button', { name: /^Nutella/ });
   await expect(entry).toContainText('20 × 1 g');
   await expect(breakfast).toContainText(
     '108 kcal · P 1.3 g · C 11.5 g · F 6.2 g',
@@ -49,7 +49,7 @@ test('someone logs breakfast from search, sees the totals and copies it to tomor
   await page.getByRole('button', { name: 'Next day' }).click();
   await expect(page.getByLabel('Date, Tomorrow')).toBeVisible();
   await expect(
-    breakfast.getByRole('button', { name: /Nutella/ }),
+    breakfast.getByRole('button', { name: /^Nutella/ }),
   ).toContainText('20 × 1 g');
   await expect(breakfast).toContainText('108 kcal');
   await expect(totals).toContainText('108 kcal');

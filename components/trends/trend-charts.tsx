@@ -1,6 +1,6 @@
 'use client';
 
-import { Bar, ComposedChart, Line, XAxis, YAxis } from 'recharts';
+import { Bar, Cell, ComposedChart, Line, XAxis, YAxis } from 'recharts';
 import { nutrientNames } from '@/components/nutrients/nutrient-names';
 import { macros } from '@/components/trends/macros';
 import {
@@ -10,10 +10,12 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { formatDay, formatDayMonth } from '@/lib/domain/dates';
+import { goalKind } from '@/lib/domain/goals/drv';
+import { progressOf } from '@/lib/domain/goals/progress';
 import { rollingAverageDays } from '@/lib/domain/trends/aggregations';
 
 const energyConfig = {
-  kcal: { label: 'Energy', color: 'var(--chart-2)' },
+  kcal: { label: 'Energy', color: 'var(--energy)' },
   average: {
     label: `${rollingAverageDays}-day average`,
     color: 'var(--primary)',
@@ -22,27 +24,12 @@ const energyConfig = {
 } satisfies ChartConfig;
 
 const macroConfig = {
-  protein: {
-    label: nutrientNames.protein,
-    theme: {
-      light: 'oklch(0.588 0.158 241.966)',
-      dark: 'oklch(0.746 0.16 232.661)',
-    },
-  },
+  protein: { label: nutrientNames.protein, color: 'var(--protein)' },
   carbohydrate: {
     label: nutrientNames.carbohydrate,
-    theme: {
-      light: 'oklch(0.769 0.188 70.08)',
-      dark: 'oklch(0.828 0.189 84.429)',
-    },
+    color: 'var(--carbohydrate)',
   },
-  fat: {
-    label: nutrientNames.fat,
-    theme: {
-      light: 'oklch(0.645 0.246 16.439)',
-      dark: 'oklch(0.712 0.194 13.428)',
-    },
-  },
+  fat: { label: nutrientNames.fat, color: 'var(--fat)' },
 } satisfies ChartConfig;
 
 const dateTooltip = (
@@ -75,6 +62,11 @@ export type MacroRow = { date: string } & Partial<
   Record<(typeof macros)[number], number | null>
 >;
 
+const overGoal = ({ kcal, goal }: EnergyRow) =>
+  kcal !== null &&
+  goal !== null &&
+  progressOf(kcal, goal, goalKind('energy_kcal')) === 'over';
+
 export function EnergyChartPlot({ rows }: { rows: readonly EnergyRow[] }) {
   return (
     <ChartContainer
@@ -90,12 +82,14 @@ export function EnergyChartPlot({ rows }: { rows: readonly EnergyRow[] }) {
         {dateAxis}
         <YAxis tickLine={false} axisLine={false} width={40} />
         <ChartTooltip content={dateTooltip} />
-        <Bar
-          dataKey="kcal"
-          fill="var(--color-kcal)"
-          radius={2}
-          isAnimationActive={false}
-        />
+        <Bar dataKey="kcal" radius={2} isAnimationActive={false}>
+          {rows.map((row) => (
+            <Cell
+              key={row.date}
+              fill={overGoal(row) ? 'var(--destructive)' : 'var(--color-kcal)'}
+            />
+          ))}
+        </Bar>
         <Line
           dataKey="goal"
           type="stepAfter"

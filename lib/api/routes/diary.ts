@@ -5,6 +5,7 @@ import {
   addFoodEntry,
   addQuickEntry,
   addRecipeEntry,
+  copyEntry,
   copyMeal,
   entryLabelSchema,
   findDiaryDay,
@@ -353,6 +354,36 @@ export const copyMealRoute = apiHandler({
   handle: async ({ context, input }) => ({
     entries: (await copyMeal(context, input)).map(entryOf),
   }),
+});
+
+export const copyEntryRoute = apiHandler({
+  method: 'POST',
+  path: '/diary/entries/{id}/copy',
+  operationId: 'copyDiaryEntry',
+  summary: 'Copy an entry',
+  description:
+    'Copy one entry of the caller’s diary into a meal on a date, its snapshot as it is. Answers 201 with the new entry.',
+  scope: 'write',
+  status: 201,
+  params: entryParams,
+  input: z.strictObject({
+    toDate: dateSchema,
+    toMeal: mealSchema.describe('The meal to copy into.'),
+  }),
+  output: diaryEntry,
+  errors: [entryNotFound],
+  example: {
+    params: { id: exampleEntryId },
+    input: { toDate: '2026-10-20', toMeal: 'breakfast' },
+    response: oatsEntry,
+  },
+  handle: async ({ context, params, input }) => {
+    const copy = await copyEntry(context, { entryId: params.id, ...input });
+    if (copy === null) {
+      throw entryNotFound();
+    }
+    return entryOf(copy);
+  },
 });
 
 const itemFoodGone: ApiError = {

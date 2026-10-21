@@ -6,20 +6,12 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormError } from '@/components/auth/fields';
+import { ArchiveFoodDialog } from '@/components/foods/archive-food-dialog';
 import {
   UserFoodForm,
   type UserFoodSubmission,
 } from '@/components/foods/user-food-form';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Food } from '@/lib/db/food-search';
 import {
@@ -44,8 +36,6 @@ const LabelCapture = dynamic(
 export const foodLoadFailed = 'This food could not be loaded.';
 
 export const notEditable = 'Only your own foods can be edited.';
-
-export const archiveFailed = 'The food could not be archived. Try again.';
 
 function useAfterSave() {
   const trpc = useTRPC();
@@ -131,18 +121,11 @@ export function NewUserFood({
 }
 
 function ArchiveFood({ food }: { food: Food }) {
-  const trpc = useTRPC();
   const afterSave = useAfterSave();
   const [open, setOpen] = useState(false);
-  const archive = useMutation(
-    trpc.food.archive.mutationOptions({
-      onSuccess: () => afterSave(routes.foods),
-    }),
-  );
-  const working = archive.isPending || archive.isSuccess;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
       <Button
         type="button"
         variant="outline"
@@ -152,33 +135,13 @@ function ArchiveFood({ food }: { food: Food }) {
       >
         Archive food
       </Button>
-      <DialogContent className="text-sm">
-        <DialogHeader>
-          <DialogTitle className="text-base">Archive {food.name}?</DialogTitle>
-          <DialogDescription>
-            It leaves your foods, search and barcode lookups. Entries you
-            already logged keep it.
-          </DialogDescription>
-        </DialogHeader>
-        {archive.isError ? <FormError>{archiveFailed}</FormError> : null}
-        <DialogFooter>
-          <DialogClose
-            render={<Button variant="outline" className="h-11" />}
-            disabled={working}
-          >
-            Cancel
-          </DialogClose>
-          <Button
-            variant="destructive"
-            className="h-11"
-            disabled={working}
-            onClick={() => archive.mutate(food.id)}
-          >
-            {working ? 'Archiving…' : 'Archive'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <ArchiveFoodDialog
+        food={food}
+        open={open}
+        onOpenChange={setOpen}
+        onArchived={() => afterSave(routes.foods)}
+      />
+    </>
   );
 }
 

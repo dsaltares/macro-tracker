@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  IconClipboard,
   IconCopy,
   IconCopyPlus,
   IconDots,
@@ -30,11 +31,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToday } from '@/components/use-today';
+import type { DiaryEntry } from '@/lib/db/diary';
 import { addDays, isDate } from '@/lib/domain/dates';
 import { type Meal, meals } from '@/lib/domain/diary/entries';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const copyFailed = 'The meal could not be copied. Try again.';
+
+export const pasteFailed =
+  'The entry could not be pasted: it may have been deleted.';
+
+export const pastedEntry = (label: string, meal: Meal) =>
+  `Pasted ${label} into ${mealNames[meal].toLowerCase()}`;
 
 export const clearFailed = 'The meal could not be cleared. Try again.';
 
@@ -213,10 +221,12 @@ export function MealMenu({
   date,
   meal,
   count,
+  copied = null,
 }: {
   date: string;
   meal: Meal;
   count: number;
+  copied?: DiaryEntry | null;
 }) {
   const trpc = useTRPC();
   const refreshDiary = useRefreshDiary();
@@ -236,6 +246,15 @@ export function MealMenu({
       onError: () => toast.error(copyFailed),
     }),
   );
+  const paste = useMutation(
+    trpc.diary.copyEntry.mutationOptions({
+      onSuccess: async (pasted) => {
+        await refreshDiary();
+        toast.success(pastedEntry(pasted.label, meal));
+      },
+      onError: () => toast.error(pasteFailed),
+    }),
+  );
   const close = () => setDialog(null);
 
   return (
@@ -248,6 +267,24 @@ export function MealMenu({
           <span className="sr-only">{mealNames[meal]} options</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {copied === null ? null : (
+            <>
+              <DropdownMenuItem
+                disabled={paste.isPending}
+                onClick={() =>
+                  paste.mutate({
+                    entryId: copied.id,
+                    toDate: date,
+                    toMeal: meal,
+                  })
+                }
+              >
+                <IconClipboard />
+                <span className="truncate">Paste {copied.label}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             disabled={copyFromYesterday.isPending}
             onClick={() =>

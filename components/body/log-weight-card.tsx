@@ -21,20 +21,19 @@ export function LogWeightCard({ today }: { today: string }) {
   return (
     <section
       aria-labelledby={headingId}
-      className="flex flex-col gap-3 rounded-lg border p-4"
+      className="flex flex-col gap-2 rounded-lg border px-4 pt-3 pb-1"
     >
-      <h2 id={headingId} className="font-semibold">
-        Log weight
-      </h2>
-      <WeightForm
-        today={today}
-        pickDate={false}
-        hint={
-          latest.data
-            ? `Last: ${formatWeight(latest.data.value)} on ${formatDay(latest.data.date)}`
-            : undefined
-        }
-      />
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id={headingId} className="font-semibold text-sm">
+          Log weight
+        </h2>
+        {latest.data ? (
+          <p className="truncate text-muted-foreground text-xs">
+            {`Last: ${formatWeight(latest.data.value)} on ${formatDay(latest.data.date)}`}
+          </p>
+        ) : null}
+      </div>
+      <WeightForm today={today} pickDate={false} inline />
     </section>
   );
 }

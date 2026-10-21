@@ -507,11 +507,39 @@ export type MealCopy = {
   toMeal: Meal;
 };
 
+type DiaryEntryRow = Awaited<
+  ReturnType<ReturnType<typeof diaryDayQuery>['execute']>
+>[number];
+
+const insertCopies = async (
+  trx: Kysely<Database>,
+  rows: readonly DiaryEntryRow[],
+  { toDate, toMeal }: { toDate: string; toMeal: Meal },
+  { now, nextId }: FoodWriteContext,
+) => {
+  const copiedAt = now();
+  const copies = await trx
+    .insertInto('diary_entries')
+    .values(
+      rows.map((row) => ({
+        ...row,
+        id: nextId(),
+        date: toDate,
+        meal: toMeal,
+        created_at: copiedAt,
+        updated_at: copiedAt,
+      })),
+    )
+    .returningAll()
+    .execute();
+  return copies.map(diaryEntry);
+};
+
 export const copyDiaryMeal = (
   db: Kysely<Database>,
   userId: string,
   { fromDate, meal, toDate, toMeal }: MealCopy,
-  { now, nextId }: FoodWriteContext,
+  context: FoodWriteContext,
 ): Promise<DiaryEntry[]> =>
   db.transaction().execute(async (trx) => {
     const rows = (
@@ -519,25 +547,26 @@ export const copyDiaryMeal = (
         .where('meal', '=', meal)
         .execute()
     ).toSorted((a, b) => a.created_at.localeCompare(b.created_at));
-    if (rows.length === 0) {
-      return [];
+    return rows.length === 0
+      ? []
+      : insertCopies(trx, rows, { toDate, toMeal }, context);
+  });
+
+export type EntryCopy = { entryId: string; toDate: string; toMeal: Meal };
+
+export const copyDiaryEntry = (
+  db: Kysely<Database>,
+  userId: string,
+  { entryId, toDate, toMeal }: EntryCopy,
+  context: FoodWriteContext,
+): Promise<DiaryEntry | null> =>
+  db.transaction().execute(async (trx) => {
+    const row = await diaryEntryQuery(trx, userId, entryId).executeTakeFirst();
+    if (row === undefined) {
+      return null;
     }
-    const copiedAt = now();
-    const copies = await trx
-      .insertInto('diary_entries')
-      .values(
-        rows.map((row) => ({
-          ...row,
-          id: nextId(),
-          date: toDate,
-          meal: toMeal,
-          created_at: copiedAt,
-          updated_at: copiedAt,
-        })),
-      )
-      .returningAll()
-      .execute();
-    return copies.map(diaryEntry);
+    const [copy] = await insertCopies(trx, [row], { toDate, toMeal }, context);
+    return copy ?? null;
   });
 
 export const diaryEntryDeletion = (

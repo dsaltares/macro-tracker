@@ -8,9 +8,10 @@ import { energyPer100g } from '@/components/diary/food-search-results';
 import { SourceBadge } from '@/components/foods/source-badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { FoodSummary } from '@/lib/db/food-search';
+import type { Food, FoodSummary } from '@/lib/db/food-search';
 import type { Meal } from '@/lib/domain/diary/entries';
 import { defaultPortion } from '@/lib/domain/foods/portions';
+import type { DiaryMeal } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const foodLoadFailed = 'This food could not be loaded.';
@@ -19,7 +20,7 @@ export const addFailed = 'The entry could not be saved. Try again.';
 
 const defaultQuantity = 1;
 
-function AddEntry({
+export function AddEntry({
   foodId,
   date,
   meal,
@@ -28,18 +29,18 @@ function AddEntry({
   foodId: string;
   date: string;
   meal: Meal;
-  onAdded: () => void;
+  onAdded: (added: DiaryMeal) => void;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const food = useQuery(trpc.food.get.queryOptions(foodId));
   const add = useMutation(
     trpc.diary.addFood.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (_, { date, meal }) => {
         await queryClient.invalidateQueries({
           queryKey: trpc.diary.day.queryKey(),
         });
-        onAdded();
+        onAdded({ date, meal });
       },
     }),
   );
@@ -90,6 +91,20 @@ export type FoodHeader = Pick<
   FoodSummary,
   'id' | 'name' | 'brand' | 'source' | 'energyKcal'
 >;
+
+export const headerOf = ({
+  id,
+  name,
+  brand,
+  source,
+  nutrients,
+}: Food): FoodHeader => ({
+  id,
+  name,
+  brand,
+  source,
+  energyKcal: nutrients.energy_kcal ?? null,
+});
 
 export function FoodStep({
   food,

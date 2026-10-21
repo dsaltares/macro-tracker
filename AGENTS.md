@@ -237,8 +237,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`
   (through `lib/services/foods.ts`),
   over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
-  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked by
-  `bm25` with the name and original name weighted over the brand, the caller's own foods first, offset-paged 30 at a
+  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked the
+  caller's own foods first, then by how the name matches (`matchTier`: the query's words exactly,
+  the name starting with them, every word whole, then only as prefixes), then by `bm25` with the
+  name and original name weighted over the brand, offset-paged 30 at a
   time. Every search logs its match, cursor, rows and milliseconds at debug level, which
   production's `info` level leaves out. A user food is visible only through `owner_user_id` on the statement; user portions only
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
@@ -264,7 +266,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food through the same visibility as `food.get` and resolves the portion by label among the ones
   it shows the caller. `updateDiaryEntry` re-resolves the snapshot from the current food only on
   a quantity or portion change, keeping the logged weight of a portion the food no longer has;
-  a move keeps it. `copyDiaryMeal` copies snapshots as they are; `clearDiaryMeal` deletes one
+  a move keeps it. `copyDiaryMeal` copies snapshots as they are, and `copyDiaryEntry` one entry's; `clearDiaryMeal` deletes one
   meal of a date. `logQuickEntry`
   logs a quick entry and, given amounts per 100 g to save, the caller's user food of the same name
   in the same transaction (`writeFood`, `insertFood`'s body); the entry stays a quick entry. The `diary` router
@@ -302,8 +304,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   make. The scopes are `apiKeyScopes` and a new key's schema `newApiKeySchema`
   (`lib/domain/api-keys.ts`), stored as a JSON array. The `apiKeys` router (`create`, `list`,
   `revoke`) is these over the caller. `ApiKeysSettings` (`components/settings/`) is Settings › API
-  keys: a name and scopes, the new key in a dialog to copy, and the list with each key's prefix,
-  scopes, creation and last use, revoked once confirmed.
+  keys: the list with each key's prefix, scopes, creation and last use, revoked once confirmed;
+  *New key* in the top bar (`SettingsPage`'s `end`) asks for a name and scopes in a dialog, then shows the new key in another
+  to copy.
 - `lib/api/` — the REST surface under `/api/v1` for API keys (ADR [0002](docs/adr/0002-trpc-for-the-app-rest-for-api-keys-over-shared-services.md)).
   `apiHandler({ scope, input, params, status, handle })` (`handler.ts`) authenticates the bearer
   key (`authenticate.ts`: by its hash, refusing a revoked one, writing `last_used_at` at most once
@@ -330,6 +333,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   or `quick`; `PATCH` and `DELETE /api/v1/diary/entries/{id}` (`write`) change and remove one,
   and a new amount for an entry whose food or recipe is gone is `409` `CONFLICT`; `POST
   /api/v1/diary/copy` (`write`) copies a meal and answers `{ entries }`; `POST
+  /api/v1/diary/entries/{id}/copy` (`write`, `201`, `{ toDate, toMeal }`) copies one entry, as
+  `diary.copyEntry` does; `POST
   /api/v1/diary/meals` (`write`, `201`) logs a meal as `diary.addMeal` does and answers `{ entries }`,
   `404` naming the item whose food or recipe is gone. Each entry goes out through `entryOf`, its
   portion label as `portion`.
@@ -387,7 +392,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   weight bounds (20 to 400 kg) are in `lib/domain/body/measurements.ts`; `body/trend.ts` is the
   trend weight (`weightTrend`, α = 0.1 a day, carried flat over days without a weight),
   `weeklyRate` and the chart's `trendRanges`. Coverage on `lib/domain/body/` is gated at 100%. The
-  day view shows `LogWeightCard` (`components/body/`) on today until today has a weight; `/body`,
+  day view shows `LogWeightCard` (`components/body/`), below the meals, on today until today has a weight; `/body`,
   linked from Trends, is `WeightLog`, with `WeightChart` above the log: the weights and the trend
   weight in Recharts (through shadcn's `components/ui/chart.tsx`) over 30 days, 90 days, a year or
   all, hidden from screen readers behind a `figcaption` that sums it up. Recharts is only ever in
@@ -569,7 +574,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   for today, which is the browser's day and so only known after hydration (`useToday` in
   `components/use-today.ts`, `null` until then). The top bar steps a day
   either way and opens the native date picker; `diary.day` fills the day totals card (energy and
-  macros, the rest of the EU label behind *More nutrients*) and the four meals. Tapping an entry
+  macros, the rest of the EU label behind *More nutrients*) and the four meals, each with entries
+  collapsible to its totals, which meals are collapsed held by `DiaryDay` across days. Tapping an entry
   opens `EditEntryDialog`, which sends `diary.update` only the fields that changed, since a
   quantity or portion re-resolves the snapshot, or deletes it. A meal's add button opens
   `FoodSearchSheet`, a bottom sheet for that meal: a search box `food.search` follows once typing
@@ -592,7 +598,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   named after the search: a label and either amounts per 100 g (the three macros, optional energy,
   and the grams eaten) or totals (energy or any macro), a live preview, meal and time, logged with
   `diary.addQuick`. Per 100 g, *Save as my food* also makes it a user food, so search finds it
-  next time. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Copy from
+  next time. Each entry's options button opens `EntryMenu` (`entry-menu.tsx`): *Copy*, which `DiaryDay`
+  holds across days, and *Delete*. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Paste* the copied entry
+  (`diary.copyEntry`, its snapshot as it is), *Copy from
   yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
   tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
   of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
@@ -606,7 +614,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   Once a day has loaded, `diary.day` and `goals.forDate` of the days either side are prefetched,
   so stepping a day renders from cache with no skeleton; `e2e/day-view.spec.ts` holds that under
   100 ms. `DayTotals` reads `goals.forDate` beside `diary.day`: an energy ring of the kcal left and bars
-  for protein, carbohydrate and fat, coloured by `progressOf` (`components/nutrients/progress.tsx`,
+  for protein, carbohydrate and fat, the ring split by each macro's share of the energy. Energy and
+  the macros have colours of their own everywhere, the `--energy`, `--protein`, `--carbohydrate` and
+  `--fat` tokens in `app/globals.css` (`components/nutrients/nutrient-colours.ts`, and the trend
+  charts), red once `progressOf` says over; every other bar is coloured by `progressOf` (`components/nutrients/progress.tsx`,
   each bar a visually hidden `meter` whose `aria-valuetext` names the share and the state, which is
   what tests read), and links to `/diary/nutrients`, `NutrientPanel`: every nutrient of the `date`,
   or of the `meal` in the address, grouped, with *No data* for a nutrient nothing declared.
@@ -629,7 +640,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the Weight section: `WeightTrendFigure` (`components/body/weight-chart.tsx`) over the range and a
   link to `/body`. Each chart is hidden from screen readers behind a `figcaption` that sums it up.
 - `app/(app)/foods/` — `UserFoods` (`components/foods/`), the user's foods with a search box,
-  each linking to `/foods/[id]`, and *New food* to `/foods/new` (`?barcode=` fills the barcode).
+  each linking to `/foods/[id]` and archived from the list once confirmed (`ArchiveFoodDialog`, shared with the editor), and *New food* to `/foods/new` (`?barcode=` fills the barcode).
   Both pages render `UserFoodForm` through `NewUserFood` and `EditUserFood`: name, brand,
   barcode, pack size, the EU label with salt, the rest of the canon behind *All nutrients*
   (`nutrientNames`), and the portions. Amounts typed per serving are scaled to 100 g and rounded
@@ -641,7 +652,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   unsure of is highlighted (`TextField`'s `warning`), a nutrient with what the label printed,
   until it is edited, under a notice listing the reading's notes.
 - `app/(app)/foods/recipes/` — recipes, under the Foods tab: `FoodsNav` (`components/foods/`)
-  switches between *Your foods* and *Recipes*. `Recipes` (`components/recipes/`) is
+  switches between *Search*, *Your foods* and *Recipes*. `/foods/search` is `FoodBrowser`
+  (`components/foods/food-browser.tsx`): `food.search` on the `q` search parameter, or the
+  diary's `ScanStep` with no meal, each food
+  opening a sheet that adds it to any date and meal through the diary's `AddEntry`
+  (`components/diary/food-step.tsx`), the meal defaulting to `mealAtHour` of the time of day. `Recipes` (`components/recipes/`) is
   `recipe.list`, each linking to `/foods/recipes/[id]`. `NewRecipe` takes the name, servings and
   optional cooked weight and opens the new recipe's builder, `RecipeBuilder`: the same fields,
   saved by *Save recipe*, then the ingredients, each saved as it changes. *Add ingredient* opens

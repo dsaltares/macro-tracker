@@ -5,15 +5,18 @@ import { routes } from '@/lib/routes';
 
 export function SettingsPage({
   title,
+  end,
   children,
 }: {
   title: string;
+  end?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <AppPage
       title={title}
       start={<BackLink href={routes.settings} label="Back to settings" />}
+      end={end}
     >
       {children}
     </AppPage>

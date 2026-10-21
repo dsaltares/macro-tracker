@@ -20,13 +20,20 @@ const storedKeys = () =>
     .orderBy('created_at')
     .execute();
 
+const openNewKey = async (user: ReturnType<typeof render>['user']) => {
+  await user.click(await screen.findByRole('button', { name: 'New key' }));
+  return screen.findByRole('dialog', { name: 'New key' });
+};
+
 const createKey = async (
   user: ReturnType<typeof render>['user'],
   name: string,
+  form?: HTMLElement,
 ) => {
-  await user.type(screen.getByLabelText('Name'), name);
-  await user.click(screen.getByRole('button', { name: 'Create key' }));
-  return screen.findByRole('dialog');
+  const dialog = form ?? (await openNewKey(user));
+  await user.type(within(dialog).getByLabelText('Name'), name);
+  await user.click(within(dialog).getByRole('button', { name: 'Create key' }));
+  return screen.findByRole('dialog', { name: `Copy your key for ${name}` });
 };
 
 const keyList = () => screen.getByRole('region', { name: 'Your keys' });
@@ -36,18 +43,19 @@ describe('ApiKeysSettings', () => {
     render();
 
     expect(
-      await screen.findByText('You have no keys yet.'),
+      await screen.findByText(/^You have no keys yet\./),
     ).toBeInTheDocument();
   });
 
   it('creates a key with the scopes chosen and shows it once to copy', async () => {
     const { user } = render();
-    await screen.findByText('You have no keys yet.');
+    await screen.findByText(/^You have no keys yet\./);
 
+    const form = await openNewKey(user);
     await user.click(
-      screen.getByRole('checkbox', { name: /^Write: log food/ }),
+      within(form).getByRole('checkbox', { name: /^Write: log food/ }),
     );
-    const dialog = await createKey(user, 'Shortcuts');
+    const dialog = await createKey(user, 'Shortcuts', form);
 
     const key = (
       within(dialog).getByLabelText('Your new key') as HTMLInputElement
@@ -77,10 +85,13 @@ describe('ApiKeysSettings', () => {
 
   it('asks for a name and at least one scope', async () => {
     const { user } = render();
-    await screen.findByText('You have no keys yet.');
+    await screen.findByText(/^You have no keys yet\./);
 
-    await user.click(screen.getByRole('checkbox', { name: /^Read: look up/ }));
-    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    const form = await openNewKey(user);
+    await user.click(
+      within(form).getByRole('checkbox', { name: /^Read: look up/ }),
+    );
+    await user.click(within(form).getByRole('button', { name: 'Create key' }));
 
     expect(screen.getByText('Enter a name')).toBeInTheDocument();
     expect(screen.getByText('Choose at least one scope')).toBeInTheDocument();
@@ -118,7 +129,7 @@ describe('ApiKeysSettings', () => {
 
   it('revokes a key once confirmed, and drops it from the list', async () => {
     const { user } = render();
-    await screen.findByText('You have no keys yet.');
+    await screen.findByText(/^You have no keys yet\./);
     await user.click(
       within(await createKey(user, 'Shortcuts')).getByRole('button', {
         name: 'Done',
@@ -135,7 +146,7 @@ describe('ApiKeysSettings', () => {
     );
 
     expect(
-      await screen.findByText('You have no keys yet.'),
+      await screen.findByText(/^You have no keys yet\./),
     ).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect((await storedKeys())[0]?.revoked_at).not.toBeNull();
@@ -143,7 +154,7 @@ describe('ApiKeysSettings', () => {
 
   it('keeps the key when revoking is cancelled', async () => {
     const { user } = render();
-    await screen.findByText('You have no keys yet.');
+    await screen.findByText(/^You have no keys yet\./);
     await user.click(
       within(await createKey(user, 'Shortcuts')).getByRole('button', {
         name: 'Done',
@@ -168,7 +179,7 @@ describe('ApiKeysSettings', () => {
 
   it('says so when a key cannot be revoked, and keeps it', async () => {
     const { user } = render();
-    await screen.findByText('You have no keys yet.');
+    await screen.findByText(/^You have no keys yet\./);
     await user.click(
       within(await createKey(user, 'Shortcuts')).getByRole('button', {
         name: 'Done',

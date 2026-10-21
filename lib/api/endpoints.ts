@@ -7,6 +7,7 @@ import {
 import {
   addEntryRoute,
   addMealRoute,
+  copyEntryRoute,
   copyMealRoute,
   diaryDayRoute,
   removeEntryRoute,
@@ -36,6 +37,7 @@ export const apiEndpoints: readonly ApiEndpoint[] = [
   addMealRoute,
   updateEntryRoute,
   removeEntryRoute,
+  copyEntryRoute,
   copyMealRoute,
   listMeasurementsRoute,
   logMeasurementRoute,
