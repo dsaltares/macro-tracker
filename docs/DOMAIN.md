@@ -140,6 +140,18 @@ food, a recipe or re-importing reference data changes future entries only.
 
 **Meal totals** and **day totals** are sums over the snapshots, computed, never stored.
 
+A **history import** copies a user's diary, the foods they logged and their weights from another
+app into their account, on their say-so and with credentials they give for that run alone, which
+are never stored (ADR [0017](adr/0017-import-a-history-from-cronometer-in-the-server-with-credentials-used-once.md)).
+Its one source so far is Cronometer, signed in with the user's email and password. It reads every day of the
+diary from today back to when Cronometer launched, so the whole history comes, gaps and all.
+Each food it meets becomes the reference food with the same source id, a food search finds with
+the same macros, the user's own food of the same name, a new food of their own, or, failing
+those, **quick entries** of the source's totals. A **date** the user has already logged is
+skipped, and so is a weight on a date that has one, so running it again only adds what is new.
+One runs per user at a time, in the server after the request, and it mails the user when it is
+done.
+
 **Copying a meal** adds a copy of each of its entries, snapshots as they are, to another date and
 meal; the originals stay. **Clearing a meal** deletes every entry of one meal on one date.
 

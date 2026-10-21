@@ -16,6 +16,7 @@ import * as bodyMeasurements from './migrations/0012-body-measurements.ts';
 import * as goals from './migrations/0013-goals.ts';
 import * as recipes from './migrations/0014-recipes.ts';
 import * as apiKeys from './migrations/0015-api-keys.ts';
+import * as historyImports from './migrations/0016-history-imports.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -34,6 +35,7 @@ const migrations: Record<string, Migration> = {
   '0013-goals': goals,
   '0014-recipes': recipes,
   '0015-api-keys': apiKeys,
+  '0016-history-imports': historyImports,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

@@ -19,6 +19,7 @@ describe('settingsSections', () => {
       ['Food sources', '/settings/food-sources'],
       ['API keys', '/settings/api-keys'],
       ['Export', '/settings/export'],
+      ['Import', '/settings/import'],
       ['Account', '/settings/account'],
     ]);
   });

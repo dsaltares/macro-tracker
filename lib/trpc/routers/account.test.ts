@@ -156,6 +156,17 @@ const giveRecipes = async (
   const base = `${userId}-granola-bowl`;
   const breakfast = `${userId}-breakfast`;
   await db
+    .insertInto('history_imports')
+    .values({
+      id: `${userId}-import`,
+      user_id: userId,
+      source: 'cronometer',
+      status: 'succeeded',
+      phase: 'weights',
+      started_at: '2026-10-20T12:00:00.000Z',
+    })
+    .execute();
+  await db
     .insertInto('recipes')
     .values([recipe(base, 'Granola bowl'), recipe(breakfast, 'Breakfast')])
     .execute();
@@ -188,6 +199,7 @@ const ownedRows = (userId: string) => {
     recipes: sql`user_id = ${userId}`,
     recipe_ingredients: sql`recipe_id in (${ownRecipes})`,
     api_keys: sql`user_id = ${userId}`,
+    history_imports: sql`user_id = ${userId}`,
   };
 };
 

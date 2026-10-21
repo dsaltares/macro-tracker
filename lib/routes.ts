@@ -21,6 +21,7 @@ export const routes = {
   apiKeys: '/settings/api-keys',
   account: '/settings/account',
   export: '/settings/export',
+  import: '/settings/import',
   exportDiary: '/api/export/diary.csv',
   exportWeights: '/api/export/weights.csv',
   exportAll: '/api/export/all.json',

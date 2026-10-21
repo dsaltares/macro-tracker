@@ -7,6 +7,11 @@ import type {
   Source,
 } from '../domain/foods/sources.ts';
 import type { GoalMode } from '../domain/goals/settings.ts';
+import type {
+  HistoryImportPhase,
+  HistoryImportStatus,
+  HistorySource,
+} from '../domain/imports/history-import.ts';
 import type { NutrientKey } from '../domain/nutrition/nutrients.ts';
 import type { ActivityLevel, Sex } from '../domain/profile.ts';
 
@@ -220,6 +225,20 @@ export type ApiKeysTable = {
   revoked_at: string | null;
 };
 
+export type HistoryImportsTable = {
+  id: string;
+  user_id: string;
+  source: HistorySource;
+  status: HistoryImportStatus;
+  phase: HistoryImportPhase;
+  done: Generated<number>;
+  total: Generated<number>;
+  summary: string | null;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -240,4 +259,5 @@ export type Database = {
   recipes: RecipesTable;
   recipe_ingredients: RecipeIngredientsTable;
   api_keys: ApiKeysTable;
+  history_imports: HistoryImportsTable;
 };

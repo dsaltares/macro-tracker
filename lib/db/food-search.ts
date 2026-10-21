@@ -10,7 +10,11 @@ import {
   matchExpression,
   searchPageSize,
 } from '../domain/foods/search.ts';
-import type { PortionSource, Source } from '../domain/foods/sources.ts';
+import type {
+  PortionSource,
+  ReferenceSource,
+  Source,
+} from '../domain/foods/sources.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
 import { getLogger } from '../logger.ts';
 import { nutrientsOf, nutrientVector } from './foods.ts';
@@ -441,6 +445,20 @@ export const foodByBarcodeQuery = (
     .orderBy('foods.rowid', 'desc')
     .limit(1);
 
+export const foodBySourceIdQuery = (
+  db: Kysely<Database>,
+  source: ReferenceSource,
+  sourceId: string,
+) =>
+  db
+    .selectFrom('foods')
+    .select(foodColumns)
+    .where('foods.source', '=', source)
+    .where('foods.source_id', '=', sourceId)
+    .where('foods.owner_user_id', 'is', null)
+    .where('foods.archived_at', 'is', null)
+    .limit(1);
+
 type FoodRow = {
   id: string;
   source: Source;
@@ -493,6 +511,19 @@ export const findFoodByBarcode = async (
     reader.db,
     reader.userId,
     barcode,
+  ).executeTakeFirst();
+  return row ? fullFood(reader, row) : null;
+};
+
+export const findFoodBySourceId = async (
+  reader: FoodReader,
+  source: ReferenceSource,
+  sourceId: string,
+): Promise<Food | null> => {
+  const row = await foodBySourceIdQuery(
+    reader.db,
+    source,
+    sourceId,
   ).executeTakeFirst();
   return row ? fullFood(reader, row) : null;
 };

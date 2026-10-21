@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export const lastUpdated = '20 October 2026';
+export const lastUpdated = '21 October 2026';
 
 export const supportEmail = 'saltares.dev@gmail.com';
 

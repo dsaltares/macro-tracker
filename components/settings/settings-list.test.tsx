@@ -28,11 +28,15 @@ describe('SettingsList', () => {
       'href',
       '/settings/export',
     );
+    expect(screen.getByRole('link', { name: /^Import/ })).toHaveAttribute(
+      'href',
+      '/settings/import',
+    );
     expect(screen.getByRole('link', { name: /^Account/ })).toHaveAttribute(
       'href',
       '/settings/account',
     );
-    expect(screen.getAllByRole('link')).toHaveLength(6);
+    expect(screen.getAllByRole('link')).toHaveLength(7);
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument();
   });
 });

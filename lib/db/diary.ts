@@ -139,6 +139,30 @@ export const diaryEntries = async (
     .map(diaryEntry)
     .toSorted((a, b) => a.date.localeCompare(b.date) || inDayOrder(a, b));
 
+export const loggedDatesQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  { from, to }: { from: string; to: string },
+) =>
+  db
+    .selectFrom('diary_entries')
+    .select('date')
+    .distinct()
+    .where('user_id', '=', userId)
+    .where('date', '>=', from)
+    .where('date', '<=', to);
+
+export const loggedDates = async (
+  db: Kysely<Database>,
+  userId: string,
+  range: { from: string; to: string },
+) =>
+  new Set(
+    (await loggedDatesQuery(db, userId, range).execute()).map(
+      ({ date }) => date,
+    ),
+  );
+
 export const insertDiaryEntry = async (
   db: Kysely<Database>,
   userId: string,
