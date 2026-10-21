@@ -8,7 +8,7 @@ import {
   useQueryState,
   useQueryStates,
 } from 'nuqs';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppPage } from '@/components/app-shell/app-page';
 import { FormError } from '@/components/auth/fields';
 import { LogWeightCard } from '@/components/body/log-weight-card';
@@ -61,6 +61,38 @@ const toggledIn = (meals: ReadonlySet<Meal>, meal: Meal) => {
   return next;
 };
 
+type DayMeals = readonly { meal: Meal; entries: readonly DiaryEntry[] }[];
+
+// Calls onGrown with each meal that has more entries than when the day last
+// loaded, so a meal opens when food is added to it but not when the day first
+// shows.
+function useOnMealGrown(
+  meals: DayMeals | undefined,
+  onGrown: (meal: Meal) => void,
+) {
+  const counts = useRef<ReadonlyMap<Meal, number> | null>(null);
+  const latest = useRef(onGrown);
+  latest.current = onGrown;
+
+  useEffect(() => {
+    if (meals === undefined) {
+      return;
+    }
+    const previous = counts.current;
+    counts.current = new Map(
+      meals.map(({ meal, entries }) => [meal, entries.length]),
+    );
+    if (previous === null) {
+      return;
+    }
+    for (const { meal, entries } of meals) {
+      if (entries.length > (previous.get(meal) ?? 0)) {
+        latest.current(meal);
+      }
+    }
+  }, [meals]);
+}
+
 const adjacentDays = (date: string) => [addDays(date, -1), addDays(date, 1)];
 
 function usePrefetchAdjacentDays(date: string, loaded: boolean) {
@@ -82,18 +114,20 @@ function Day({
   date,
   created,
   mealEstimates,
-  collapsedMeals,
+  expandedMeals,
   copied,
   onToggleMeal,
+  onExpandMeal,
   onCopyEntry,
   onCreatedDone,
 }: {
   date: string;
   created: CreatedFood | null;
   mealEstimates: boolean;
-  collapsedMeals: ReadonlySet<Meal>;
+  expandedMeals: ReadonlySet<Meal>;
   copied: DiaryEntry | null;
   onToggleMeal: (meal: Meal) => void;
+  onExpandMeal: (meal: Meal) => void;
   onCopyEntry: (entry: DiaryEntry) => void;
   onCreatedDone: () => void;
 }) {
@@ -103,6 +137,7 @@ function Day({
   const [editing, setEditing] = useState<DiaryEntry | null>(null);
   const [adding, setAdding] = useState<Meal | null>(created?.meal ?? null);
   usePrefetchAdjacentDays(date, day.isSuccess && goal.isSuccess);
+  useOnMealGrown(day.data?.meals, onExpandMeal);
 
   if (day.isPending || goal.isPending) {
     return <DaySkeleton />;
@@ -125,7 +160,7 @@ function Day({
           meal={meal}
           entries={entries}
           totals={totals}
-          collapsed={collapsedMeals.has(meal)}
+          collapsed={!expandedMeals.has(meal)}
           copied={copied}
           onToggle={() => onToggleMeal(meal)}
           onSelectEntry={setEditing}
@@ -158,7 +193,7 @@ export function DiaryDay({
   const today = useToday();
   const [chosenDate, setChosenDate] = useQueryState('date', dateParser);
   const [{ meal, food }, setAdding] = useQueryStates(addingParsers);
-  const [collapsedMeals, setCollapsedMeals] = useState<ReadonlySet<Meal>>(
+  const [expandedMeals, setExpandedMeals] = useState<ReadonlySet<Meal>>(
     () => new Set(),
   );
   const [copied, setCopied] = useState<DiaryEntry | null>(null);
@@ -187,11 +222,14 @@ export function DiaryDay({
           date={date}
           created={created}
           mealEstimates={mealEstimates}
-          collapsedMeals={collapsedMeals}
+          expandedMeals={expandedMeals}
           copied={copied}
           onCopyEntry={setCopied}
           onToggleMeal={(toggled) =>
-            setCollapsedMeals((current) => toggledIn(current, toggled))
+            setExpandedMeals((current) => toggledIn(current, toggled))
+          }
+          onExpandMeal={(grown) =>
+            setExpandedMeals((current) => new Set(current).add(grown))
           }
           onCreatedDone={() => setAdding({ meal: null, food: null })}
         />
