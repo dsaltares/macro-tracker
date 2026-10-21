@@ -122,7 +122,9 @@ portions, or `100 g` when it has none. Millilitres are grams unless a food decla
 no food declares one yet. A quantity of a portion weighs the portion's grams times the quantity.
 
 A **barcode** is an EAN-8 or EAN-13 (UPC-A is normalised to EAN-13 by a leading zero). Lookup
-order: the caller's own foods, reference foods, live Open Food Facts, then the miss flow.
+order: the caller's own foods, then reference foods, then the miss flow: scan the label or create the
+food by hand. The app never calls Open Food Facts at request time; daily delta imports keep the
+local copy fresh.
 
 ## Diary
 
