@@ -24,6 +24,12 @@ export const strictOutput = <T>(name: string, schema: z.ZodType<T>) =>
           for (const keyword of keywordsStrictOutputsRefuse) {
             delete node[keyword];
           }
+          // Strict outputs refuse oneOf, which discriminated unions become; their branches never
+          // overlap, so anyOf says the same.
+          if (node.oneOf !== undefined) {
+            node.anyOf = node.oneOf;
+            delete node.oneOf;
+          }
         },
       }) as never,
       {
