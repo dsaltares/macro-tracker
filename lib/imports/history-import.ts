@@ -112,7 +112,12 @@ export const launchHistoryImport = async (
     logger = getLogger('history-import'),
   }: HistoryImportDependencies = {},
 ): Promise<LaunchedHistoryImport> => {
-  const cronometer = cronometerClient({ email, password, fetch: send });
+  const cronometer = cronometerClient({
+    email,
+    password,
+    fetch: send,
+    logger,
+  });
   await cronometer.login();
   const start = await startHistoryImport(context.db, context.caller.userId, {
     id: context.nextId(),

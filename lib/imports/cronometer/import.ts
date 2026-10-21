@@ -209,7 +209,7 @@ const ignoreProgress: OnProgress = () => {};
 
 export const cronometerLaunched = '2011-01-01';
 
-const daysPerRound = 7;
+const daysPerRound = 4;
 
 type DiaryDay = { date: string; entries: DiaryEntry[] };
 

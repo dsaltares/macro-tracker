@@ -409,8 +409,8 @@ describe('the walk back through the diary', () => {
 
     expect(progress.slice(0, 3)).toEqual([
       'reading 0/0',
-      'reading 7/61',
-      'reading 14/61',
+      'reading 4/61',
+      'reading 8/61',
     ]);
     expect(progress.slice(-3)).toEqual([
       'reading 61/61',

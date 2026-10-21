@@ -25,9 +25,16 @@ const appHeaders = {
 
 const timeoutMs = 30_000;
 const foodsPerRequest = 50;
+const maxAttempts = 5;
+const firstBackoffMs = 1_000;
+const maxBackoffMs = 60_000;
+const millisecondsPerSecond = 1_000;
 
 export const loginRefused =
   'Cronometer refused the email or password. Check them and try again.';
+
+export const rateLimited =
+  'Cronometer is limiting how fast it answers. Try again in a while.';
 
 export const unreachable = 'Cronometer could not be reached. Try again later.';
 
@@ -41,6 +48,17 @@ const failure = (message: string) =>
 
 export const isCronometerFailure = (error: unknown): error is Error =>
   error instanceof Error && error.cause === cronometerCause;
+
+type Log = (details: Record<string, unknown>, message: string) => void;
+
+export type CronometerLogger = { info: Log; warn: Log };
+
+const silent: CronometerLogger = { info: () => {}, warn: () => {} };
+
+const sleep = (milliseconds: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 
 export type Cronometer = {
   login: () => Promise<void>;
@@ -84,7 +102,24 @@ const biometricsSchema = z.object({
 });
 
 const failedResults = new Set(['FAIL', 'FAILURE']);
-const refusedStatuses = new Set([401, 403]);
+const expiredStatuses = new Set([401, 403]);
+const refusedLoginStatuses = new Set([400, 401, 403]);
+const tooManyRequests = 429;
+const retriedStatuses = new Set([tooManyRequests, 500, 502, 503, 504]);
+
+const backoffFor = (attempt: number, response: Response | null) => {
+  const retryAfter = Number(response?.headers.get('retry-after'));
+  const asked =
+    Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * millisecondsPerSecond
+      : firstBackoffMs * 2 ** (attempt - 1);
+  return Math.min(asked, maxBackoffMs);
+};
+
+const errorOf = (answer: unknown) =>
+  typeof answer === 'object' && answer !== null && 'error' in answer
+    ? String(answer.error)
+    : null;
 
 const weightMetric = 'weight';
 const kilograms = 'kg';
@@ -94,28 +129,62 @@ const chunks = <Item>(items: readonly Item[], size: number) =>
     items.slice(index * size, (index + 1) * size),
   );
 
+type Session = { userId: number; token: string };
+
 export const cronometerClient = ({
   email,
   password,
   fetch: send = fetch,
+  logger = silent,
+  wait = sleep,
 }: {
   email: string;
   password: string;
   fetch?: Fetch;
+  logger?: CronometerLogger;
+  wait?: (milliseconds: number) => Promise<void>;
 }): Cronometer => {
-  let session: { userId: number; token: string } | null = null;
+  let session: Session | null = null;
+  let signingIn: Promise<Session> | null = null;
 
-  const post = (endpoint: string, body: unknown) =>
-    send(new URL(endpoint, apiUrl), {
-      method: 'POST',
-      headers: appHeaders,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    }).catch(() => {
-      throw failure(unreachable);
-    });
+  const post = async (endpoint: string, body: unknown): Promise<Response> => {
+    for (let attempt = 1; ; attempt += 1) {
+      const response = await send(new URL(endpoint, apiUrl), {
+        method: 'POST',
+        headers: appHeaders,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      }).catch(() => null);
+      const retried = response === null || retriedStatuses.has(response.status);
+      if (!retried) {
+        return response;
+      }
+      if (attempt >= maxAttempts) {
+        if (response === null) {
+          throw failure(unreachable);
+        }
+        return response;
+      }
+      const backoffMs = backoffFor(attempt, response);
+      logger.warn(
+        { endpoint, status: response?.status ?? null, attempt, backoffMs },
+        'Cronometer did not answer; trying again',
+      );
+      await wait(backoffMs);
+    }
+  };
 
-  const login = async () => {
+  const failureFor = (endpoint: string, response: Response) => {
+    logger.warn(
+      { endpoint, status: response.status },
+      'Cronometer answered with an error',
+    );
+    return failure(
+      response.status === tooManyRequests ? rateLimited : unexpectedAnswer,
+    );
+  };
+
+  const login = async (): Promise<Session> => {
     const response = await post('login', {
       email,
       password,
@@ -130,13 +199,35 @@ export const cronometerClient = ({
       lastSeen: 0,
       config: { call_version: 2 },
     });
-    const answer = loginSchema.safeParse(
-      await response.json().catch(() => null),
-    );
-    if (!response.ok || !answer.success) {
+    const answer: unknown = await response.json().catch(() => null);
+    if (refusedLoginStatuses.has(response.status)) {
+      logger.warn(
+        { status: response.status, error: errorOf(answer) },
+        'Cronometer refused the sign-in',
+      );
       throw failure(loginRefused);
     }
-    session = { userId: answer.data.id, token: answer.data.sessionKey };
+    if (!response.ok) {
+      throw failureFor('login', response);
+    }
+    const signedIn = loginSchema.safeParse(answer);
+    if (!signedIn.success) {
+      logger.warn(
+        { status: response.status, error: errorOf(answer) },
+        'Cronometer answered the sign-in without a session',
+      );
+      throw failure(errorOf(answer) === null ? unexpectedAnswer : loginRefused);
+    }
+    session = { userId: signedIn.data.id, token: signedIn.data.sessionKey };
+    logger.info({}, 'Signed in to Cronometer');
+    return session;
+  };
+
+  const signIn = () => {
+    signingIn ??= login().finally(() => {
+      signingIn = null;
+    });
+    return signingIn;
   };
 
   const request = async (
@@ -144,28 +235,35 @@ export const cronometerClient = ({
     payload: Record<string, unknown>,
     retried = false,
   ): Promise<unknown> => {
-    if (session === null) {
-      await login();
-    }
+    const current = session ?? (await signIn());
     const response = await post(endpoint, {
       ...payload,
       lastSeen: 0,
-      auth: { userId: session?.userId, token: session?.token, ...appAuth },
+      auth: { userId: current.userId, token: current.token, ...appAuth },
     });
     const answer: unknown = response.ok
       ? await response.json().catch(() => null)
       : null;
     const expired =
-      refusedStatuses.has(response.status) ||
+      expiredStatuses.has(response.status) ||
       (typeof answer === 'object' &&
         answer !== null &&
         'result' in answer &&
         failedResults.has(String(answer.result)));
     if (expired && !retried) {
-      session = null;
+      logger.warn(
+        { endpoint, status: response.status },
+        'Cronometer ended the session; signing in again',
+      );
+      if (session === current) {
+        session = null;
+      }
       return request(endpoint, payload, true);
     }
-    if (!response.ok || expired || answer === null) {
+    if (!response.ok || expired) {
+      throw failureFor(endpoint, response);
+    }
+    if (answer === null) {
       throw failure(unexpectedAnswer);
     }
     return answer;
@@ -192,7 +290,9 @@ export const cronometerClient = ({
     });
 
   return {
-    login,
+    login: async () => {
+      await signIn();
+    },
     diary: async (date) => {
       const { diary } = parsed(
         diarySchema,

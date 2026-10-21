@@ -9,6 +9,7 @@ import {
   cronometerDay,
   isCronometerFailure,
   loginRefused,
+  rateLimited,
   unexpectedAnswer,
   unreachable,
 } from './client.ts';
@@ -22,6 +23,12 @@ const egg = {
   nutrients: [{ id: 208, amount: 143 }],
 };
 
+const waits: number[] = [];
+
+const noWait = async (milliseconds: number) => {
+  waits.push(milliseconds);
+};
+
 const client = (
   cronometer: ReturnType<typeof fakeCronometer>,
   password = cronometerPassword,
@@ -30,7 +37,19 @@ const client = (
     email: cronometerEmail,
     password,
     fetch: cronometer.fetch,
+    wait: noWait,
   });
+
+const clientOver = (send: typeof fetch) =>
+  cronometerClient({
+    email: cronometerEmail,
+    password: cronometerPassword,
+    fetch: send,
+    wait: noWait,
+  });
+
+const logins = (cronometer: ReturnType<typeof fakeCronometer>) =>
+  cronometer.requests.filter(({ endpoint }) => endpoint === 'login');
 
 describe('cronometerDay', () => {
   it('is a date without leading zeros, as Cronometer takes it', () => {
@@ -153,13 +172,81 @@ describe('cronometerClient', () => {
     });
   });
 
-  it('says when Cronometer cannot be reached or answers an error', async () => {
-    const offline = cronometerClient({
-      email: cronometerEmail,
-      password: cronometerPassword,
-      fetch: async () => {
+  it('signs in once for every request a session expiry fails at the same time', async () => {
+    const cronometer = fakeCronometer();
+    let expired = false;
+    const send: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+      const body = JSON.parse(await request.clone().text());
+      if (expired && body.auth?.token === 'session-1' && body.day) {
+        return Response.json({ result: 'FAIL' });
+      }
+      if (new URL(request.url).pathname.endsWith('/login') && expired) {
+        expired = false;
+      }
+      return cronometer.answer(request);
+    };
+    const reader = clientOver(send);
+    await reader.login();
+    expired = true;
+
+    await Promise.all(
+      ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04'].map((date) =>
+        reader.diary(date),
+      ),
+    );
+
+    expect(logins(cronometer)).toHaveLength(2);
+  });
+
+  it('waits and tries again while Cronometer limits the rate, as long as it asks', async () => {
+    waits.length = 0;
+    const cronometer = fakeCronometer();
+    let limited = 2;
+    const send: typeof fetch = async (input, init) => {
+      if (limited > 0) {
+        limited -= 1;
+        return new Response('slow down', {
+          status: 429,
+          headers: { 'retry-after': '3' },
+        });
+      }
+      return cronometer.answer(new Request(input, init));
+    };
+
+    await clientOver(send).login();
+
+    expect(waits).toEqual([3000, 3000]);
+    expect(logins(cronometer)).toHaveLength(1);
+  });
+
+  it('says Cronometer is limiting the rate, not that the password is wrong, when it keeps limiting', async () => {
+    waits.length = 0;
+    const limiting = clientOver(
+      async () => new Response('slow down', { status: 429 }),
+    );
+
+    await expect(limiting.login()).rejects.toThrow(rateLimited);
+    expect(waits).toEqual([1000, 2000, 4000, 8000]);
+  });
+
+  it('tries again when Cronometer cannot be reached for a moment', async () => {
+    const cronometer = fakeCronometer();
+    let down = 1;
+    const send: typeof fetch = async (input, init) => {
+      if (down > 0) {
+        down -= 1;
         throw new TypeError('fetch failed');
-      },
+      }
+      return cronometer.answer(new Request(input, init));
+    };
+
+    await expect(clientOver(send).login()).resolves.toBeUndefined();
+  });
+
+  it('says when Cronometer cannot be reached or answers an error', async () => {
+    const offline = clientOver(async () => {
+      throw new TypeError('fetch failed');
     });
     await expect(offline.login()).rejects.toThrow(unreachable);
 

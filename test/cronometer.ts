@@ -51,7 +51,7 @@ export const fakeCronometer = ({
     const body = JSON.parse(await request.text()) as Record<string, unknown>;
     requests.push({ endpoint, body });
     if (endpoint === failing) {
-      return new Response('down', { status: 500 });
+      return new Response('bad request', { status: 400 });
     }
     if (endpoint === 'login') {
       return body.email === cronometerEmail &&
