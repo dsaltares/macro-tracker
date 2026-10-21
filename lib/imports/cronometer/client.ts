@@ -33,6 +33,9 @@ const millisecondsPerSecond = 1_000;
 export const loginRefused =
   'Cronometer refused the email or password. Check them and try again.';
 
+export const signInLocked =
+  'Cronometer has paused sign-ins to this account after too many attempts. Wait a while, maybe an hour, and try again.';
+
 export const rateLimited =
   'Cronometer is limiting how fast it answers. Try again in a while.';
 
@@ -115,6 +118,8 @@ const backoffFor = (attempt: number, response: Response | null) => {
       : firstBackoffMs * 2 ** (attempt - 1);
   return Math.min(asked, maxBackoffMs);
 };
+
+const tooManyAttempts = /too many|try again later/i;
 
 const errorOf = (answer: unknown) =>
   typeof answer === 'object' && answer !== null && 'error' in answer
@@ -201,11 +206,16 @@ export const cronometerClient = ({
     });
     const answer: unknown = await response.json().catch(() => null);
     if (refusedLoginStatuses.has(response.status)) {
+      const error = errorOf(answer);
       logger.warn(
-        { status: response.status, error: errorOf(answer) },
+        { status: response.status, error },
         'Cronometer refused the sign-in',
       );
-      throw failure(loginRefused);
+      throw failure(
+        error !== null && tooManyAttempts.test(error)
+          ? signInLocked
+          : loginRefused,
+      );
     }
     if (!response.ok) {
       throw failureFor('login', response);
@@ -216,7 +226,14 @@ export const cronometerClient = ({
         { status: response.status, error: errorOf(answer) },
         'Cronometer answered the sign-in without a session',
       );
-      throw failure(errorOf(answer) === null ? unexpectedAnswer : loginRefused);
+      const error = errorOf(answer);
+      throw failure(
+        error === null
+          ? unexpectedAnswer
+          : tooManyAttempts.test(error)
+            ? signInLocked
+            : loginRefused,
+      );
     }
     session = { userId: signedIn.data.id, token: signedIn.data.sessionKey };
     logger.info({}, 'Signed in to Cronometer');

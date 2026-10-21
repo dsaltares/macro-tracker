@@ -10,6 +10,7 @@ import {
   isCronometerFailure,
   loginRefused,
   rateLimited,
+  signInLocked,
   unexpectedAnswer,
   unreachable,
 } from './client.ts';
@@ -197,6 +198,19 @@ describe('cronometerClient', () => {
     );
 
     expect(logins(cronometer)).toHaveLength(2);
+  });
+
+  it('says sign-ins are paused, without trying again, when Cronometer locks them', async () => {
+    let attempts = 0;
+    const locked = clientOver(async () => {
+      attempts += 1;
+      return Response.json({
+        error: 'Too Many Attempts. Please try again later.',
+      });
+    });
+
+    await expect(locked.login()).rejects.toThrow(signInLocked);
+    expect(attempts).toBe(1);
   });
 
   it('waits and tries again while Cronometer limits the rate, as long as it asks', async () => {
