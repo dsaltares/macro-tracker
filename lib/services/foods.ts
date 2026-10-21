@@ -1,11 +1,13 @@
 import {
   type FoodReader,
   findFoodByBarcode as findFoodByBarcodeFor,
+  findFoodBySourceId as findFoodBySourceIdFor,
   findFood as findFoodFor,
   nutrientsByFood,
   searchFoods as searchFoodsFor,
 } from '../db/food-search.ts';
 import { createUserFood as createUserFoodFor } from '../db/user-foods.ts';
+import type { ReferenceSource } from '../domain/foods/sources.ts';
 import type { UserFoodFields } from '../domain/foods/user-food.ts';
 import type { Caller, ServiceContext } from './context.ts';
 
@@ -33,6 +35,12 @@ export const findFood = (context: FoodReadContext, id: string) =>
 
 export const findFoodByBarcode = (context: FoodReadContext, code: string) =>
   findFoodByBarcodeFor(readerOf(context), code);
+
+export const findFoodBySourceId = (
+  context: FoodReadContext,
+  source: ReferenceSource,
+  sourceId: string,
+) => findFoodBySourceIdFor(readerOf(context), source, sourceId);
 
 export const createUserFood = (context: ServiceContext, food: UserFoodFields) =>
   createUserFoodFor(context.db, context.caller.userId, food, context);

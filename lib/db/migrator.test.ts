@@ -41,6 +41,7 @@ const everyMigration = [
   '0013-goals',
   '0014-recipes',
   '0015-api-keys',
+  '0016-history-imports',
 ];
 
 const everyTable = [
@@ -60,6 +61,7 @@ const everyTable = [
   'foods_fts_docsize',
   'foods_fts_idx',
   'goals',
+  'history_imports',
   'meta',
   'profiles',
   'recipe_ingredients',
@@ -172,8 +174,16 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0016-history-imports']);
+    const beforeHistoryImports = everyTable.filter(
+      (table) => table !== 'history_imports',
+    );
+    expect(await tableNames(db)).toEqual(beforeHistoryImports);
+
     expect(await migrateDown(db)).toEqual(['0015-api-keys']);
-    const beforeApiKeys = everyTable.filter((table) => table !== 'api_keys');
+    const beforeApiKeys = beforeHistoryImports.filter(
+      (table) => table !== 'api_keys',
+    );
     expect(await tableNames(db)).toEqual(beforeApiKeys);
 
     expect(await migrateDown(db)).toEqual(['0014-recipes']);
@@ -222,7 +232,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0015-api-keys']);
+    expect(await migrateToLatest(db)).toEqual(['0016-history-imports']);
   });
 
   it('reads back what is written to meta', async () => {

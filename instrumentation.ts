@@ -11,6 +11,9 @@ export const register = async () => {
   const { failInterruptedFoodImports } = await import(
     './lib/db/food-imports.ts'
   );
+  const { failInterruptedHistoryImports } = await import(
+    './lib/db/history-imports.ts'
+  );
   const { serverFoodImport } = await import('./lib/data/background-import.ts');
   const { foodDeltaCron, foodImportCron, scheduleFoodImports } = await import(
     './lib/data/food-import-schedule.ts'
@@ -26,6 +29,16 @@ export const register = async () => {
   );
   if (interrupted.length > 0) {
     logger.warn({ interrupted }, 'Failed food imports a restart interrupted');
+  }
+  const interruptedHistory = await failInterruptedHistoryImports(
+    getDatabase(),
+    () => new Date().toISOString(),
+  );
+  if (interruptedHistory.length > 0) {
+    logger.warn(
+      { interrupted: interruptedHistory },
+      'Failed history imports a restart interrupted',
+    );
   }
   const importLogger = getLogger('import-foods');
   const schedules = [

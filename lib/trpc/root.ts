@@ -5,6 +5,7 @@ import { diaryRouter } from './routers/diary.ts';
 import { foodRouter } from './routers/food.ts';
 import { goalsRouter } from './routers/goals.ts';
 import { healthRouter } from './routers/health.ts';
+import { historyImportRouter } from './routers/history-import.ts';
 import { profileRouter } from './routers/profile.ts';
 import { recipeRouter } from './routers/recipe.ts';
 import { trendsRouter } from './routers/trends.ts';
@@ -18,6 +19,7 @@ export const appRouter = router({
   food: foodRouter,
   goals: goalsRouter,
   health: healthRouter,
+  historyImport: historyImportRouter,
   profile: profileRouter,
   recipe: recipeRouter,
   trends: trendsRouter,

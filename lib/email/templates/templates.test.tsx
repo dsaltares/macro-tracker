@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { historyImportEmail } from './history-import.tsx';
 import { resetPasswordCopy, resetPasswordEmail } from './reset-password.tsx';
 import { verifyAddressCopy, verifyAddressEmail } from './verify-address.tsx';
 
@@ -42,5 +43,48 @@ describe.each(templates)('$name', ({ build, copy, url }) => {
     expect(text).toContain(url);
     expect(text).toContain('expires in an hour');
     expect(text).not.toContain('<');
+  });
+});
+
+describe('historyImportEmail', () => {
+  const summary = {
+    days: 59,
+    skippedDays: 1,
+    entries: 1175,
+    quickEntries: 26,
+    skippedEntries: 0,
+    failedMeals: 0,
+    weights: 1,
+    skippedWeights: 0,
+    sourceKcal: 130224,
+    importedKcal: 130442,
+    foods: [],
+  };
+
+  it('sums up a finished import and links to it', async () => {
+    const message = await historyImportEmail({
+      to: 'user@example.test',
+      url: 'https://macros.example.test/settings/import',
+      outcome: { status: 'succeeded', summary },
+    });
+
+    expect(message.subject).toBe('Your import finished');
+    expect(message.text).toContain(
+      '1,175 entries over 59 days and 1 weight are in your diary, skipping 1 day you had already logged.',
+    );
+    expect(message.text).toContain(
+      'https://macros.example.test/settings/import',
+    );
+  });
+
+  it('says why an import stopped', async () => {
+    const message = await historyImportEmail({
+      to: 'user@example.test',
+      url: 'https://macros.example.test/settings/import',
+      outcome: { status: 'failed', error: 'fitness-tracker is down.' },
+    });
+
+    expect(message.subject).toBe('Your import stopped');
+    expect(message.text).toContain('fitness-tracker is down.');
   });
 });

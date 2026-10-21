@@ -212,6 +212,13 @@ export default function PrivacyPage() {
               hash of the key, and when it was created, last used and revoked.
               The key itself is shown to you once and never stored.
             </li>
+            <li>
+              <strong>Imports you start</strong>: when you import your history
+              from another app, the diary, foods and weights it brings in, which
+              are then what you log, and a record of each import (when it ran,
+              how far it got and a summary of what it brought). The key you give
+              for it is used for that import alone and never stored.
+            </li>
           </ul>
 
           <LegalHeading>Session records</LegalHeading>
@@ -365,8 +372,13 @@ export default function PrivacyPage() {
               came from you.
             </li>
             <li>
-              To send you the link that confirms your email address, and a
-              password reset link when you ask for one.
+              To send you the link that confirms your email address, a password
+              reset link when you ask for one, and a note when an import you
+              started finishes.
+            </li>
+            <li>
+              To fetch your history from the app you name when you start an
+              import, with the key you give for it, and nothing else from it.
             </li>
             <li>
               To keep the Service working and secure: rate-limiting sign-in,

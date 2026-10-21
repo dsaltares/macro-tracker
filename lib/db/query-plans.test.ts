@@ -31,6 +31,7 @@ import { userPortionDeletion } from './food-portions.ts';
 import {
   foodByBarcodeQuery,
   foodByIdQuery,
+  foodBySourceIdQuery,
   foodNutrientsQuery,
   foodSummariesQuery,
   portionsQuery,
@@ -43,6 +44,10 @@ import {
 } from './food-source-preferences.ts';
 import { userPortionsDeletion } from './foods.ts';
 import { goalSettingsQuery } from './goals.ts';
+import {
+  latestHistoryImportQuery,
+  runningHistoryImportQuery,
+} from './history-imports.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import {
@@ -288,6 +293,21 @@ describe('query plans', () => {
       'foods',
     ]);
     expectNoScan(foodByBarcodeQuery(db, null, '3017620422003').compile(), [
+      'foods',
+    ]);
+  });
+
+  it("finds a user's latest and running history imports without a scan", () => {
+    expectNoScan(latestHistoryImportQuery(db, 'u').compile(), [
+      'history_imports',
+    ]);
+    expectNoScan(runningHistoryImportQuery(db, 'u').compile(), [
+      'history_imports',
+    ]);
+  });
+
+  it('finds a reference food by source id without a scan', () => {
+    expectNoScan(foodBySourceIdQuery(db, 'usda', 'ndb:1009').compile(), [
       'foods',
     ]);
   });

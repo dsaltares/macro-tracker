@@ -52,7 +52,7 @@ const referenceFood = (food: SourceFood): ReferenceFoodInput => ({
 
 // Not `setImmediate` from `node:timers/promises`: outside a request, Next.js 16's patch of it
 // falls back to itself and overflows the stack.
-const nextTurn = () =>
+export const nextTurn = () =>
   new Promise<void>((resolve) => {
     setImmediate(resolve);
   });

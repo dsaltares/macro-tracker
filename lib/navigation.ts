@@ -79,6 +79,11 @@ export const settingsSections: readonly SettingsSection[] = [
     href: routes.export,
   },
   {
+    label: 'Import',
+    description: 'Your diary and weights from another app',
+    href: routes.import,
+  },
+  {
     label: 'Account',
     description: 'Your address, how you sign in, and deleting your account',
     href: routes.account,

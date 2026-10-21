@@ -26,6 +26,7 @@ order).
 | [0014](0014-install-from-the-manifest-alone-with-no-service-worker.md) | Install from the manifest alone, with no service worker | Accepted | 2026-10-20 |
 | [0015](0015-prompt-install-with-an-inline-banner-behind-sign-in.md) | Prompt the install with an inline banner in the signed-in app | Accepted | 2026-10-20 |
 | [0016](0016-estimate-meals-with-an-agent-over-the-users-own-search.md) | Estimate meals with an agent over the user's own food search | Accepted | 2026-10-20 |
+| [0017](0017-import-a-history-in-the-server-with-a-key-used-once.md) | Import a history in the server, over the user's own services, with a key used once | Accepted | 2026-10-21 |
 
 ## How to add one
 
