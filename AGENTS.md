@@ -522,10 +522,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `estimateMeal({ photos, description, foods, previous? })`, which never throws either: the
   `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10) `unreadable`. It is a tool
   loop with `prompts/meal.ts` and two tools over `foods`, a `MealEstimatorFoods` port:
-  `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo.
+  `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo. An
+  estimate naming a food or recipe the port's `resolveMatches` cannot find (`unresolvedItems`)
+  gets one repair round, those lines sent back with `repairRequest`, capped at `maxRepairSteps` (5).
   `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
   caller: `searchFoods`' first page and the live recipes whose names hold every word
-  (`nameMatchesEveryTerm`), and a live food with its portions. `resolveMealMatches` reads the live
+  (`nameMatchesEveryTerm`), a live food with its portions, and `resolveMealMatches` over the
+  caller. `resolveMealMatches` reads the live
   foods and live, non-empty recipes an estimate names, for `mealDraft`. `previous` is `{ draft, feedback }`,
   sent as the model's earlier answer and the user's correction; the photos are sent again.
   `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:

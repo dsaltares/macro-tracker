@@ -124,4 +124,44 @@ describe('mealEstimatorFoods', () => {
 
     expect(await foodsOf('alice').getFood(alicesSoup)).toBeNull();
   });
+
+  it('resolves the caller’s live foods and recipes an estimate names, and none of another user’s', async () => {
+    const item = { grams: 100, confidence: 0.9, note: null };
+    const { foods, recipes } = await foodsOf('alice').resolveMatches({
+      items: [
+        {
+          ...item,
+          kind: 'food',
+          name: 'Soup',
+          foodId: alicesSoup,
+          portion: null,
+        },
+        {
+          ...item,
+          kind: 'food',
+          name: 'Ham soup',
+          foodId: bobsSoup,
+          portion: null,
+        },
+        {
+          ...item,
+          kind: 'recipe',
+          name: 'Stew',
+          recipeId: 'alices-stew',
+          servings: 1,
+        },
+        {
+          ...item,
+          kind: 'recipe',
+          name: 'Stew',
+          recipeId: 'bobs-stew',
+          servings: 1,
+        },
+      ],
+      notes: [],
+    });
+
+    expect([...foods.keys()]).toEqual([alicesSoup]);
+    expect([...recipes.keys()]).toEqual(['alices-stew']);
+  });
 });

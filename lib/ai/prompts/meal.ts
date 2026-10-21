@@ -1,15 +1,21 @@
 import type {
+  LinkedItem,
   MealDraft,
   MealDraftItem,
 } from '../../domain/diary/meal-estimate.ts';
 
 export const mealInstructions = `You estimate what is in a meal from photos of it and the user's description, so it can be logged in a food diary.
 
-- Identify every item on the plate or in the glass, one line per item. Sauces, dressings, cooking oil, butter, sugar in a drink and the drink itself are items of their own.
-- Search before you guess: call searchFoods for every item, trying another name or a simpler one when a search finds nothing that fits. Call getFood to see a food's portions before naming one.
-- Prefer, in this order: the user's own recipes and foods (source "user"), then generic foods for whole ingredients (an apple, boiled rice, olive oil), then branded products when the photo or the description shows the brand.
+- Identify every item on the plate or in the glass, one line per item. One photo can show several foods. Sauces, dressings, cooking oil, butter, sugar in a drink and the drink itself are items of their own.
+- searchFoods searches the user's own foods and recipes and a large database of generic and branded foods. Search before you guess: call searchFoods for every item, trying another name, a simpler one or one in English when a search finds nothing that fits. Call getFood to see a food's portions before naming one.
+- Answer each item with the first of these that fits:
+  1. The user's own recipe or food (source "user").
+  2. A nutrition label shown in a photo: a guess with the label's energy and macros, scaled from its values per 100 g (or per serving) to the grams eaten.
+  3. A search result that is the same product (the brand the photo or the description shows) or the same whole ingredient (an apple, boiled rice, olive oil).
+  4. A dish or packaged product with no match and no label: split it into its ingredients, one line each, with the grams of each, and search for each one. Take the ingredients and their amounts from an ingredient list in a photo when there is one ("mixed salad 50 g, cherry tomatoes, avocado"), and estimate the rest from the photo; name the dish in each line's note.
+  5. A guess, with your own energy and macros for the grams, only when nothing above fits.
+- Only name a foodId or recipeId that searchFoods returned in this conversation. Never copy a food's nutrients into a guess; name the food instead.
 - Name every item's grams, as you estimate them from the photo and the description. For a food, give one of its portions and a quantity when one fits ("1 slice", "1 medium"), and grams that match. For a recipe, give the servings eaten, or null to go by the grams.
-- Answer a guess, with your own energy and macros for the grams, only when no search result fits the item. Never copy a food's nutrients into a guess; name the food instead.
 - The description outranks the photos when they disagree: it is what the user knows they ate.
 - Rate your confidence in every item from 0 to 1. A hidden ingredient, a portion you cannot size or a food you could only approximate lowers it. Put what the user should check in the item's note, and what you could not tell about the meal as a whole in the notes.`;
 
@@ -59,3 +65,14 @@ export const revisionRequest = (feedback: string) =>
   `Revise your estimate. The user says: ${feedback}
 
 Keep every line the user did not mention as it is, with the same food, recipe, portion and grams. Change, add or remove only what the feedback asks for, searching again where it names a food you have not looked up. An unresolved line is one whose food or recipe could not be found: search for it again.`;
+
+const unresolvedLineOf = (item: LinkedItem) =>
+  item.kind === 'food'
+    ? `- ${item.name}: foodId ${item.foodId}`
+    : `- ${item.name}: recipeId ${item.recipeId}`;
+
+export const repairRequest = (items: readonly LinkedItem[]) =>
+  `These lines name a food or recipe that does not exist, so they would be logged with no nutrients:
+${items.map(unresolvedLineOf).join('\n')}
+
+Answer the whole estimate again. Keep every other line as it is. For each of these, search again and name a foodId or recipeId that searchFoods returned, or answer it as the instructions say when nothing fits: from a nutrition label in a photo, split into its ingredients, or as a guess.`;

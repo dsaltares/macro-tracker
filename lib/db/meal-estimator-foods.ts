@@ -46,6 +46,7 @@ export const mealEstimatorFoods = ({
       portions: food.portions.map(({ label, grams }) => ({ label, grams })),
     };
   },
+  resolveMatches: (estimate) => resolveMealMatches({ db, userId }, estimate),
 });
 
 type Reader = { db: Kysely<Database>; userId: string };

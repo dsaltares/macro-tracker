@@ -341,6 +341,20 @@ export const draftOfItems = (
   notes: string[],
 ): MealDraft => ({ items, totals: dayTotals(items), notes });
 
+export type LinkedItem = Extract<EstimatedItem, { kind: 'food' | 'recipe' }>;
+
+const isUnresolved = (
+  item: EstimatedItem,
+  { foods, recipes }: ResolvedMatches,
+): item is LinkedItem =>
+  (item.kind === 'food' && !foods.has(item.foodId)) ||
+  (item.kind === 'recipe' && !recipes.has(item.recipeId));
+
+export const unresolvedItems = (
+  { items }: MealEstimate,
+  resolved: ResolvedMatches,
+): LinkedItem[] => items.filter((item) => isUnresolved(item, resolved));
+
 export const mealDraft = (
   estimate: MealEstimate,
   resolved: ResolvedMatches,
