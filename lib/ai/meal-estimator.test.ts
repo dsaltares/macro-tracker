@@ -158,6 +158,21 @@ describe('createMealEstimator', () => {
     });
   });
 
+  it('sends its items as anyOf, since strict outputs refuse oneOf', async () => {
+    const model = answering(answer(estimate));
+
+    await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: noFoods,
+    });
+
+    const format = model.doGenerateCalls[0]?.responseFormat;
+    const schema = JSON.stringify(format?.type === 'json' && format.schema);
+    expect(schema).toContain('"anyOf"');
+    expect(schema).not.toContain('oneOf');
+  });
+
   it('logs each tool call with its query and never the photo', async () => {
     const model = answering(
       callingTool('searchFoods', { query: 'oats' }),
