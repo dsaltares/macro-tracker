@@ -10,6 +10,15 @@ export const meals = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
 export type Meal = (typeof meals)[number];
 
+const mealEndHours = [
+  [11, 'breakfast'],
+  [16, 'lunch'],
+  [21, 'dinner'],
+] as const;
+
+export const mealAtHour = (hour: number): Meal =>
+  mealEndHours.find(([end]) => hour < end)?.[1] ?? 'snack';
+
 export const entryKinds = ['food', 'recipe', 'quick'] as const;
 
 export type EntryKind = (typeof entryKinds)[number];

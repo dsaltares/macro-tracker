@@ -1,5 +1,11 @@
 import { type ReactNode, useId } from 'react';
 import {
+  hasOwnColour,
+  isOver,
+  nutrientFill,
+  overText,
+} from '@/components/nutrients/nutrient-colours';
+import {
   nutrientGroupNames,
   nutrientNames,
 } from '@/components/nutrients/nutrient-names';
@@ -15,6 +21,7 @@ import {
   nutrientByKey,
   nutrientGroups,
 } from '@/lib/domain/nutrition/nutrients';
+import { cn } from '@/lib/utils';
 
 export const noData = 'No data';
 
@@ -38,9 +45,10 @@ function NutrientRow({
       <dt className="truncate">{name}</dt>
       <dd className="flex items-baseline gap-2 tabular-nums">
         <span
-          className={
-            amount === undefined ? 'text-muted-foreground' : 'font-medium'
-          }
+          className={cn(
+            amount === undefined ? 'text-muted-foreground' : 'font-medium',
+            hasOwnColour(key) && isOver(progress) && overText,
+          )}
         >
           {amount === undefined ? noData : amountIn(key, amount)}
         </span>
@@ -64,6 +72,7 @@ function NutrientRow({
             share={share}
             kind={kind}
             progress={progress}
+            fill={hasOwnColour(key) ? nutrientFill(key, progress) : undefined}
           />
         </dd>
       )}

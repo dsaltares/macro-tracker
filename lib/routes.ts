@@ -5,6 +5,7 @@ export const routes = {
   diary: '/diary',
   nutrients: '/diary/nutrients',
   foods: '/foods',
+  foodSearch: '/foods/search',
   newFood: '/foods/new',
   recipes: '/foods/recipes',
   newRecipe: '/foods/recipes/new',
@@ -57,7 +58,7 @@ export const newFoodHref = ({
 }: {
   barcode?: string;
   scanLabel?: boolean;
-  diary?: DiaryMeal;
+  diary?: DiaryMeal | undefined;
 }) => {
   const params = new URLSearchParams([
     ...(barcode === undefined ? [] : [['barcode', barcode]]),

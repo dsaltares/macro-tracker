@@ -252,7 +252,9 @@ describe('query plans', () => {
   });
 
   it('searches foods through the full-text index without a scan', () => {
-    const plan = planOf(searchQuery(db, null, '"nut"*', 0).compile());
+    const plan = planOf(
+      searchQuery(db, null, { match: '"nut"*', terms: ['nut'] }, 0).compile(),
+    );
 
     expect(plan).toContainEqual(
       expect.stringMatching(/^SCAN foods_fts VIRTUAL TABLE INDEX/),
@@ -261,11 +263,10 @@ describe('query plans', () => {
   });
 
   it("searches a user's foods and enabled sources without a scan", () => {
-    expectNoScan(searchQuery(db, 'u', '"nut"*', 30).compile(), [
-      'foods',
-      'food_nutrients',
-      'food_source_preferences',
-    ]);
+    expectNoScan(
+      searchQuery(db, 'u', { match: '"nut"*', terms: ['nut'] }, 30).compile(),
+      ['foods', 'food_nutrients', 'food_source_preferences'],
+    );
   });
 
   it('reads the portions a user sees of a page of foods with a search', () => {
@@ -299,10 +300,15 @@ describe('query plans', () => {
   });
 
   it("searches a user's live foods without a scan", () => {
-    expectNoScan(userFoodsQuery(db, 'u', '"nut"*', 30).compile(), [
-      'foods',
-      'food_nutrients',
-    ]);
+    expectNoScan(
+      userFoodsQuery(
+        db,
+        'u',
+        { match: '"nut"*', terms: ['nut'] },
+        30,
+      ).compile(),
+      ['foods', 'food_nutrients'],
+    );
   });
 
   it("finds a user's live food by id with a search", () => {

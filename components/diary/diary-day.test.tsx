@@ -4,7 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { noGoal } from '@/components/diary/day-totals';
 import { DiaryDay, loadFailed } from '@/components/diary/diary-day';
 import { recipeGone } from '@/components/diary/edit-entry-dialog';
-import { clearFailed, copyFailed } from '@/components/diary/meal-menu';
+import { copiedEntry, deletedEntry } from '@/components/diary/entry-menu';
+import {
+  clearFailed,
+  copyFailed,
+  pastedEntry,
+  pasteFailed,
+} from '@/components/diary/meal-menu';
 import { Toaster } from '@/components/ui/sonner';
 import { listMeasurements } from '@/lib/db/body-measurements';
 import { diaryDay, logRecipe } from '@/lib/db/diary';
@@ -56,8 +62,13 @@ const shown = (label: string) =>
     .getAllByRole('term')
     .find((term) => term.textContent === label)?.nextElementSibling;
 
+const entryInSoon = (mealName: string, label: string) =>
+  within(meal(mealName)).findByRole('button', {
+    name: new RegExp(`^${label}`),
+  });
+
 const entryIn = (mealName: string, label: string) =>
-  within(meal(mealName)).getByRole('button', { name: new RegExp(label) });
+  within(meal(mealName)).getByRole('button', { name: new RegExp(`^${label}`) });
 
 const nutrientsIn = (dialog: HTMLElement) =>
   within(dialog).getByRole('region', { name: /^Nutrients/ });
@@ -152,7 +163,7 @@ describe('DiaryDay', () => {
     await seedDay();
     render();
 
-    const nutella = await screen.findByRole('button', { name: /Nutella/ });
+    const nutella = await screen.findByRole('button', { name: /^Nutella/ });
     expect(nutella).toHaveTextContent('2 × 1 serving');
     expect(nutella).toHaveTextContent('162 kcal');
     expect(nutella).toHaveTextContent('P 1.9 g · C 17.3 g · F 9.3 g');
@@ -173,7 +184,7 @@ describe('DiaryDay', () => {
     const { user } = render();
     const expected = dayTotals(await storedDay());
 
-    await screen.findByRole('button', { name: /Nutella/ });
+    await screen.findByRole('button', { name: /^Nutella/ });
 
     expect(shown('Energy')).toHaveTextContent(
       formatAmount(expected.energy_kcal ?? Number.NaN, 'kcal'),
@@ -203,6 +214,47 @@ describe('DiaryDay', () => {
     expect(shown('Salt')).toHaveTextContent(
       formatAmount(salt(expected.sodium ?? Number.NaN), 'g'),
     );
+  });
+
+  it('collapses a meal to its totals and keeps it collapsed across days', async () => {
+    await seedDay();
+    const { user } = render();
+
+    const toggle = await screen.findByRole('button', {
+      name: /^Breakfast.*kcal/,
+      expanded: true,
+    });
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      within(meal('Breakfast')).queryByRole('button', { name: /^Rolled oats/ }),
+    ).not.toBeInTheDocument();
+    expect(meal('Breakfast')).toHaveTextContent('465 kcal');
+    expect(entryIn('Dinner', "Pizza at Luigi's")).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Previous day' }));
+    expect(
+      await screen.findByRole('button', { name: 'Breakfast' }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Next day' }));
+
+    expect(
+      await screen.findByRole('button', {
+        name: /^Breakfast.*kcal/,
+        expanded: false,
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: /^Breakfast.*kcal/, expanded: false }),
+    );
+    expect(entryIn('Breakfast', 'Rolled oats')).toBeInTheDocument();
+  });
+
+  it('cannot collapse a meal with no entries', async () => {
+    render();
+
+    expect(await screen.findByRole('button', { name: 'Lunch' })).toBeDisabled();
   });
 
   it('rings the energy left against the goal and bars each macro, coloured under, on or over target', async () => {
@@ -273,13 +325,13 @@ describe('DiaryDay', () => {
       '2026-10-20',
     );
     expect(
-      screen.queryByRole('button', { name: /Nutella/ }),
+      screen.queryByRole('button', { name: /^Nutella/ }),
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Previous day' }));
 
     expect(
-      await screen.findByRole('button', { name: /Nutella/ }),
+      await screen.findByRole('button', { name: /^Nutella/ }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Date, Yesterday')).toHaveValue('2026-10-19');
     expect(urlUpdates.at(-1)?.queryString).toBe('?date=2026-10-19');
@@ -301,7 +353,7 @@ describe('DiaryDay', () => {
     const { nutellaEntry } = await seedDay();
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: /Nutella/ }));
+    await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
     expect(await within(dialog).findByLabelText('Quantity')).toHaveValue(2);
     expect(within(dialog).getByLabelText('Portion')).toHaveValue('1 serving');
@@ -323,7 +375,7 @@ describe('DiaryDay', () => {
     expect(updated).toHaveTextContent('30 × 1 g');
     expect(updated).toHaveTextContent('162 kcal');
     expect(
-      within(meal('Breakfast')).queryByRole('button', { name: /Nutella/ }),
+      within(meal('Breakfast')).queryByRole('button', { name: /^Nutella/ }),
     ).not.toBeInTheDocument();
     expect(
       (await storedDay()).find((entry) => entry.id === nutellaEntry.id),
@@ -340,7 +392,7 @@ describe('DiaryDay', () => {
     await seedDay();
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: /Nutella/ }));
+    await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
     await within(dialog).findByLabelText('Quantity');
     expect(nutrientsIn(dialog)).toHaveAccessibleName('Nutrients in 30 g');
@@ -361,7 +413,7 @@ describe('DiaryDay', () => {
     const { user } = render();
 
     await user.click(
-      await screen.findByRole('button', { name: /Pizza at Luigi's/ }),
+      await screen.findByRole('button', { name: /^Pizza at Luigi's/ }),
     );
     const dialog = await screen.findByRole('dialog', {
       name: "Pizza at Luigi's",
@@ -379,7 +431,7 @@ describe('DiaryDay', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
     );
     expect(
-      await within(meal('Lunch')).findByRole('button', { name: /Pizza/ }),
+      await within(meal('Lunch')).findByRole('button', { name: /^Pizza/ }),
     ).toBeInTheDocument();
     expect(
       (await storedDay()).find((entry) => entry.id === pizzaEntry.id),
@@ -391,7 +443,7 @@ describe('DiaryDay', () => {
     await seedRecipeEntry();
     render();
 
-    const dal = await screen.findByRole('button', { name: /Dal/ });
+    const dal = await screen.findByRole('button', { name: /^Dal/ });
     expect(within(dal).getByText('Recipe')).toBeInTheDocument();
     expect(dal).toHaveTextContent('1 × 1 serving');
     expect(dal).toHaveTextContent('240 kcal');
@@ -404,7 +456,7 @@ describe('DiaryDay', () => {
     const { dal, entry } = await seedRecipeEntry();
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: /Dal/ }));
+    await user.click(await screen.findByRole('button', { name: /^Dal/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Dal' });
     expect(await within(dialog).findByLabelText('Quantity')).toHaveValue(1);
     expect(within(dialog).getByLabelText('Portion')).toHaveValue('1 serving');
@@ -446,7 +498,7 @@ describe('DiaryDay', () => {
     );
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: /Dal/ }));
+    await user.click(await screen.findByRole('button', { name: /^Dal/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Dal' });
 
     expect(await within(dialog).findByText(recipeGone)).toBeInTheDocument();
@@ -461,7 +513,7 @@ describe('DiaryDay', () => {
     await seedDay();
     const { user } = render();
 
-    await user.click(await screen.findByRole('button', { name: /Nutella/ }));
+    await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
     await user.clear(await within(dialog).findByLabelText('Quantity'));
     await user.type(within(dialog).getByLabelText('Quantity'), '0');
@@ -480,7 +532,7 @@ describe('DiaryDay', () => {
     const { user } = render();
 
     await user.click(
-      await screen.findByRole('button', { name: /Rolled oats/ }),
+      await screen.findByRole('button', { name: /^Rolled oats/ }),
     );
     const dialog = await screen.findByRole('dialog', { name: 'Rolled oats' });
     await user.click(
@@ -489,11 +541,95 @@ describe('DiaryDay', () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByRole('button', { name: /Rolled oats/ }),
+        screen.queryByRole('button', { name: /^Rolled oats/ }),
       ).not.toBeInTheDocument(),
     );
     expect((await storedDay()).map(({ id }) => id)).not.toContain(oatsEntry.id);
     expect(meal('Breakfast')).toHaveTextContent('162 kcal');
+  });
+
+  it('deletes an entry from its options', async () => {
+    const { oatsEntry } = await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Options for Rolled oats' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+
+    expect(
+      await screen.findByText(deletedEntry('Rolled oats')),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /^Rolled oats/ }),
+      ).not.toBeInTheDocument(),
+    );
+    expect((await storedDay()).map(({ id }) => id)).not.toContain(oatsEntry.id);
+  });
+
+  it('copies an entry and pastes it into a meal on another day, snapshot and all', async () => {
+    const { oatsEntry } = await seedDay();
+    const { user } = render();
+
+    expect(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Breakfast options' }));
+    expect(
+      screen.queryByRole('menuitem', { name: /^Paste/ }),
+    ).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Options for Rolled oats' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy' }));
+    expect(
+      await screen.findByText(copiedEntry('Rolled oats')),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next day' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Snack options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Paste Rolled oats' }),
+    );
+
+    expect(
+      await screen.findByText(pastedEntry('Rolled oats', 'snack')),
+    ).toBeInTheDocument();
+    expect(await entryInSoon('Snack', 'Rolled oats')).toBeInTheDocument();
+    expect(await diaryDay(api.database(), 'user-1', '2026-10-20')).toEqual([
+      expect.objectContaining({
+        label: 'Rolled oats',
+        meal: 'snack',
+        nutrients: oatsEntry.nutrients,
+      }),
+    ]);
+  });
+
+  it('says so when the copied entry was deleted before pasting', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Options for Rolled oats' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Options for Rolled oats' }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
+    await screen.findByText(deletedEntry('Rolled oats'));
+
+    await user.click(screen.getByRole('button', { name: 'Lunch options' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Paste Rolled oats' }),
+    );
+
+    expect(await screen.findByText(pasteFailed)).toBeInTheDocument();
   });
 
   it('copies yesterday’s meal into the day, snapshots and all', async () => {
@@ -692,7 +828,7 @@ describe('DiaryDay', () => {
     );
     expect(
       await within(meal('Snack')).findByRole('button', {
-        name: /Rolled oats/,
+        name: /^Rolled oats/,
       }),
     ).toBeInTheDocument();
     expect(urlUpdates.at(-1)?.queryString).toBe(`?date=${day}`);

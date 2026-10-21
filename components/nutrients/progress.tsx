@@ -92,12 +92,14 @@ export function ProgressBar({
   share,
   kind,
   progress,
+  fill = progressFills[kind][progress],
   className,
 }: {
   label: string;
   share: number | undefined;
   kind: GoalKind;
   progress: Progress;
+  fill?: string | undefined;
   className?: string;
 }) {
   const filled = share === undefined ? percent : percentOfMeter(share);
@@ -113,7 +115,7 @@ export function ProgressBar({
       />
       <div
         aria-hidden
-        className={cn('h-full rounded-full', progressFills[kind][progress])}
+        className={cn('h-full rounded-full', fill)}
         style={{ width: `${filled}%` }}
       />
     </div>

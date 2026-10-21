@@ -22,15 +22,40 @@ export function TextField({
   warning,
   hint,
   trailing,
+  aside,
+  hideLabel = false,
   className,
   ...input
-}: FieldProps & { trailing?: ReactNode }) {
+}: FieldProps & {
+  trailing?: ReactNode;
+  aside?: string | undefined;
+  hideLabel?: boolean;
+}) {
   const id = useId();
   const messageId = `${id}-message`;
+  const asideId = `${id}-aside`;
+  const describedBy = [
+    ...(aside ? [asideId] : []),
+    ...(error || warning || hint ? [messageId] : []),
+  ].join(' ');
 
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
+      {aside ? (
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor={id}>{label}</Label>
+          <span
+            id={asideId}
+            className="truncate text-right text-muted-foreground text-xs"
+          >
+            {aside}
+          </span>
+        </div>
+      ) : (
+        <Label htmlFor={id} className={cn(hideLabel && 'sr-only')}>
+          {label}
+        </Label>
+      )}
       <div className="relative">
         <Input
           id={id}
@@ -41,7 +66,7 @@ export function TextField({
             className,
           )}
           aria-invalid={!!error}
-          aria-describedby={error || warning || hint ? messageId : undefined}
+          aria-describedby={describedBy === '' ? undefined : describedBy}
           {...input}
         />
         {trailing}

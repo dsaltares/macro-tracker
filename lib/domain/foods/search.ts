@@ -17,8 +17,10 @@ export const matchExpression = (query: string): string | null => {
 
 const lowerCase = (text: string) => text.toLocaleLowerCase('en');
 
+export const lowerCaseTerms = (query: string) => searchTerms(lowerCase(query));
+
 export const nameMatchesEveryTerm = (name: string, query: string) => {
-  const terms = searchTerms(lowerCase(query));
+  const terms = lowerCaseTerms(query);
   const words = lowerCase(name);
   return terms.length > 0 && terms.every((word) => words.includes(word));
 };

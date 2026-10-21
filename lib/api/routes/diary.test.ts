@@ -14,6 +14,7 @@ import type { ApiServer, RouteContext, RouteParams } from '../handler.ts';
 import {
   addEntryRoute,
   addMealRoute,
+  copyEntryRoute,
   copyMealRoute,
   diaryDayRoute,
   removeEntryRoute,
@@ -162,6 +163,15 @@ const removeEntry = (id: string, userId = 'user-1') =>
 
 const copy = (body: unknown, userId = 'user-1') =>
   call(copyMealRoute)({ method: 'POST', path: '/diary/copy', body, userId });
+
+const copyOne = (id: string, body: unknown, userId = 'user-1') =>
+  call(copyEntryRoute)({
+    method: 'POST',
+    path: `/diary/entries/${id}/copy`,
+    params: { id },
+    body,
+    userId,
+  });
 
 const as = (userId: string) =>
   createCaller({ db: database(), caller: { userId }, ...clock });
@@ -927,6 +937,50 @@ describe('POST /api/v1/diary/copy', () => {
       ),
     ).toEqual({ status: 200, body: { entries: [] } });
     expect(await labelsOn('2026-10-21')).toMatchObject({ breakfast: [] });
+  });
+});
+
+describe('POST /api/v1/diary/entries/{id}/copy', () => {
+  it('copies one entry to a meal on a date, its snapshot as it is', async () => {
+    const logged = await logNutella({ time: '08:15' });
+    await setNutellaEnergy(600);
+
+    const { status, body } = await copyOne(logged.id, {
+      toDate: '2026-10-21',
+      toMeal: 'lunch',
+    });
+
+    expect(status).toBe(201);
+    expect(body).toMatchObject({
+      kind: 'food',
+      foodId: logged.foodId,
+      date: '2026-10-21',
+      meal: 'lunch',
+      time: '08:15',
+      quantity: 2,
+      portion: '15 g',
+      nutrients: logged.nutrients,
+    });
+    expect(body.id).not.toBe(logged.id);
+    expect(await labelsOn('2026-10-21')).toMatchObject({ lunch: ['Nutella'] });
+  });
+
+  it("answers 404 for an unknown or another user's entry", async () => {
+    const logged = await logNutella();
+
+    for (const [id, userId] of [
+      ['missing', 'user-1'],
+      [logged.id, 'user-2'],
+    ] as const) {
+      const { status, body } = await copyOne(
+        id,
+        { toDate: '2026-10-21', toMeal: 'lunch' },
+        userId,
+      );
+      expect(status).toBe(404);
+      expect(body.error.code).toBe('NOT_FOUND');
+    }
+    expect(await labelsOn('2026-10-21')).toMatchObject({ lunch: [] });
   });
 });
 

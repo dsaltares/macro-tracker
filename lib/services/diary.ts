@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import {
+  copyDiaryEntry,
   copyDiaryMeal,
   type DiaryEntryChanges,
   diaryDay,
+  type EntryCopy,
   type FoodToLog,
   logFood,
   logQuickEntry,
@@ -123,3 +125,6 @@ export const removeEntry = (
 
 export const copyMeal = (context: ServiceContext, copy: MealCopy) =>
   copyDiaryMeal(context.db, context.caller.userId, copy, context);
+
+export const copyEntry = (context: ServiceContext, copy: EntryCopy) =>
+  copyDiaryEntry(context.db, context.caller.userId, copy, context);

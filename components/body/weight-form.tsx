@@ -33,10 +33,12 @@ export function WeightForm({
   today,
   pickDate,
   hint,
+  inline = false,
 }: {
   today: string;
   pickDate: boolean;
   hint?: string | undefined;
+  inline?: boolean;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -74,6 +76,32 @@ export function WeightForm({
     ),
   );
 
+  const weightField = (
+    <TextField
+      label="Weight (kg)"
+      hideLabel={inline}
+      placeholder={inline ? 'Weight (kg)' : undefined}
+      type="number"
+      inputMode="decimal"
+      min={minWeightKg}
+      max={maxWeightKg}
+      step="any"
+      error={errors.weightKg?.message}
+      hint={hint}
+      {...register('weightKg', { valueAsNumber: true })}
+    />
+  );
+  const submit = (
+    <Button
+      type="submit"
+      size="lg"
+      disabled={!interactive || log.isPending}
+      className={submitButtonClass}
+    >
+      {log.isPending ? 'Logging…' : 'Log weight'}
+    </Button>
+  );
+
   return (
     <form
       className="flex flex-col gap-2"
@@ -91,25 +119,17 @@ export function WeightForm({
           {...register('date')}
         />
       ) : null}
-      <TextField
-        label="Weight (kg)"
-        type="number"
-        inputMode="decimal"
-        min={minWeightKg}
-        max={maxWeightKg}
-        step="any"
-        error={errors.weightKg?.message}
-        hint={hint}
-        {...register('weightKg', { valueAsNumber: true })}
-      />
-      <Button
-        type="submit"
-        size="lg"
-        disabled={!interactive || log.isPending}
-        className={submitButtonClass}
-      >
-        {log.isPending ? 'Logging…' : 'Log weight'}
-      </Button>
+      {inline ? (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">{weightField}</div>
+          {submit}
+        </div>
+      ) : (
+        <>
+          {weightField}
+          {submit}
+        </>
+      )}
     </form>
   );
 }

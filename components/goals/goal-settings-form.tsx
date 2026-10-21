@@ -392,7 +392,7 @@ function MicroGoalField({
           : String(roundAmount(defaultAmount, unit))
       }
       error={error}
-      hint={`${kind} · default ${amountIn(nutrientKey, defaultAmount)}`}
+      aside={`${kind} · default ${amountIn(nutrientKey, defaultAmount)}`}
       onChange={(event) => onChange(event.target.value)}
       trailing={
         overridden ? (
@@ -441,7 +441,7 @@ function MicroGoals({
           <legend className="mb-2 font-medium text-muted-foreground text-sm">
             {section.label}
           </legend>
-          <div className="grid gap-x-3 sm:grid-cols-2">
+          <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
             {microKeys
               .filter((key) =>
                 section.groups.includes(nutrientByKey[key].group),

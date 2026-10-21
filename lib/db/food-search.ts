@@ -5,7 +5,11 @@ import {
   type Portion,
   withStandardPortions,
 } from '../domain/foods/portions.ts';
-import { matchExpression, searchPageSize } from '../domain/foods/search.ts';
+import {
+  lowerCaseTerms,
+  matchExpression,
+  searchPageSize,
+} from '../domain/foods/search.ts';
 import type { PortionSource, Source } from '../domain/foods/sources.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
 import { getLogger } from '../logger.ts';
@@ -65,6 +69,28 @@ export type Food = {
 
 const nameWeight = 4;
 const brandWeight = 1;
+
+const wordSeparators = [',', '.', '-', '(', ')', '/', '&', "'", '"', ';', ':'];
+
+const spacedWords = wordSeparators.reduce(
+  (words, separator) => sql`replace(${words}, ${separator}, ' ')`,
+  sql`lower(foods.name)`,
+);
+
+const nameWords = sql`' ' || replace(replace(${spacedWords}, '  ', ' '), '  ', ' ') || ' '`;
+
+const wholeWord = (words: readonly string[]) => ` ${words.join(' ')} `;
+
+const matchTier = (terms: readonly string[]) =>
+  sql`case
+    when ${nameWords} = ${wholeWord(terms)} then 0
+    when instr(${nameWords}, ${wholeWord(terms)}) = 1 then 1
+    when ${sql.join(
+      terms.map((term) => sql`instr(${nameWords}, ${wholeWord([term])}) > 0`),
+      sql` and `,
+    )} then 2
+    else 3
+  end`;
 
 const visibleFoods =
   (userId: string | null) =>
@@ -139,10 +165,17 @@ type SummaryRow = {
   fat: number | null;
 };
 
+type SearchMatch = { match: string; terms: readonly string[] };
+
+export const searchMatch = (query: string): SearchMatch | null => {
+  const match = matchExpression(query);
+  return match === null ? null : { match, terms: lowerCaseTerms(query) };
+};
+
 export const searchQuery = (
   db: Kysely<Database>,
   userId: string | null,
-  match: string,
+  { match, terms }: SearchMatch,
   offset: number,
 ) => {
   let query = db
@@ -164,6 +197,7 @@ export const searchQuery = (
   }
   return query
     .orderBy(sql`foods.owner_user_id is null`)
+    .orderBy(matchTier(terms))
     .orderBy(sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`)
     .orderBy('foods.rowid')
     .limit(searchPageSize + 1)
@@ -173,7 +207,7 @@ export const searchQuery = (
 export const userFoodsQuery = (
   db: Kysely<Database>,
   userId: string,
-  match: string | null,
+  search: SearchMatch | null,
   offset: number,
 ) => {
   const own = db
@@ -183,11 +217,12 @@ export const userFoodsQuery = (
     .where('foods.owner_user_id', '=', userId)
     .where('foods.archived_at', 'is', null);
   const ordered =
-    match === null
+    search === null
       ? own.orderBy(sql`foods.name collate nocase`)
       : own
           .innerJoin('foods_fts', 'foods_fts.rowid', 'foods.rowid')
-          .where(sql<boolean>`foods_fts match ${match}`)
+          .where(sql<boolean>`foods_fts match ${search.match}`)
+          .orderBy(matchTier(search.terms))
           .orderBy(
             sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`,
           );
@@ -336,12 +371,12 @@ export const searchFoods = async (
   reader: FoodReader,
   { query, cursor }: { query: string; cursor: number },
 ): Promise<FoodSearchPage> => {
-  const match = matchExpression(query);
-  if (match === null) {
+  const search = searchMatch(query);
+  if (search === null) {
     return { foods: [], nextCursor: null };
   }
-  const rows = await timed(match, cursor, () =>
-    searchQuery(reader.db, reader.userId, match, cursor).execute(),
+  const rows = await timed(search.match, cursor, () =>
+    searchQuery(reader.db, reader.userId, search, cursor).execute(),
   );
   return searchPage(reader, rows, cursor);
 };
@@ -351,9 +386,9 @@ export const listUserFoods = async (
   userId: string,
   { query, cursor }: { query: string; cursor: number },
 ): Promise<FoodSearchPage> => {
-  const match = matchExpression(query);
-  const rows = await timed(match, cursor, () =>
-    userFoodsQuery(db, userId, match, cursor).execute(),
+  const search = searchMatch(query);
+  const rows = await timed(search?.match ?? null, cursor, () =>
+    userFoodsQuery(db, userId, search, cursor).execute(),
   );
   return searchPage({ db, userId }, rows, cursor);
 };

@@ -5,6 +5,7 @@ import {
   addFoodEntry,
   addQuickEntry,
   addRecipeEntry,
+  copyEntry,
   copyMeal,
   dateSchema,
   entryLabelSchema,
@@ -191,6 +192,17 @@ export const diaryRouter = router({
       }),
     )
     .mutation(({ ctx, input }) => copyMeal(ctx, input)),
+  copyEntry: accountProcedure
+    .input(
+      z.object({ entryId: z.string(), toDate: dateSchema, toMeal: mealSchema }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const copy = await copyEntry(ctx, input);
+      if (copy === null) {
+        throw entryNotFound();
+      }
+      return copy;
+    }),
   clearMeal: accountProcedure
     .input(z.object({ date: dateSchema, meal: mealSchema }))
     .mutation(async ({ ctx, input }) => ({

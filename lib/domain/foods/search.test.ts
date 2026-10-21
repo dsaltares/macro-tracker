@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  lowerCaseTerms,
   matchExpression,
   nameMatchesEveryTerm,
   searchPageSize,
@@ -37,6 +38,16 @@ describe('matchExpression', () => {
   it('matches nothing for a query without words', () => {
     expect(matchExpression('')).toBeNull();
     expect(matchExpression(' -*" ')).toBeNull();
+  });
+});
+
+describe('lowerCaseTerms', () => {
+  it('lower-cases every word of a query', () => {
+    expect(lowerCaseTerms('Salted BUTTER, Jamón')).toEqual([
+      'salted',
+      'butter',
+      'jamón',
+    ]);
   });
 });
 

@@ -35,7 +35,7 @@ function NotFound({
   onScanAgain,
 }: {
   code: string;
-  diary: DiaryMeal;
+  diary?: DiaryMeal | undefined;
   onSearchByName: () => void;
   onScanAgain: () => void;
 }) {
@@ -75,7 +75,7 @@ export function ScanStep({
   onBack,
   onFound,
 }: {
-  diary: DiaryMeal;
+  diary?: DiaryMeal | undefined;
   onBack: () => void;
   onFound: (food: Food) => void;
 }) {

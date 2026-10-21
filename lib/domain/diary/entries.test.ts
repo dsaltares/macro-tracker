@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dayTotals,
   entryKinds,
+  mealAtHour,
   meals,
   mealTotals,
   quickEntryNutrients,
@@ -153,5 +154,20 @@ describe('dayTotals', () => {
 
   it('is empty for a day with nothing logged', () => {
     expect(dayTotals([])).toEqual({});
+  });
+});
+
+describe('mealAtHour', () => {
+  it('suggests the meal of the time of day, a snack late at night', () => {
+    expect([0, 10, 11, 15, 16, 20, 21, 23].map(mealAtHour)).toEqual([
+      'breakfast',
+      'breakfast',
+      'lunch',
+      'lunch',
+      'dinner',
+      'dinner',
+      'snack',
+      'snack',
+    ]);
   });
 });

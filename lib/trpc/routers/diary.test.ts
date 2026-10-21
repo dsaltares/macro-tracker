@@ -771,6 +771,52 @@ describe('diary.copyMeal', () => {
   });
 });
 
+describe('diary.copyEntry', () => {
+  it('copies one entry to another date and meal, its snapshot as it is', async () => {
+    const user = as('user-1');
+    const nutella = await logNutella({ time: '08:15' });
+    await user.diary.addQuick({ ...coffee, meal: 'breakfast' });
+    await setNutellaEnergy(600);
+
+    const copy = await user.diary.copyEntry({
+      entryId: nutella.id,
+      toDate: '2026-10-21',
+      toMeal: 'snack',
+    });
+
+    expect(copy).toMatchObject({
+      kind: 'food',
+      foodId: nutella.foodId,
+      date: '2026-10-21',
+      meal: 'snack',
+      time: '08:15',
+      quantity: 2,
+      nutrients: nutella.nutrients,
+    });
+    expect(copy.id).not.toBe(nutella.id);
+    expect(await labelsOn('2026-10-21')).toMatchObject({
+      breakfast: [],
+      snack: ['Nutella'],
+    });
+    expect(await labelsOn(date)).toMatchObject({
+      breakfast: ['Nutella', 'Coffee with milk'],
+    });
+  });
+
+  it("answers not found for another user's entry, copying nothing", async () => {
+    const nutella = await logNutella();
+
+    await expect(
+      as('user-2').diary.copyEntry({
+        entryId: nutella.id,
+        toDate: '2026-10-21',
+        toMeal: 'breakfast',
+      }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(await labelsOn('2026-10-21')).toMatchObject({ breakfast: [] });
+  });
+});
+
 describe('diary.clearMeal', () => {
   it('deletes every entry of one meal on one date, and nothing else', async () => {
     const user = as('user-1');
