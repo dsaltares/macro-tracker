@@ -75,6 +75,16 @@ const entryInSoon = (mealName: string, label: string) =>
 const entryIn = (mealName: string, label: string) =>
   within(meal(mealName)).getByRole('button', { name: new RegExp(`^${label}`) });
 
+// Meals start collapsed; opens every meal that has entries.
+const openMeals = async (user: ReturnType<typeof render>['user']) => {
+  for (const toggle of await screen.findAllByRole('button', {
+    name: /kcal/,
+    expanded: false,
+  })) {
+    await user.click(toggle);
+  }
+};
+
 const nutrientsIn = (dialog: HTMLElement) =>
   within(dialog).getByRole('region', { name: /^Nutrients/ });
 
@@ -166,7 +176,8 @@ describe('DiaryDay', () => {
 
   it('lists each meal’s entries with their amounts and the meal totals', async () => {
     await seedDay();
-    render();
+    const { user } = render();
+    await openMeals(user);
 
     const nutella = await screen.findByRole('button', { name: /^Nutella/ });
     expect(nutella).toHaveTextContent('2 × 1 serving');
@@ -187,6 +198,7 @@ describe('DiaryDay', () => {
   it('shows the day totals of the entries, the rest of the label behind a disclosure', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
     const expected = dayTotals(await storedDay());
 
     await screen.findByRole('button', { name: /^Nutella/ });
@@ -221,22 +233,25 @@ describe('DiaryDay', () => {
     );
   });
 
-  it('collapses a meal to its totals and keeps it collapsed across days', async () => {
+  it('shows each meal collapsed to its totals, and keeps one opened across days', async () => {
     await seedDay();
     const { user } = render();
 
     const toggle = await screen.findByRole('button', {
       name: /^Breakfast.*kcal/,
-      expanded: true,
+      expanded: false,
     });
-    await user.click(toggle);
-
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(
       within(meal('Breakfast')).queryByRole('button', { name: /^Rolled oats/ }),
     ).not.toBeInTheDocument();
     expect(meal('Breakfast')).toHaveTextContent('465 kcal');
-    expect(entryIn('Dinner', "Pizza at Luigi's")).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Dinner.*kcal/ }),
+    ).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(entryIn('Breakfast', 'Rolled oats')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Previous day' }));
     expect(
@@ -244,16 +259,13 @@ describe('DiaryDay', () => {
     ).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Next day' }));
 
-    expect(
-      await screen.findByRole('button', {
-        name: /^Breakfast.*kcal/,
-        expanded: false,
-      }),
-    ).toBeInTheDocument();
+    expect(await entryInSoon('Breakfast', 'Rolled oats')).toBeInTheDocument();
     await user.click(
-      screen.getByRole('button', { name: /^Breakfast.*kcal/, expanded: false }),
+      screen.getByRole('button', { name: /^Breakfast.*kcal/, expanded: true }),
     );
-    expect(entryIn('Breakfast', 'Rolled oats')).toBeInTheDocument();
+    expect(
+      within(meal('Breakfast')).queryByRole('button', { name: /^Rolled oats/ }),
+    ).not.toBeInTheDocument();
   });
 
   it('cannot collapse a meal with no entries', async () => {
@@ -334,6 +346,7 @@ describe('DiaryDay', () => {
     ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Previous day' }));
+    await openMeals(user);
 
     expect(
       await screen.findByRole('button', { name: /^Nutella/ }),
@@ -357,6 +370,7 @@ describe('DiaryDay', () => {
   it('edits an entry’s quantity, portion, meal and time', async () => {
     const { nutellaEntry } = await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
@@ -396,6 +410,7 @@ describe('DiaryDay', () => {
   it('previews the logged nutrients, then those of a changed amount', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
@@ -416,6 +431,7 @@ describe('DiaryDay', () => {
   it('moves a quick entry without offering an amount to change', async () => {
     const { pizzaEntry } = await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: /^Pizza at Luigi's/ }),
@@ -446,7 +462,8 @@ describe('DiaryDay', () => {
   it('marks a recipe entry as a recipe', async () => {
     await seedDay();
     await seedRecipeEntry();
-    render();
+    const { user } = render();
+    await openMeals(user);
 
     const dal = await screen.findByRole('button', { name: /^Dal/ });
     expect(within(dal).getByText('Recipe')).toBeInTheDocument();
@@ -460,6 +477,7 @@ describe('DiaryDay', () => {
   it('changes the servings of a recipe entry, and opens the recipe', async () => {
     const { dal, entry } = await seedRecipeEntry();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(await screen.findByRole('button', { name: /^Dal/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Dal' });
@@ -502,6 +520,7 @@ describe('DiaryDay', () => {
       () => '2026-10-19T13:00:00.000Z',
     );
     const { user } = render();
+    await openMeals(user);
 
     await user.click(await screen.findByRole('button', { name: /^Dal/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Dal' });
@@ -517,6 +536,7 @@ describe('DiaryDay', () => {
   it('refuses a quantity of zero', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(await screen.findByRole('button', { name: /^Nutella/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Nutella' });
@@ -535,6 +555,7 @@ describe('DiaryDay', () => {
   it('deletes an entry', async () => {
     const { oatsEntry } = await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: /^Rolled oats/ }),
@@ -556,6 +577,7 @@ describe('DiaryDay', () => {
   it('deletes an entry from its options', async () => {
     const { oatsEntry } = await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: 'Options for Rolled oats' }),
@@ -573,9 +595,10 @@ describe('DiaryDay', () => {
     expect((await storedDay()).map(({ id }) => id)).not.toContain(oatsEntry.id);
   });
 
-  it('copies an entry and pastes it into a meal on another day, snapshot and all', async () => {
+  it('copies an entry and pastes it into a meal on another day, snapshot and all, opening the meal', async () => {
     const { oatsEntry } = await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     expect(
       await screen.findByRole('button', { name: 'Breakfast options' }),
@@ -606,6 +629,9 @@ describe('DiaryDay', () => {
       await screen.findByText(pastedEntry('Rolled oats', 'snack')),
     ).toBeInTheDocument();
     expect(await entryInSoon('Snack', 'Rolled oats')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Snack.*kcal/ }),
+    ).toHaveAttribute('aria-expanded', 'true');
     expect(await diaryDay(api.database(), 'user-1', '2026-10-20')).toEqual([
       expect.objectContaining({
         label: 'Rolled oats',
@@ -618,6 +644,7 @@ describe('DiaryDay', () => {
   it('says so when the copied entry was deleted before pasting', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: 'Options for Rolled oats' }),
@@ -681,6 +708,7 @@ describe('DiaryDay', () => {
   it('copies a meal to the next day by default, or to the date and meal chosen', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: 'Breakfast options' }),
@@ -713,6 +741,7 @@ describe('DiaryDay', () => {
   it('clears a meal once asked to confirm', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: 'Breakfast options' }),
@@ -790,6 +819,7 @@ describe('DiaryDay', () => {
   it('replaces a meal with the recipe made of it when asked', async () => {
     await seedDay();
     const { user } = render();
+    await openMeals(user);
 
     await user.click(
       await screen.findByRole('button', { name: 'Breakfast options' }),
