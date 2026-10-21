@@ -67,7 +67,7 @@ export type Feedback = {
 };
 
 export const unresolvedNote =
-  'Not found among your foods. Replace it, or enter its amounts.';
+  'Not found in your foods or the food database. Replace it, or enter its amounts.';
 
 type KeyedItem = { key: number; item: MealDraftItem };
 

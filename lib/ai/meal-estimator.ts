@@ -12,6 +12,8 @@ import {
   type MealDraft,
   type MealEstimate,
   mealEstimateSchema,
+  type ResolvedMatches,
+  unresolvedItems,
 } from '../domain/diary/meal-estimate.ts';
 import type { Portion } from '../domain/foods/portions.ts';
 import type { Source } from '../domain/foods/sources.ts';
@@ -20,6 +22,7 @@ import {
   mealInstructions,
   mealRequest,
   previousAnswer,
+  repairRequest,
   revisionRequest,
 } from './prompts/meal.ts';
 import {
@@ -46,6 +49,7 @@ export type MealEstimatorFood = {
 export type MealEstimatorFoods = {
   searchFoods: (query: string) => Promise<MealEstimatorSearch>;
   getFood: (id: string) => Promise<MealEstimatorFood | null>;
+  resolveMatches: (estimate: MealEstimate) => Promise<ResolvedMatches>;
 };
 
 export type PreviousEstimate = { draft: MealDraft; feedback: string };
@@ -68,6 +72,8 @@ export type EstimateMeal = (
 export type MealEstimator = { estimateMeal: EstimateMeal };
 
 export const maxEstimatorSteps = 10;
+
+export const maxRepairSteps = 5;
 
 const mealEstimateOutput = strictOutput('meal_estimate', mealEstimateSchema);
 
@@ -122,6 +128,21 @@ const messagesOf = ({
   ];
 };
 
+const estimateWith = (
+  model: LanguageModel,
+  { foods }: MealEstimateRequest,
+  messages: ModelMessage[],
+  maxSteps: number,
+) =>
+  generateText({
+    model,
+    output: mealEstimateOutput,
+    instructions: mealInstructions,
+    tools: toolsOver(foods),
+    stopWhen: stepCountIs(maxSteps),
+    messages,
+  });
+
 export const createMealEstimator = ({
   model,
 }: {
@@ -129,15 +150,35 @@ export const createMealEstimator = ({
 }): MealEstimator => ({
   estimateMeal: async (request) => {
     try {
-      const { output } = await generateText({
+      const messages = messagesOf(request);
+      const first = await estimateWith(
         model,
-        output: mealEstimateOutput,
-        instructions: mealInstructions,
-        tools: toolsOver(request.foods),
-        stopWhen: stepCountIs(maxEstimatorSteps),
-        messages: messagesOf(request),
-      });
-      return { estimated: true, estimate: output };
+        request,
+        messages,
+        maxEstimatorSteps,
+      );
+      const unresolved = unresolvedItems(
+        first.output,
+        await request.foods.resolveMatches(first.output),
+      );
+      if (unresolved.length === 0) {
+        return { estimated: true, estimate: first.output };
+      }
+      logger.debug(
+        { unresolved: unresolved.map(({ name }) => name) },
+        'meal estimator repair round',
+      );
+      const repaired = await estimateWith(
+        model,
+        request,
+        [
+          ...messages,
+          ...first.response.messages,
+          { role: 'user', content: repairRequest(unresolved) },
+        ],
+        maxRepairSteps,
+      );
+      return { estimated: true, estimate: repaired.output };
     } catch (error) {
       return {
         estimated: false,

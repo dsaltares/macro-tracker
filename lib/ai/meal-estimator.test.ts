@@ -5,11 +5,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import { insertFood } from '../db/foods.ts';
 import { mealEstimatorFoods } from '../db/meal-estimator-foods.ts';
-import type { MealDraft, MealEstimate } from '../domain/diary/meal-estimate.ts';
+import type {
+  MatchedFood,
+  MealDraft,
+  MealEstimate,
+} from '../domain/diary/meal-estimate.ts';
 import {
   createMealEstimator,
   type MealEstimatorFoods,
   maxEstimatorSteps,
+  maxRepairSteps,
 } from './meal-estimator.ts';
 
 const debug = vi.hoisted(() => vi.fn());
@@ -81,9 +86,79 @@ const failingWith = (error: unknown) =>
     },
   });
 
+const matched: MatchedFood = { name: 'Found', nutrients: {}, portions: [] };
+
+const matchingEvery = (ids: string[]) =>
+  new Map(ids.map((id) => [id, matched]));
+
+const resolvingAll: MealEstimatorFoods['resolveMatches'] = async ({
+  items,
+}) => ({
+  foods: matchingEvery(
+    items.flatMap((item) => (item.kind === 'food' ? [item.foodId] : [])),
+  ),
+  recipes: matchingEvery(
+    items.flatMap((item) => (item.kind === 'recipe' ? [item.recipeId] : [])),
+  ),
+});
+
 const noFoods: MealEstimatorFoods = {
   searchFoods: async () => ({ foods: [], recipes: [] }),
   getFood: async () => null,
+  resolveMatches: resolvingAll,
+};
+
+const resolvingOnly = (...ids: string[]): MealEstimatorFoods => ({
+  ...noFoods,
+  resolveMatches: async () => ({
+    foods: matchingEvery(ids),
+    recipes: matchingEvery(ids),
+  }),
+});
+
+const madeUp: MealEstimate = {
+  items: [
+    estimate.items[0] as MealEstimate['items'][number],
+    {
+      kind: 'food',
+      name: 'Salată Starter Plus',
+      grams: 240,
+      confidence: 0.6,
+      note: null,
+      foodId: 'made-up',
+      portion: null,
+    },
+    {
+      kind: 'recipe',
+      name: 'Dressing',
+      grams: 20,
+      confidence: 0.6,
+      note: null,
+      recipeId: 'made-up-recipe',
+      servings: null,
+    },
+  ],
+  notes: [],
+};
+
+const repaired: MealEstimate = {
+  items: [
+    estimate.items[0] as MealEstimate['items'][number],
+    {
+      kind: 'guess',
+      name: 'Salată Starter Plus',
+      grams: 240,
+      confidence: 0.8,
+      note: 'From the label: 81 kcal per 100 g',
+      nutrients: {
+        energy_kcal: 194,
+        protein: 5.8,
+        carbohydrate: 14.2,
+        fat: 12.7,
+      },
+    },
+  ],
+  notes: [],
 };
 
 const oats = {
@@ -110,6 +185,7 @@ describe('createMealEstimator', () => {
     const foods: MealEstimatorFoods = {
       searchFoods: vi.fn(async () => ({ foods: [], recipes: [] })),
       getFood: vi.fn(async () => oats),
+      resolveMatches: resolvingAll,
     };
     const model = answering(
       callingTool('searchFoods', { query: 'oats' }),
@@ -124,6 +200,7 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toEqual({ estimated: true, estimate });
+    expect(model.doGenerateCalls).toHaveLength(3);
     expect(foods.searchFoods).toHaveBeenCalledExactlyOnceWith('oats');
     expect(foods.getFood).toHaveBeenCalledExactlyOnceWith('oats');
     expect(toolResultsOf(model, 2)).toContain('1 cup');
@@ -189,6 +266,66 @@ describe('createMealEstimator', () => {
       { tool: 'searchFoods', query: 'oats' },
       'meal estimator tool call',
     );
+  });
+
+  it('sends back the foods and recipes it named that do not exist, and answers the repaired estimate', async () => {
+    const model = answering(
+      answer(madeUp),
+      callingTool('searchFoods', { query: 'salad' }),
+      answer(repaired),
+    );
+
+    const result = await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: resolvingOnly('oats'),
+    });
+
+    expect(result).toEqual({ estimated: true, estimate: repaired });
+    const repair = model.doGenerateCalls[1]?.prompt ?? [];
+    expect(repair.slice(-2).map(({ role }) => role)).toEqual([
+      'assistant',
+      'user',
+    ]);
+    const request = JSON.stringify(repair.at(-1)?.content);
+    expect(request).toContain('Salată Starter Plus: foodId made-up');
+    expect(request).toContain('Dressing: recipeId made-up-recipe');
+    expect(request).not.toContain('Rolled oats');
+    expect(repair[1]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text' }, { type: 'file' }],
+    });
+  });
+
+  it('answers a repaired estimate that still names a missing food, for the draft to flag', async () => {
+    const model = answering(answer(madeUp), answer(madeUp));
+
+    const result = await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: resolvingOnly('oats'),
+    });
+
+    expect(result).toEqual({ estimated: true, estimate: madeUp });
+    expect(model.doGenerateCalls).toHaveLength(2);
+  });
+
+  it('answers unreadable when the repair round passes its step limit', async () => {
+    const model = answering(
+      answer(madeUp),
+      ...Array.from({ length: maxRepairSteps + 1 }, () =>
+        callingTool('searchFoods', { query: 'salad' }),
+      ),
+    );
+
+    const result = await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: resolvingOnly('oats'),
+    });
+
+    expect(result).toMatchObject({ estimated: false, failure: 'unreadable' });
+    expect(model.doGenerateCalls).toHaveLength(1 + maxRepairSteps);
   });
 
   it('answers unreadable past the step limit', async () => {

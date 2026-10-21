@@ -199,6 +199,7 @@ describe('the meal estimate route', () => {
       foods: expect.objectContaining({
         searchFoods: expect.any(Function),
         getFood: expect.any(Function),
+        resolveMatches: expect.any(Function),
       }),
     });
   });

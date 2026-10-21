@@ -15,6 +15,7 @@ import {
   type ResolvedMatches,
   recipeDraftItem,
   replacedDraftItem,
+  unresolvedItems,
 } from './meal-estimate.ts';
 
 const base = { name: 'Something', grams: 100, confidence: 0.9, note: null };
@@ -282,6 +283,20 @@ describe('mealDraft', () => {
 
   it('drafts an estimate with nothing in it', () => {
     expect(draftOf([])).toEqual({ items: [], totals: {}, notes: [] });
+  });
+});
+
+describe('unresolvedItems', () => {
+  it('finds no item when every food and recipe resolves', () => {
+    expect(
+      unresolvedItems(estimate([bananaItem, chiliItem, sauceItem]), resolved),
+    ).toEqual([]);
+  });
+
+  it('finds the foods and recipes that do not resolve, never a guess', () => {
+    expect(
+      unresolvedItems(estimate([bananaItem, chiliItem, sauceItem]), nothing),
+    ).toEqual([bananaItem, chiliItem]);
   });
 });
 

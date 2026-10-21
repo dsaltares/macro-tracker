@@ -27,8 +27,16 @@ only see what the user could find themselves.
 
 The model names foods, recipes and grams; `mealDraft` (`lib/domain/diary/meal-estimate.ts`)
 resolves them through `resolveEntry`, so every nutrient of a found food is the database's and
-the arithmetic is pure, tested code. A guess, the model's own energy and macros, is the answer
-only when no search result fits, and is flagged to the user like any unsure item.
+the arithmetic is pure, tested code. The prompt ranks what an item can be: the user's own
+food or recipe, then a nutrition label in a photo (a guess with the label's numbers), then a
+search result for the same product or ingredient, then the dish split into its ingredients, each
+searched. A guess, the model's own energy and macros, is the answer only when none of those fits,
+and is flagged to the user like any unsure item.
+
+An estimate that names a food or recipe id the port's `resolveMatches` cannot find, one the model
+made up or mistyped, gets one repair round: the conversation so far and the lines that did not
+resolve go back to the model, capped at `maxRepairSteps` (5), and its answer is the estimate. A
+line still unresolved after it is drafted as an unresolved guess for the user to replace.
 
 Nothing is written until the user reviews the draft. A correction is a new run with
 `previous: { draft, feedback }`: the draft as the user left it, sent as the model's earlier
@@ -52,8 +60,8 @@ never a photo.
 - OpenAI sees, besides the photos and the description, the names and summaries of the user's
   foods and recipes that match its searches, and the draft on a correction. The privacy policy
   names all of it.
-- A run costs up to ten model calls; the step cap bounds it, and a run that reaches it is
-  `unreadable`, not a partial estimate.
+- A run costs up to ten model calls, fifteen with a repair round; the step caps bound it, and a
+  run that reaches one is `unreadable`, not a partial estimate.
 - Tests drive the loop with `MockLanguageModelV4`, the port over a real in-memory database.
 
 ## Revisit trigger
