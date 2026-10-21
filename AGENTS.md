@@ -292,7 +292,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   food or nested recipe shows, appends it, and refuses a nested recipe `canNest` refuses, over
   nesting facts read in the same transaction, or one without ingredients; `updateIngredient`
   re-resolves the grams, keeping the saved weight of a portion the food no longer has;
-  `reorderIngredients` takes every ingredient id exactly once. The `recipe` router
+  `reorderIngredients` takes every ingredient id exactly once. `createRecipeFromMeal` makes a
+  recipe of one serving from a meal's entries in logging order, each food or recipe entry an
+  ingredient at its logged portion, quantity and grams; a quick entry, a food that is gone or a
+  recipe that is archived, empty or contains one is left out and named in `skipped`, and a meal
+  with nothing left creates nothing (`no-ingredients`). `convertMealToRecipe` (`lib/db/diary.ts`)
+  runs it and, with `replace`, deletes the converted entries and logs one serving of the new recipe
+  in their place, at the first of their times, in the same transaction; skipped entries stay. The `recipe` router
   (`lib/trpc/routers/recipe.ts`) is these over the caller. `logRecipe` (`diary.addRecipe`, servings
   or grams) snapshots `recipeAsFood` at `1 serving` or `100 g`, and `updateDiaryEntry`
   re-resolves a recipe entry from the current recipe the way it does a food entry.
@@ -637,8 +643,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   holds across days, and *Delete*. Each meal's options button opens `MealMenu` (`meal-menu.tsx`): *Paste* the copied entry
   (`diary.copyEntry`, its snapshot as it is), *Copy from
   yesterday* (`diary.copyMeal` from the day before into the same meal), *Copy to…* (a date,
-  tomorrow by default, and a meal) and *Clear meal* (`diary.clearMeal`, once confirmed), the result
-  of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
+  tomorrow by default, and a meal), *Convert to recipe* (a name, the meal's by default, and
+  *Replace the meal's entries*, then `recipe.fromMeal`, the new recipe linked from a toast) and *Clear meal* (`diary.clearMeal`, once
+  confirmed), the result of a copy in a toast. Source badges are `SourceBadge` (`components/foods/`). The barcode button
   opens `ScanStep` (`scan-step.tsx`): `BarcodeScanner`, loaded by `next/dynamic`, then
   `food.byBarcode`, opening `FoodStep` on a hit and offering *Search by name*, *Create food* and
   *Scan the label* on a miss, the last two linking to `/foods/new` with the barcode
