@@ -490,3 +490,191 @@ describe('recipe.reorder', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 });
+
+describe('recipe.fromMeal', () => {
+  const date = '2026-10-20';
+
+  const logFood = (foodId: string, portion: string, quantity: number) =>
+    as('alice').diary.addFood({
+      date,
+      meal: 'breakfast',
+      foodId,
+      portion,
+      quantity,
+    });
+
+  it("makes a recipe of one serving from the meal's entries, in order", async () => {
+    await logFood(oatsId, '1 cup', 1);
+    await logFood(milkId, '100 g', 2);
+    await as('alice').diary.addFood({
+      date,
+      meal: 'lunch',
+      foodId: milkId,
+      portion: '100 g',
+      quantity: 5,
+    });
+
+    const { id, skipped } = await as('alice').recipe.fromMeal({
+      date,
+      meal: 'breakfast',
+      name: ' Breakfast bowl ',
+    });
+
+    expect(skipped).toEqual([]);
+    const recipe = await as('alice').recipe.get(id);
+    expect(recipe).toMatchObject({
+      name: 'Breakfast bowl',
+      servings: 1,
+      cookedWeightG: null,
+    });
+    expect(
+      recipe.ingredients.map(({ name, portionLabel, quantity, grams }) => ({
+        name,
+        portionLabel,
+        quantity,
+        grams,
+      })),
+    ).toEqual([
+      { name: 'Rolled oats', portionLabel: '1 cup', quantity: 1, grams: 80 },
+      { name: 'Milk', portionLabel: '100 g', quantity: 2, grams: 200 },
+    ]);
+    expect(recipe.nutrients.perServing.energy_kcal).toBeCloseTo(404);
+  });
+
+  it('nests a logged recipe and leaves out quick entries', async () => {
+    const child = await porridge();
+    await as('alice').diary.addRecipe({
+      date,
+      meal: 'breakfast',
+      recipeId: child,
+      servings: 2,
+    });
+    await as('alice').diary.addQuick({
+      date,
+      meal: 'breakfast',
+      label: 'Coffee',
+      nutrients: { totals: { energy_kcal: 40 } },
+    });
+
+    const { id, skipped } = await as('alice').recipe.fromMeal({
+      date,
+      meal: 'breakfast',
+      name: 'Brunch',
+    });
+
+    expect(skipped).toEqual(['Coffee']);
+    expect(await as('alice').recipe.get(id)).toMatchObject({
+      ingredients: [
+        { kind: 'recipe', recipeId: child, portionLabel: '1 serving' },
+      ],
+    });
+  });
+
+  it('leaves out a recipe that already contains one', async () => {
+    const inner = await porridge();
+    const outer = await create('Breakfast plate');
+    await addRecipe(outer, inner);
+    await addFood(outer, oatsId);
+    await as('alice').diary.addRecipe({
+      date,
+      meal: 'breakfast',
+      recipeId: outer,
+      servings: 1,
+    });
+    await logFood(milkId, '100 g', 1);
+
+    const { id, skipped } = await as('alice').recipe.fromMeal({
+      date,
+      meal: 'breakfast',
+      name: 'Again',
+    });
+
+    expect(skipped).toEqual(['Breakfast plate']);
+    expect(await ingredientNames(id)).toEqual(['Milk']);
+  });
+
+  it('replaces the converted entries with one serving of the recipe, keeping the rest', async () => {
+    await as('alice').diary.addFood({
+      date,
+      meal: 'breakfast',
+      foodId: oatsId,
+      portion: '1 cup',
+      quantity: 1,
+      time: '08:30',
+    });
+    await logFood(milkId, '100 g', 2);
+    await as('alice').diary.addQuick({
+      date,
+      meal: 'breakfast',
+      label: 'Coffee',
+      nutrients: { totals: { energy_kcal: 40 } },
+    });
+
+    const { id, entry } = await as('alice').recipe.fromMeal({
+      date,
+      meal: 'breakfast',
+      name: 'Porridge',
+      replace: true,
+    });
+
+    expect(entry).toMatchObject({
+      kind: 'recipe',
+      recipeId: id,
+      label: 'Porridge',
+      portionLabel: '1 serving',
+      quantity: 1,
+      grams: 280,
+      time: '08:30',
+    });
+    expect(entry?.nutrients.energy_kcal).toBeCloseTo(404);
+    const breakfast = (await as('alice').diary.day(date)).meals.find(
+      ({ meal }) => meal === 'breakfast',
+    );
+    expect(breakfast?.entries.map(({ label }) => label)).toEqual([
+      'Coffee',
+      'Porridge',
+    ]);
+  });
+
+  it('leaves the meal alone unless asked to replace it', async () => {
+    await logFood(oatsId, '1 cup', 1);
+
+    const { entry } = await as('alice').recipe.fromMeal({
+      date,
+      meal: 'breakfast',
+      name: 'Oats',
+    });
+
+    expect(entry).toBeNull();
+    const breakfast = (await as('alice').diary.day(date)).meals.find(
+      ({ meal }) => meal === 'breakfast',
+    );
+    expect(breakfast?.entries.map(({ label }) => label)).toEqual([
+      'Rolled oats',
+    ]);
+  });
+
+  it('refuses a meal with nothing that can be an ingredient', async () => {
+    await as('alice').diary.addQuick({
+      date,
+      meal: 'breakfast',
+      label: 'Coffee',
+      nutrients: { totals: { energy_kcal: 40 } },
+    });
+
+    for (const meal of ['breakfast', 'dinner'] as const) {
+      await expect(
+        as('alice').recipe.fromMeal({ date, meal, name: 'Nothing' }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+    expect(await as('alice').recipe.list()).toEqual([]);
+  });
+
+  it("never reads anyone else's meal", async () => {
+    await logFood(oatsId, '1 cup', 1);
+
+    await expect(
+      as('bob').recipe.fromMeal({ date, meal: 'breakfast', name: 'Mine' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});

@@ -5,10 +5,12 @@ import {
   IconCopy,
   IconCopyPlus,
   IconDots,
+  IconToolsKitchen2,
   IconTrash,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { type FormEvent, useId, useState } from 'react';
 import { toast } from 'sonner';
 import { FormError, TextField } from '@/components/auth/fields';
 import { mealNames } from '@/components/diary/amounts';
@@ -30,10 +32,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToday } from '@/components/use-today';
 import type { DiaryEntry } from '@/lib/db/diary';
 import { addDays, isDate } from '@/lib/domain/dates';
 import { type Meal, meals } from '@/lib/domain/diary/entries';
+import { maxRecipeNameLength } from '@/lib/domain/recipes/recipe-fields';
+import { recipeRoute } from '@/lib/routes';
 import { useTRPC } from '@/lib/trpc/client';
 
 export const copyFailed = 'The meal could not be copied. Try again.';
@@ -45,6 +51,16 @@ export const pastedEntry = (label: string, meal: Meal) =>
   `Pasted ${label} into ${mealNames[meal].toLowerCase()}`;
 
 export const clearFailed = 'The meal could not be cleared. Try again.';
+
+export const convertFailed = 'The meal could not be converted. Try again.';
+
+export const nothingToConvert =
+  'Quick entries and deleted foods cannot be ingredients, and this meal has nothing else.';
+
+export const convertedMeal = (name: string, skipped: readonly string[]) =>
+  skipped.length === 0
+    ? `Created ${name}`
+    : `Created ${name}, leaving out ${skipped.join(', ')}`;
 
 export const entriesCount = (count: number) =>
   count === 1 ? '1 entry' : `${count} entries`;
@@ -150,6 +166,108 @@ function CopyToDialog({
   );
 }
 
+function ConvertToRecipeDialog({
+  open,
+  date,
+  meal,
+  onClose,
+}: {
+  open: boolean;
+  date: string;
+  meal: Meal;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState<string>(mealNames[meal]);
+  const [replace, setReplace] = useState(false);
+  const replaceId = useId();
+  const convert = useMutation(
+    trpc.recipe.fromMeal.mutationOptions({
+      onSuccess: async ({ id, skipped }, { name, replace }) => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.recipe.pathKey() }),
+          replace
+            ? queryClient.invalidateQueries({ queryKey: trpc.diary.pathKey() })
+            : null,
+        ]);
+        toast.success(convertedMeal(name.trim(), skipped), {
+          action: {
+            label: 'View',
+            onClick: () => router.push(recipeRoute(id)),
+          },
+        });
+        onClose();
+      },
+    }),
+  );
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    convert.mutate({ date, meal, name, replace });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="text-sm">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            Convert {mealName(meal)} to a recipe
+          </DialogTitle>
+          <DialogDescription>
+            Its entries become the ingredients of one serving.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {convert.isError ? (
+            <FormError>
+              {convert.error.data?.code === 'BAD_REQUEST'
+                ? nothingToConvert
+                : convertFailed}
+            </FormError>
+          ) : null}
+          <TextField
+            label="Recipe name"
+            required
+            maxLength={maxRecipeNameLength}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={replaceId}>Replace the meal’s entries</Label>
+              <p className="text-muted-foreground text-xs">
+                Log one serving of the recipe in their place.
+              </p>
+            </div>
+            <Switch
+              id={replaceId}
+              checked={replace}
+              onCheckedChange={setReplace}
+            />
+          </div>
+          <Button
+            type="submit"
+            size="lg"
+            className="h-11"
+            disabled={convert.isPending || name.trim() === ''}
+          >
+            {convert.isPending ? 'Creating…' : 'Create recipe'}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClearDialog({
   open,
   date,
@@ -230,7 +348,9 @@ export function MealMenu({
 }) {
   const trpc = useTRPC();
   const refreshDiary = useRefreshDiary();
-  const [dialog, setDialog] = useState<'copy-to' | 'clear' | null>(null);
+  const [dialog, setDialog] = useState<'copy-to' | 'convert' | 'clear' | null>(
+    null,
+  );
   const copyFromYesterday = useMutation(
     trpc.diary.copyMeal.mutationOptions({
       onSuccess: async (copies) => {
@@ -306,6 +426,13 @@ export function MealMenu({
             <IconCopy />
             Copy to…
           </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={count === 0}
+            onClick={() => setDialog('convert')}
+          >
+            <IconToolsKitchen2 />
+            Convert to recipe
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -319,6 +446,9 @@ export function MealMenu({
       </DropdownMenu>
       {dialog === 'copy-to' ? (
         <CopyToDialog open date={date} meal={meal} onClose={close} />
+      ) : null}
+      {dialog === 'convert' ? (
+        <ConvertToRecipeDialog open date={date} meal={meal} onClose={close} />
       ) : null}
       {dialog === 'clear' ? (
         <ClearDialog

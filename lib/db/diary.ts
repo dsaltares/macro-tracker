@@ -15,7 +15,13 @@ import {
   withLastLoggedAmounts,
 } from './food-search.ts';
 import { type FoodWriteContext, writeFood } from './foods.ts';
-import { findRecipeFood, isEmptyRecipe } from './recipes.ts';
+import {
+  findRecipeFood,
+  isEmptyRecipe,
+  type MealToConvert,
+  type RecipeFromMeal,
+  writeRecipeFromMeal,
+} from './recipes.ts';
 import type { Database, DiaryEntriesTable } from './schema.ts';
 
 type EntryFields = {
@@ -644,6 +650,54 @@ export const clearDiaryMeal = async (
   ).executeTakeFirst();
   return Number(numDeletedRows);
 };
+
+export type MealConversion = MealToConvert & { replace: boolean };
+
+export type ConvertedMeal =
+  | (Extract<RecipeFromMeal, { outcome: 'created' }> & {
+      entry: DiaryEntry | null;
+    })
+  | Exclude<RecipeFromMeal, { outcome: 'created' }>;
+
+export const convertMealToRecipe = (
+  db: Kysely<Database>,
+  userId: string,
+  { replace, ...meal }: MealConversion,
+  context: FoodWriteContext,
+): Promise<ConvertedMeal> =>
+  db.transaction().execute(async (trx) => {
+    const created = await writeRecipeFromMeal(trx, userId, meal, context);
+    if (created.outcome !== 'created' || !replace) {
+      return created.outcome === 'created'
+        ? { ...created, entry: null }
+        : created;
+    }
+    await trx
+      .deleteFrom('diary_entries')
+      .where('user_id', '=', userId)
+      .where(
+        'id',
+        'in',
+        created.converted.map(({ id }) => id),
+      )
+      .execute();
+    const logged = await writeRecipeEntry(
+      trx,
+      userId,
+      {
+        date: meal.date,
+        meal: meal.meal,
+        time: created.converted.find(({ time }) => time !== null)?.time ?? null,
+        recipeId: created.recipeId,
+        amount: { servings: 1 },
+      },
+      context,
+    );
+    if (logged.outcome !== 'logged') {
+      throw new Error(`The new recipe could not be logged: ${logged.outcome}`);
+    }
+    return { ...created, entry: logged.entry };
+  });
 
 export const favouritesQuery = (db: Kysely<Database>, userId: string) =>
   db

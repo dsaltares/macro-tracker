@@ -7,7 +7,9 @@ import { recipeGone } from '@/components/diary/edit-entry-dialog';
 import { copiedEntry, deletedEntry } from '@/components/diary/entry-menu';
 import {
   clearFailed,
+  convertedMeal,
   copyFailed,
+  nothingToConvert,
   pastedEntry,
   pasteFailed,
 } from '@/components/diary/meal-menu';
@@ -25,7 +27,10 @@ import { formatAmount } from '@/lib/domain/nutrition/format';
 import { salt } from '@/lib/domain/nutrition/vector';
 import { serveApi } from '@/test/api';
 import { seedDiaryDay, seedManualGoal } from '@/test/diary';
+import { router } from '@/test/next-navigation';
 import { renderUi } from '@/test/ui';
+
+vi.mock('next/navigation', () => import('@/test/next-navigation'));
 
 const api = serveApi({ signedInAs: 'user-1' });
 
@@ -747,6 +752,103 @@ describe('DiaryDay', () => {
     ]);
   });
 
+  it('converts a meal to a recipe of its entries', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Convert to recipe' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Convert breakfast to a recipe',
+    });
+    const name = within(dialog).getByRole('textbox', { name: 'Recipe name' });
+    expect(name).toHaveValue('Breakfast');
+    await user.clear(name);
+    await user.type(name, 'Oats with Nutella');
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create recipe' }),
+    );
+
+    expect(
+      await screen.findByText(convertedMeal('Oats with Nutella', [])),
+    ).toBeInTheDocument();
+    const [recipe] = await api
+      .database()
+      .selectFrom('recipes')
+      .selectAll()
+      .execute();
+    expect(recipe).toMatchObject({ name: 'Oats with Nutella', servings: 1 });
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    expect(router.push).toHaveBeenCalledWith(`/foods/recipes/${recipe?.id}`);
+    expect(await storedDay()).toHaveLength(3);
+  });
+
+  it('replaces a meal with the recipe made of it when asked', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Breakfast options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Convert to recipe' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Convert breakfast to a recipe',
+    });
+    const name = within(dialog).getByRole('textbox', { name: 'Recipe name' });
+    await user.clear(name);
+    await user.type(name, 'Oats with Nutella');
+    await user.click(
+      within(dialog).getByRole('switch', {
+        name: 'Replace the meal’s entries',
+      }),
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create recipe' }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(entryIn('Breakfast', 'Oats with Nutella')).toBeInTheDocument();
+    expect(
+      within(meal('Breakfast')).queryByRole('button', { name: /^Nutella/ }),
+    ).not.toBeInTheDocument();
+    expect((await storedDay()).map(({ kind, label }) => [kind, label])).toEqual(
+      [
+        ['recipe', 'Oats with Nutella'],
+        ['quick', "Pizza at Luigi's"],
+      ],
+    );
+  });
+
+  it('says so when a meal has nothing to make a recipe of', async () => {
+    await seedDay();
+    const { user } = render();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Dinner options' }),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Convert to recipe' }),
+    );
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Convert dinner to a recipe',
+    });
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Create recipe' }),
+    );
+
+    expect(
+      await within(dialog).findByText(nothingToConvert),
+    ).toBeInTheDocument();
+  });
+
   it('says so when a meal cannot be copied or cleared', async () => {
     await seedDay();
     api.fails('diary.copyMeal');
@@ -784,6 +886,9 @@ describe('DiaryDay', () => {
 
     expect(
       await screen.findByRole('menuitem', { name: 'Copy to…' }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      screen.getByRole('menuitem', { name: 'Convert to recipe' }),
     ).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByRole('menuitem', { name: 'Clear meal' }),

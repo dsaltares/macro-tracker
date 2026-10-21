@@ -1,4 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
+import type { Meal } from '../domain/diary/entries.ts';
 import type { Portion } from '../domain/foods/portions.ts';
 import type { NutrientVector } from '../domain/nutrition/vector.ts';
 import { forGrams, withEnergy } from '../domain/nutrition/vector.ts';
@@ -15,6 +16,7 @@ import { findFood } from './food-search.ts';
 import type { FoodWriteContext } from './foods.ts';
 import type {
   Database,
+  DiaryEntriesTable,
   RecipeIngredientsTable,
   RecipesTable,
 } from './schema.ts';
@@ -582,3 +584,134 @@ export const reorderIngredients = (
     await touchRecipe(trx, recipeId, now());
     return { outcome: 'reordered' };
   });
+
+export type MealToConvert = {
+  date: string;
+  meal: Meal;
+  name: string;
+};
+
+export type ConvertedEntry = { id: string; time: string | null };
+
+export type RecipeFromMeal =
+  | {
+      outcome: 'created';
+      recipeId: string;
+      converted: ConvertedEntry[];
+      skipped: string[];
+    }
+  | { outcome: 'no-ingredients' };
+
+const mealEntriesQuery = (
+  db: Reader,
+  userId: string,
+  { date, meal }: Pick<MealToConvert, 'date' | 'meal'>,
+) =>
+  db
+    .selectFrom('diary_entries')
+    .selectAll()
+    .where('user_id', '=', userId)
+    .where('date', '=', date)
+    .where('meal', '=', meal)
+    .orderBy('created_at');
+
+type MealIngredient = Pick<
+  Selectable<RecipeIngredientsTable>,
+  'food_id' | 'child_recipe_id' | 'grams' | 'portion_label' | 'quantity'
+>;
+
+const isLoggableRecipe = async (
+  trx: Transaction<Database>,
+  userId: string,
+  recipeId: string,
+) => {
+  const child = await liveRecipeQuery(trx, userId, recipeId).executeTakeFirst();
+  if (
+    child === undefined ||
+    (await nestingFactsOf(trx, child.id)).containsRecipe
+  ) {
+    return false;
+  }
+  const food = await findRecipeFood(trx, userId, child.id);
+  return food !== null && !isEmptyRecipe(food);
+};
+
+const mealIngredientOf = async (
+  trx: Transaction<Database>,
+  userId: string,
+  entry: Selectable<DiaryEntriesTable>,
+): Promise<MealIngredient | null> => {
+  const { food_id, recipe_id, grams, portion_label, quantity } = entry;
+  if (
+    grams === null ||
+    grams <= 0 ||
+    portion_label === null ||
+    quantity === null
+  ) {
+    return null;
+  }
+  const amount = { grams, portion_label, quantity };
+  if (food_id !== null) {
+    return (await findFood({ db: trx, userId }, food_id)) === null
+      ? null
+      : { food_id, child_recipe_id: null, ...amount };
+  }
+  if (recipe_id !== null && (await isLoggableRecipe(trx, userId, recipe_id))) {
+    return { food_id: null, child_recipe_id: recipe_id, ...amount };
+  }
+  return null;
+};
+
+export const writeRecipeFromMeal = async (
+  trx: Transaction<Database>,
+  userId: string,
+  { name, ...meal }: MealToConvert,
+  { now, nextId }: FoodWriteContext,
+): Promise<RecipeFromMeal> => {
+  const entries = await mealEntriesQuery(trx, userId, meal).execute();
+  const ingredients: MealIngredient[] = [];
+  const converted: ConvertedEntry[] = [];
+  const skipped: string[] = [];
+  for (const entry of entries) {
+    const ingredient = await mealIngredientOf(trx, userId, entry);
+    if (ingredient === null) {
+      skipped.push(entry.label);
+    } else {
+      ingredients.push(ingredient);
+      converted.push({ id: entry.id, time: entry.time });
+    }
+  }
+  if (ingredients.length === 0) {
+    return { outcome: 'no-ingredients' };
+  }
+  const recipeId = nextId();
+  const at = now();
+  await trx
+    .insertInto('recipes')
+    .values({
+      id: recipeId,
+      user_id: userId,
+      ...recipeColumns({
+        name,
+        servings: 1,
+        cookedWeightG: null,
+        notes: null,
+      }),
+      archived_at: null,
+      created_at: at,
+      updated_at: at,
+    })
+    .execute();
+  await trx
+    .insertInto('recipe_ingredients')
+    .values(
+      ingredients.map((ingredient, position) => ({
+        ...ingredient,
+        id: nextId(),
+        recipe_id: recipeId,
+        position,
+      })),
+    )
+    .execute();
+  return { outcome: 'created', recipeId, converted, skipped };
+};

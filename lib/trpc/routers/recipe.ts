@@ -1,5 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+import { convertMealToRecipe } from '../../db/diary.ts';
 import {
   addIngredient,
   archiveRecipe,
@@ -11,6 +12,7 @@ import {
   updateRecipe,
 } from '../../db/recipes.ts';
 import { recipeFieldsSchema } from '../../domain/recipes/recipe-fields.ts';
+import { dateSchema, mealSchema } from '../../services/diary.ts';
 import { findRecipe, listRecipes } from '../../services/recipes.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
@@ -73,6 +75,34 @@ export const recipeRouter = router({
       ) {
         throw notFound();
       }
+    }),
+  fromMeal: accountProcedure
+    .input(
+      z.object({
+        date: dateSchema,
+        meal: mealSchema,
+        name: recipeFieldsSchema.shape.name,
+        replace: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const created = await convertMealToRecipe(
+        ctx.db,
+        ctx.caller.userId,
+        input,
+        ctx,
+      );
+      if (created.outcome === 'no-ingredients') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Nothing in this meal can be an ingredient',
+        });
+      }
+      return {
+        id: created.recipeId,
+        skipped: created.skipped,
+        entry: created.entry,
+      };
     }),
   archive: accountProcedure.input(idInput).mutation(async ({ ctx, input }) => {
     if (!(await archiveRecipe(ctx.db, ctx.caller.userId, input, ctx.now))) {

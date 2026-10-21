@@ -280,6 +280,11 @@ one. A cooked weight so changes the vector per 100 g but never the one per servi
 recipe is a food with that vector per 100 g and two portions, `1 serving` (its weight over its
 servings) and `100 g`; logging it snapshots the result.
 
+A meal can be **converted to a recipe** of one serving: each of its food and recipe entries becomes
+an ingredient at its logged amount. The meal is left as it is, or, if the user asks, those entries
+are replaced by one serving of the recipe, a recipe entry snapshotting the recipe's current values. Quick entries have no food to
+be an ingredient and are left out, as is a recipe that already contains one.
+
 ## API
 
 The **app** talks tRPC with a session. **API clients** talk REST under `/api/v1` with a bearer
