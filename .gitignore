@@ -33,6 +33,7 @@ yarn-error.log*
 .env*.local
 .env
 .env.before-copy-down
+*.before-link
 
 # vercel
 .vercel
@@ -42,7 +43,7 @@ yarn-error.log*
 next-env.d.ts
 
 # local database and its backups
-/.data/
+/.data
 /.next-e2e/
 /playwright-report
 /test-results
