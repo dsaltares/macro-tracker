@@ -2,7 +2,7 @@ import { siteName } from '../../brand.ts';
 import type { HistoryImportSummary } from '../../domain/imports/history-import.ts';
 import { type ActionEmailCopy, actionEmail } from './action-email.tsx';
 
-const footer = `You get this email because you started an import in ${siteName}. Your API key was used for that import alone and never stored.`;
+const footer = `You get this email because you started an import in ${siteName}. Your Cronometer password was used for that import alone and never stored.`;
 
 const number = new Intl.NumberFormat('en-GB');
 

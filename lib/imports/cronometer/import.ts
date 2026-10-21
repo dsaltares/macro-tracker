@@ -1,6 +1,6 @@
 import { nextTurn } from '../../data/import-foods.ts';
 import { weightKgSchema } from '../../domain/body/measurements.ts';
-import { today } from '../../domain/dates.ts';
+import { addDays } from '../../domain/dates.ts';
 import { type Meal, maxEntryLabelLength } from '../../domain/diary/entries.ts';
 import {
   oneGram,
@@ -21,20 +21,21 @@ import {
 } from '../../domain/nutrition/vector.ts';
 import { maxMealItems } from '../../services/meal.ts';
 import type { Account, AccountFood } from './account.ts';
-import type { DateRange, FitnessTracker } from './clients.ts';
+import type { Cronometer, DateRange } from './client.ts';
 import {
   type CronometerFood,
   type CronometerServing,
   cronometerNutrients,
+  type DiaryEntry,
   foodNutrientsPer100g,
   isQuickAdd,
   mealOf,
   productNameOf,
   referenceIdOf,
   servingGrams,
+  servingOf,
   timeOf,
   userFoodOf,
-  type WeighIn,
 } from './cronometer.ts';
 import {
   closestAgreeing,
@@ -91,23 +92,6 @@ export type ImportPlan = {
   weights: { date: string; kilograms: number }[];
   skippedWeights: { date: string; reason: string }[];
   fallbacks: number;
-};
-
-export const earliestWeighInPerDay = (
-  weighIns: readonly WeighIn[],
-  timeZone: string,
-) => {
-  const earliest = new Map<string, WeighIn>();
-  for (const weighIn of weighIns) {
-    const date = today({ now: () => weighIn.measured_at }, timeZone);
-    const kept = earliest.get(date);
-    if (kept === undefined || weighIn.measured_at < kept.measured_at) {
-      earliest.set(date, weighIn);
-    }
-  }
-  return [...earliest]
-    .map(([date, { weight }]) => ({ date, kilograms: weight }))
-    .sort((a, b) => a.date.localeCompare(b.date));
 };
 
 const resolveFood = async (
@@ -171,7 +155,7 @@ const planServing = (
   serving: CronometerServing,
   resolved: ResolvedFood | undefined,
 ): ServingOutcome => {
-  const snapshot = withEnergy(cronometerNutrients(serving.nutrients_json));
+  const snapshot = withEnergy(cronometerNutrients(serving.nutrients));
   const label = quickLabel(resolved?.cronometer.name ?? 'Cronometer entry');
   const quick = (fallback: boolean): ServingOutcome =>
     Object.keys(snapshot).length === 0
@@ -188,7 +172,7 @@ const planServing = (
   const [food, nutrients, portions]: [FoodRef, NutrientVector, Portion[]] =
     resolution.kind === 'new'
       ? [
-          { kind: 'new', cronometerId: resolved.cronometer.food_id },
+          { kind: 'new', cronometerId: resolved.cronometer.id },
           resolution.fields.nutrients,
           resolution.fields.portions,
         ]
@@ -202,7 +186,7 @@ const planServing = (
   }
   const portion = portionFor(
     withStandardPortions(portions),
-    serving.measure_name,
+    serving.measureName,
   );
   return {
     planned: {
@@ -217,65 +201,130 @@ const planServing = (
 };
 
 const mealKey = (serving: CronometerServing) =>
-  [serving.day, mealOf(serving.meal_group), timeOf(serving.time)].join('|');
+  [serving.day, mealOf(serving.mealGroup), timeOf(serving.time)].join('|');
 
 type OnProgress = (progress: HistoryImportProgress) => Promise<void> | void;
 
 const ignoreProgress: OnProgress = () => {};
 
+export const emptyDaysBeforeHistoryStarts = 60;
+
+export const emptyDaysBeforeGivingUp = 365;
+
+const earliestDate = '2000-01-01';
+
+const daysPerRound = 7;
+
+type DiaryDay = { date: string; entries: DiaryEntry[] };
+
+const walkDiary = async (
+  cronometer: Cronometer,
+  account: Account,
+  from: string,
+  onProgress: OnProgress,
+) => {
+  const days: DiaryDay[] = [];
+  const logged: string[] = [];
+  let emptyRun = 0;
+  let foundAny = false;
+  let date = from;
+  let firstDate = from;
+  let read = 0;
+  const limit = () =>
+    foundAny ? emptyDaysBeforeHistoryStarts : emptyDaysBeforeGivingUp;
+  while (emptyRun < limit() && date >= earliestDate) {
+    const round = Array.from({ length: daysPerRound }, (_, index) =>
+      addDays(date, -index),
+    ).filter((day) => day >= earliestDate);
+    const fetched = await Promise.all(
+      round.map(async (day) =>
+        (await account.hasEntriesOn(day))
+          ? { day, alreadyLogged: true, entries: [] }
+          : { day, alreadyLogged: false, entries: await cronometer.diary(day) },
+      ),
+    );
+    for (const { day, alreadyLogged, entries } of fetched) {
+      if (emptyRun >= limit()) {
+        break;
+      }
+      read += 1;
+      if (alreadyLogged) {
+        logged.push(day);
+      } else if (entries.length > 0) {
+        days.push({ date: day, entries });
+      }
+      if (alreadyLogged || entries.length > 0) {
+        foundAny = true;
+        emptyRun = 0;
+        firstDate = day;
+      } else {
+        emptyRun += 1;
+      }
+    }
+    await onProgress({ phase: 'reading', done: read, total: 0 });
+    date = addDays(date, -daysPerRound);
+  }
+  return { days, logged, firstDate };
+};
+
 export const planImport = async ({
-  fitnessTracker,
+  cronometer,
   account,
-  range,
-  timeZone,
+  to,
   onProgress = ignoreProgress,
 }: {
-  fitnessTracker: FitnessTracker;
+  cronometer: Cronometer;
   account: Account;
-  range: DateRange;
-  timeZone: string;
+  to: string;
   onProgress?: OnProgress;
 }): Promise<ImportPlan> => {
   await onProgress({ phase: 'reading', done: 0, total: 0 });
-  const servings = await fitnessTracker.servings(range);
-  const dates = [...new Set(servings.map(({ day }) => day))];
-  const logged = new Set<string>();
-  for (const date of dates) {
-    if (await account.hasEntriesOn(date)) {
-      logged.add(date);
-    }
-  }
-  const toImport = servings.filter(({ day }) => !logged.has(day));
-
+  const walk = await walkDiary(cronometer, account, to, onProgress);
   const foodIds = [
     ...new Set(
-      toImport.flatMap(({ food_id }) => (food_id === null ? [] : [food_id])),
+      walk.days.flatMap(({ entries }) =>
+        entries.flatMap(({ foodId }) => (foodId === null ? [] : [foodId])),
+      ),
     ),
   ];
-  const cronometerFoods = await fitnessTracker.foods(foodIds);
+  const cronometerFoods = await cronometer.foods(foodIds);
+  const foodsById = new Map(cronometerFoods.map((food) => [food.id, food]));
+  const servings = walk.days
+    .toReversed()
+    .flatMap(({ date, entries }) =>
+      entries.map((entry, position) =>
+        servingOf(
+          date,
+          entry,
+          position,
+          entry.foodId === null ? undefined : foodsById.get(entry.foodId),
+        ),
+      ),
+    );
+
   const foods: ResolvedFood[] = [];
-  for (const cronometer of cronometerFoods) {
+  for (const food of cronometerFoods) {
     await onProgress({
       phase: 'matching',
       done: foods.length,
       total: cronometerFoods.length,
     });
     foods.push({
-      cronometer,
-      resolution: await resolveFood(account, cronometer),
+      cronometer: food,
+      resolution: await resolveFood(account, food),
     });
     await nextTurn();
   }
-  const byId = new Map(foods.map((food) => [food.cronometer.food_id, food]));
+  const byId = new Map(foods.map((food) => [food.cronometer.id, food]));
 
   const meals = new Map<string, PlannedMeal>();
   const days = new Map<string, PlannedDay>();
   const skippedServings: ImportPlan['skippedServings'] = [];
   let fallbacks = 0;
-  for (const serving of toImport) {
+  for (const serving of servings) {
     const outcome = planServing(
       serving,
-      serving.food_id === null ? undefined : byId.get(serving.food_id),
+      serving.foodId === null ? undefined : byId.get(serving.foodId),
     );
     if ('skipped' in outcome) {
       skippedServings.push({ serving, reason: outcome.skipped });
@@ -285,7 +334,7 @@ export const planImport = async ({
     const key = mealKey(serving);
     const meal = meals.get(key) ?? {
       date: serving.day,
-      meal: mealOf(serving.meal_group),
+      meal: mealOf(serving.mealGroup),
       time: timeOf(serving.time),
       items: [],
     };
@@ -298,20 +347,22 @@ export const planImport = async ({
     };
     day.cronometer = sum([
       day.cronometer,
-      withEnergy(cronometerNutrients(serving.nutrients_json)),
+      withEnergy(cronometerNutrients(serving.nutrients)),
     ]);
     day.planned = sum([day.planned, outcome.planned.nutrients]);
     days.set(serving.day, day);
   }
 
-  const weighIns = earliestWeighInPerDay(
-    await fitnessTracker.weighIns(range),
-    timeZone,
-  ).filter(({ date }) => date >= range.from && date <= range.to);
+  const range = { from: walk.firstDate, to };
   const weightDates = await account.weightDates(range);
   const weights: ImportPlan['weights'] = [];
   const skippedWeights: ImportPlan['skippedWeights'] = [];
-  for (const weight of weighIns) {
+  const seen = new Set<string>();
+  for (const weight of await cronometer.weights(range)) {
+    if (seen.has(weight.date)) {
+      continue;
+    }
+    seen.add(weight.date);
     if (weightDates.has(weight.date)) {
       skippedWeights.push({ date: weight.date, reason: 'already logged' });
     } else if (!weightKgSchema.safeParse(weight.kilograms).success) {
@@ -326,7 +377,7 @@ export const planImport = async ({
     foods,
     meals: [...meals.values()],
     days: [...days.values()],
-    skippedDays: [...logged].sort(),
+    skippedDays: walk.logged.toSorted(),
     skippedServings,
     weights,
     skippedWeights,
@@ -371,7 +422,7 @@ export const applyImport = async (
     await step();
     if (resolution.kind === 'new') {
       const food = await account.createFood(resolution.fields);
-      created.set(cronometer.food_id, food.id);
+      created.set(cronometer.id, food.id);
     }
   }
 
@@ -451,7 +502,7 @@ export const summaryOf = (
     sourceKcal: energyOf(plan.days, 'cronometer'),
     importedKcal: energyOf(plan.days, 'planned'),
     foods: plan.foods.map(({ cronometer, resolution }) => ({
-      sourceId: String(cronometer.food_id),
+      sourceId: String(cronometer.id),
       name: cronometer.name,
       kind: resolution.kind,
       matchedTo: matchedTo(resolution),

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  cronometerEmail,
+  cronometerPassword,
+  fakeCronometer,
+} from '@/test/cronometer';
 import { migratedDatabasePerTest } from '@/test/db';
-import { keyRefused } from '../../imports/fitness-tracker/clients.ts';
+import { loginRefused } from '../../imports/cronometer/client.ts';
 import { createCaller } from '../root.ts';
 import { alreadyRunning } from './history-import.ts';
 
@@ -16,16 +21,18 @@ const as = (userId: string | null) =>
     nextId: () => `id-${++ids}`,
   });
 
-const emptyFitnessTracker = (status = 200) =>
-  vi.fn<typeof fetch>(async () =>
-    Response.json({ rowCount: 0, truncated: false, rows: [] }, { status }),
-  );
-
 const start = {
-  source: 'fitness-tracker',
-  apiKey: 'secret',
+  source: 'cronometer',
+  email: cronometerEmail,
+  password: cronometerPassword,
   timeZone: 'UTC',
 } as const;
+
+const stubCronometer = () => {
+  const cronometer = fakeCronometer();
+  vi.stubGlobal('fetch', cronometer.fetch);
+  return cronometer;
+};
 
 beforeEach(async () => {
   ids = 0;
@@ -53,14 +60,13 @@ const settled = async (userId: string) =>
   });
 
 describe('historyImport.start', () => {
-  it('starts an import that runs on after the request, with the key sent to fitness-tracker', async () => {
-    const fetch = emptyFitnessTracker();
-    vi.stubGlobal('fetch', fetch);
+  it('starts an import that runs on after the request, signed in to Cronometer', async () => {
+    const cronometer = stubCronometer();
 
     const run = await as('user-1').historyImport.start(start);
 
     expect(run).toMatchObject({
-      source: 'fitness-tracker',
+      source: 'cronometer',
       status: 'running',
       phase: 'reading',
     });
@@ -69,28 +75,29 @@ describe('historyImport.start', () => {
       status: 'succeeded',
       summary: { days: 0, entries: 0, weights: 0 },
     });
-    expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
-      authorization: 'Bearer secret',
+    expect(cronometer.requests[0]).toMatchObject({
+      endpoint: 'login',
+      body: { email: cronometerEmail, password: cronometerPassword },
     });
   });
 
-  it('refuses a key fitness-tracker refuses, starting nothing', async () => {
-    vi.stubGlobal('fetch', emptyFitnessTracker(401));
+  it('refuses a password Cronometer refuses, starting nothing', async () => {
+    stubCronometer();
 
-    await expect(as('user-1').historyImport.start(start)).rejects.toMatchObject(
-      { code: 'BAD_REQUEST', message: keyRefused },
-    );
+    await expect(
+      as('user-1').historyImport.start({ ...start, password: 'wrong' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST', message: loginRefused });
     expect(await as('user-1').historyImport.latest()).toBeNull();
   });
 
   it('refuses a second import while one runs', async () => {
-    vi.stubGlobal('fetch', emptyFitnessTracker());
+    stubCronometer();
     await database()
       .insertInto('history_imports')
       .values({
         id: 'run-1',
         user_id: 'user-1',
-        source: 'fitness-tracker',
+        source: 'cronometer',
         status: 'running',
         phase: 'matching',
         started_at: '2026-10-21T09:00:00.000Z',
@@ -102,9 +109,12 @@ describe('historyImport.start', () => {
     );
   });
 
-  it('refuses a missing key or an unknown time zone', async () => {
+  it('refuses a missing email or password, or an unknown time zone', async () => {
     await expect(
-      as('user-1').historyImport.start({ ...start, apiKey: ' ' }),
+      as('user-1').historyImport.start({ ...start, email: ' ' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      as('user-1').historyImport.start({ ...start, password: '' }),
     ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
     await expect(
       as('user-1').historyImport.start({ ...start, timeZone: 'Mars/Olympus' }),
@@ -126,7 +136,7 @@ describe('historyImport.latest', () => {
         {
           id: 'old',
           user_id: 'user-1',
-          source: 'fitness-tracker',
+          source: 'cronometer',
           status: 'failed',
           phase: 'reading',
           done: 0,
@@ -137,7 +147,7 @@ describe('historyImport.latest', () => {
         {
           id: 'new',
           user_id: 'user-1',
-          source: 'fitness-tracker',
+          source: 'cronometer',
           status: 'running',
           phase: 'logging',
           done: 3,

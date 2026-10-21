@@ -1,5 +1,11 @@
 import pino from 'pino';
 import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  cronometerEmail,
+  cronometerPassword,
+  type FakeCronometer,
+  fakeCronometer,
+} from '@/test/cronometer';
 import { migratedDatabasePerTest } from '@/test/db';
 import {
   failInterruptedHistoryImports,
@@ -8,73 +14,28 @@ import {
 import { interruptedHistoryImport } from '../domain/imports/history-import.ts';
 import type { EmailMessage, SendEmail } from '../email/transport.ts';
 import type { ServiceContext } from '../services/context.ts';
-import { keyRefused } from './fitness-tracker/clients.ts';
-import { launchHistoryImport, unexpectedFailure } from './history-import.ts';
+import { loginRefused, unexpectedAnswer } from './cronometer/client.ts';
+import { launchHistoryImport } from './history-import.ts';
 
 const database = migratedDatabasePerTest();
 
 const yogurt = {
-  food_id: 3,
+  id: 3,
   name: 'Goat yogurt with honey and chia',
   source: 'Custom',
-  measures_json: JSON.stringify([
-    { name: 'Serving', value: 137.1, type: 'Weight', hidden: false },
-  ]),
-  nutrients_json: JSON.stringify([
+  measures: [{ id: 30, name: 'Serving', value: 137.1, type: 'Weight' }],
+  nutrients: [
     { id: 208, amount: 102.7 },
     { id: 203, amount: 4.9 },
     { id: 205, amount: 9.3 },
     { id: 204, amount: 5.1 },
-  ]),
+  ],
 };
 
-const serving = {
-  serving_id: '1',
-  day: '2026-09-01',
-  time: null,
-  meal_group: 'breakfast',
-  food_id: 3,
-  measure_name: 'Serving',
-  quantity_grams: 137.1,
-  energy_kcal: 140.8,
-  nutrients_json: JSON.stringify([
-    { id: 208, amount: 140.8 },
-    { id: 203, amount: 6.7 },
-    { id: 205, amount: 12.75 },
-    { id: 204, amount: 7 },
-  ]),
-};
-
-const weighIn = { measured_at: '2026-09-01T06:00:00.000Z', weight: 71.5 };
-
-type Answer = { status?: number; rows?: unknown[] };
-
-const fitnessTracker = (answers: {
-  check?: Answer;
-  servings?: Answer;
-}): typeof fetch => {
-  const rowsFor = (sql: string): Answer => {
-    if (sql.includes('nutrition_servings')) {
-      return answers.servings ?? { rows: [serving] };
-    }
-    if (sql.includes('from foods')) {
-      return { rows: [yogurt] };
-    }
-    if (sql.includes('body_composition')) {
-      return { rows: [weighIn] };
-    }
-    return answers.check ?? { rows: [{ 1: 1 }] };
-  };
-  return async (_input, init) => {
-    const { sql } = JSON.parse(String(init?.body));
-    const { status = 200, rows = [] } = rowsFor(sql);
-    return Response.json(
-      { rowCount: rows.length, truncated: false, rows },
-      {
-        status,
-      },
-    );
-  };
+const history = {
+  diary: { '2026-10-20': [{ foodId: 3, measureId: 30, grams: 137.1 }] },
+  foods: [yogurt],
+  weights: [{ day: '2026-10-20', value: 71.5 }],
 };
 
 let sent: EmailMessage[] = [];
@@ -91,15 +52,22 @@ const context = (): ServiceContext => ({
   nextId: () => `id-${++ids}`,
 });
 
-const launch = (send: typeof fetch) =>
+const launch = (
+  cronometer: FakeCronometer = history,
+  password = cronometerPassword,
+) =>
   launchHistoryImport(
     context(),
-    { source: 'fitness-tracker', apiKey: 'secret', timeZone: 'Europe/Madrid' },
     {
-      fetch: send,
+      source: 'cronometer',
+      email: cronometerEmail,
+      password,
+      timeZone: 'Europe/Madrid',
+    },
+    {
+      fetch: fakeCronometer(cronometer).fetch,
       sendEmail,
       baseUrl: () => 'https://macros.example.test',
-      sourceUrl: () => 'https://fitness-tracker.example.test',
       logger: pino({ enabled: false }),
     },
   );
@@ -115,7 +83,7 @@ beforeEach(async () => {
 
 describe('launchHistoryImport', () => {
   it('imports in the background, records the summary and emails the result', async () => {
-    const launched = await launch(fitnessTracker({}));
+    const launched = await launch();
     if (!launched.started) {
       throw new Error('The import did not start');
     }
@@ -143,46 +111,28 @@ describe('launchHistoryImport', () => {
     );
   });
 
-  it('refuses a key fitness-tracker refuses, before starting', async () => {
-    await expect(
-      launch(fitnessTracker({ check: { status: 401 } })),
-    ).rejects.toThrow(keyRefused);
+  it('refuses a password Cronometer refuses, before starting', async () => {
+    await expect(launch(history, 'wrong')).rejects.toThrow(loginRefused);
     expect(await latestHistoryImport(database(), 'user-1')).toBeNull();
   });
 
-  it('fails the run and emails why when fitness-tracker fails midway', async () => {
-    const launched = await launch(
-      fitnessTracker({ servings: { status: 500 } }),
-    );
+  it('fails the run and emails why when Cronometer fails midway', async () => {
+    const launched = await launch({ ...history, failing: 'get_foods' });
     if (!launched.started) {
       throw new Error('The import did not start');
     }
 
     expect(await launched.finished).toMatchObject({
       status: 'failed',
-      error: 'fitness-tracker answered 500. Try again later.',
+      error: unexpectedAnswer,
       summary: null,
     });
     expect(sent).toMatchObject([{ subject: 'Your import stopped' }]);
   });
 
-  it('hides an unexpected error behind a general message', async () => {
-    const launched = await launch(
-      fitnessTracker({ servings: { rows: [{ nonsense: true }] } }),
-    );
-    if (!launched.started) {
-      throw new Error('The import did not start');
-    }
-
-    expect(await launched.finished).toMatchObject({
-      status: 'failed',
-      error: unexpectedFailure,
-    });
-  });
-
   it('answers the running import instead of starting a second', async () => {
-    const first = await launch(fitnessTracker({}));
-    const second = await launch(fitnessTracker({}));
+    const first = await launch();
+    const second = await launch();
 
     expect(second).toMatchObject({
       started: false,
@@ -201,7 +151,7 @@ describe('failInterruptedHistoryImports', () => {
       .values({
         id: 'run-1',
         user_id: 'user-1',
-        source: 'fitness-tracker',
+        source: 'cronometer',
         status: 'running',
         phase: 'logging',
         started_at: '2026-10-21T09:00:00.000Z',

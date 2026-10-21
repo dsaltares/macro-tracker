@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { submitButtonClass } from '@/components/auth/auth-form';
-import { FormError, PasswordField } from '@/components/auth/fields';
+import { FormError, PasswordField, TextField } from '@/components/auth/fields';
 import { SelectField } from '@/components/diary/entry-form';
 import { Button } from '@/components/ui/button';
 import type { HistoryImport } from '@/lib/db/history-imports';
@@ -24,7 +24,7 @@ export const loadFailed = 'Your last import could not be loaded.';
 export const pollIntervalMs = 1000;
 
 const phaseLabels: Record<HistoryImportPhase, string> = {
-  reading: 'Reading your history',
+  reading: 'Reading your Cronometer diary',
   matching: 'Matching foods',
   logging: 'Logging your diary',
   weights: 'Logging your weights',
@@ -42,18 +42,24 @@ const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 const dayOf = (instant: string) => formatDay(localDateOf(new Date(instant)));
 
+type FieldErrors = {
+  email?: string | undefined;
+  password?: string | undefined;
+};
+
 const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function ImportForm({ running }: { running: boolean }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [source, setSource] = useState<HistorySource>(historySources[0]);
-  const [apiKey, setApiKey] = useState('');
-  const [error, setError] = useState<string>();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
   const start = useMutation(
     trpc.historyImport.start.mutationOptions({
       onSuccess: async () => {
-        setApiKey('');
+        setPassword('');
         await queryClient.invalidateQueries({
           queryKey: trpc.historyImport.latest.queryKey(),
         });
@@ -65,14 +71,19 @@ function ImportForm({ running }: { running: boolean }) {
     event.preventDefault();
     const parsed = startHistoryImportSchema.safeParse({
       source,
-      apiKey,
+      email,
+      password,
       timeZone: browserTimeZone(),
     });
     if (!parsed.success) {
-      setError(parsed.error.flatten().fieldErrors.apiKey?.[0]);
+      const { fieldErrors } = parsed.error.flatten();
+      setErrors({
+        email: fieldErrors.email?.[0],
+        password: fieldErrors.password?.[0],
+      });
       return;
     }
-    setError(undefined);
+    setErrors({});
     start.mutate(parsed.data);
   };
 
@@ -90,8 +101,10 @@ function ImportForm({ running }: { running: boolean }) {
       <p className="text-muted-foreground text-sm">
         Brings your diary, the foods you logged and your weights into this
         account. Days you have already logged here are left alone, so you can
-        run it again to pick up new days. Your key is used for this import and
-        never stored.
+        run it again to pick up new days. It goes back from today until it finds
+        two months with nothing logged. Your password is used for this import
+        alone and never stored. A Cronometer account that signs in with Google
+        has no password to give.
       </p>
       {start.isError ? <FormError>{failureOf(start.error)}</FormError> : null}
       <SelectField
@@ -105,13 +118,20 @@ function ImportForm({ running }: { running: boolean }) {
           </option>
         ))}
       </SelectField>
-      <PasswordField
-        label="fitness-tracker API key"
+      <TextField
+        label="Cronometer email"
+        type="email"
         autoComplete="off"
-        hint="The API_KEY your fitness-tracker runs with"
-        error={error}
-        value={apiKey}
-        onChange={(event) => setApiKey(event.target.value)}
+        error={errors.email}
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
+      <PasswordField
+        label="Cronometer password"
+        autoComplete="off"
+        error={errors.password}
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
       />
       <Button
         type="submit"
@@ -131,7 +151,11 @@ function Running({ run }: { run: HistoryImport }) {
     <div className="flex flex-col gap-2">
       <p className="font-medium">
         {phaseLabels[run.phase]}
-        {measured ? ` · ${run.done} of ${run.total}` : '…'}
+        {measured
+          ? ` · ${run.done} of ${run.total}`
+          : run.done > 0
+            ? ` · ${run.done} days`
+            : '…'}
       </p>
       <div
         role="progressbar"

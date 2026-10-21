@@ -1,22 +1,24 @@
 import { screen, within } from '@testing-library/react';
-import { HttpResponse, http } from 'msw';
+import { http } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { ImportSettings } from '@/components/settings/import-settings';
 import type { HistoryImportSummary } from '@/lib/domain/imports/history-import';
-import {
-  defaultFitnessTrackerUrl,
-  keyRefused,
-} from '@/lib/imports/fitness-tracker/clients';
+import { loginRefused } from '@/lib/imports/cronometer/client';
 import { serveApi } from '@/test/api';
+import {
+  cronometerEmail,
+  cronometerPassword,
+  fakeCronometer,
+} from '@/test/cronometer';
 import { renderUi } from '@/test/ui';
 
 const api = serveApi({ signedInAs: 'user-1' });
 
 const render = () => renderUi(<ImportSettings />, { wrap: api.wrap });
 
-const fitnessTracker = (status = 200) =>
-  http.post(`${defaultFitnessTrackerUrl}/query`, () =>
-    HttpResponse.json({ rowCount: 0, truncated: false, rows: [] }, { status }),
+const cronometer = () =>
+  http.post('https://mobile.cronometer.com/api/v2/*', ({ request }) =>
+    fakeCronometer().answer(request),
   );
 
 const summary: HistoryImportSummary = {
@@ -63,7 +65,7 @@ const storeImport = (
     .values({
       id: 'run-1',
       user_id: 'user-1',
-      source: 'fitness-tracker',
+      source: 'cronometer',
       status: 'succeeded',
       phase: 'weights',
       started_at: '2026-10-21T09:00:00.000Z',
@@ -73,24 +75,37 @@ const storeImport = (
 
 const importButton = () => screen.getByRole('button', { name: 'Import' });
 
+const signInToCronometer = async (
+  user: ReturnType<typeof render>['user'],
+  password: string,
+) => {
+  await user.type(screen.getByLabelText('Cronometer email'), cronometerEmail);
+  await user.type(screen.getByLabelText('Cronometer password'), password);
+  await user.click(importButton());
+};
+
 describe('ImportSettings', () => {
-  it('asks for the key before importing', async () => {
+  it('asks for the email and password before importing', async () => {
     const { user } = render();
 
     await user.click(importButton());
 
-    expect(await screen.findByText('Enter the API key')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Enter your Cronometer email'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Enter your Cronometer password'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('combobox', { name: 'Import from' }),
-    ).toHaveDisplayValue('Cronometer, through fitness-tracker');
+    ).toHaveDisplayValue('Cronometer');
   });
 
   it('starts an import and follows it until it is done', async () => {
-    api.use(fitnessTracker());
+    api.use(cronometer());
     const { user } = render();
 
-    await user.type(screen.getByLabelText('fitness-tracker API key'), 'secret');
-    await user.click(importButton());
+    await signInToCronometer(user, cronometerPassword);
 
     const latest = await screen.findByRole(
       'region',
@@ -98,17 +113,16 @@ describe('ImportSettings', () => {
       { timeout: 3000 },
     );
     expect(within(latest).getByText('Days imported')).toBeInTheDocument();
-    expect(screen.getByLabelText('fitness-tracker API key')).toHaveValue('');
+    expect(screen.getByLabelText('Cronometer password')).toHaveValue('');
   });
 
-  it('says when fitness-tracker refuses the key', async () => {
-    api.use(fitnessTracker(401));
+  it('says when Cronometer refuses the password', async () => {
+    api.use(cronometer());
     const { user } = render();
 
-    await user.type(screen.getByLabelText('fitness-tracker API key'), 'wrong');
-    await user.click(importButton());
+    await signInToCronometer(user, 'wrong');
 
-    expect(await screen.findByText(keyRefused)).toBeInTheDocument();
+    expect(await screen.findByText(loginRefused)).toBeInTheDocument();
   });
 
   it('shows a running import and holds the button', async () => {
@@ -151,11 +165,9 @@ describe('ImportSettings', () => {
   });
 
   it('shows why the last import stopped', async () => {
-    await storeImport({ status: 'failed', error: 'fitness-tracker is down.' });
+    await storeImport({ status: 'failed', error: 'Cronometer is down.' });
     render();
 
-    expect(
-      await screen.findByText('fitness-tracker is down.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Cronometer is down.')).toBeInTheDocument();
   });
 });

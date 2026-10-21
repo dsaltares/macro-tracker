@@ -16,24 +16,18 @@ import type { SendEmail } from '../email/transport.ts';
 import { getLogger } from '../logger.ts';
 import { routes } from '../routes.ts';
 import type { ServiceContext } from '../services/context.ts';
-import { accountOf } from './fitness-tracker/account.ts';
+import { accountOf } from './cronometer/account.ts';
 import {
-  type FitnessTracker,
-  fitnessTrackerClient,
-  fitnessTrackerUrl,
-  isFitnessTrackerFailure,
-} from './fitness-tracker/clients.ts';
-import {
-  applyImport,
-  planImport,
-  summaryOf,
-} from './fitness-tracker/import.ts';
+  type Cronometer,
+  cronometerClient,
+  isCronometerFailure,
+} from './cronometer/client.ts';
+import { applyImport, planImport, summaryOf } from './cronometer/import.ts';
 
 export type HistoryImportDependencies = {
   fetch?: typeof fetch;
   sendEmail?: SendEmail;
   baseUrl?: () => string;
-  sourceUrl?: () => string;
   logger?: Logger;
 };
 
@@ -41,18 +35,16 @@ export type LaunchedHistoryImport =
   | { started: true; run: HistoryImport; finished: Promise<HistoryImport> }
   | { started: false; running: HistoryImport };
 
-const earliestDate = '2000-01-01';
-
 export const unexpectedFailure =
   'The import stopped on an unexpected error. Try again: it skips the days it already imported.';
 
 const failureMessage = (error: unknown) =>
-  isFitnessTrackerFailure(error) ? error.message : unexpectedFailure;
+  isCronometerFailure(error) ? error.message : unexpectedFailure;
 
 const runHistoryImport = async ({
   context,
   run,
-  fitnessTracker,
+  cronometer,
   timeZone,
   sendEmail,
   baseUrl,
@@ -60,7 +52,7 @@ const runHistoryImport = async ({
 }: {
   context: ServiceContext;
   run: HistoryImport;
-  fitnessTracker: FitnessTracker;
+  cronometer: Cronometer;
   timeZone: string;
   sendEmail: SendEmail;
   baseUrl: () => string;
@@ -73,10 +65,9 @@ const runHistoryImport = async ({
   let outcome: HistoryImportOutcome;
   try {
     const plan = await planImport({
-      fitnessTracker,
+      cronometer,
       account,
-      range: { from: earliestDate, to: today(context, timeZone) },
-      timeZone,
+      to: today(context, timeZone),
       onProgress,
     });
     const report = await applyImport(account, plan, onProgress);
@@ -113,21 +104,16 @@ const runHistoryImport = async ({
 
 export const launchHistoryImport = async (
   context: ServiceContext,
-  { source, apiKey, timeZone }: StartHistoryImport,
+  { source, email, password, timeZone }: StartHistoryImport,
   {
     fetch: send = fetch,
     sendEmail = sendEmailThroughTransport,
     baseUrl = () => authBaseUrl(),
-    sourceUrl = () => fitnessTrackerUrl(),
     logger = getLogger('history-import'),
   }: HistoryImportDependencies = {},
 ): Promise<LaunchedHistoryImport> => {
-  const fitnessTracker = fitnessTrackerClient({
-    url: sourceUrl(),
-    key: apiKey,
-    fetch: send,
-  });
-  await fitnessTracker.check();
+  const cronometer = cronometerClient({ email, password, fetch: send });
+  await cronometer.login();
   const start = await startHistoryImport(context.db, context.caller.userId, {
     id: context.nextId(),
     source,
@@ -139,7 +125,7 @@ export const launchHistoryImport = async (
   const finished = runHistoryImport({
     context,
     run: start.run,
-    fitnessTracker,
+    cronometer,
     timeZone,
     sendEmail,
     baseUrl,

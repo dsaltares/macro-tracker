@@ -81,10 +81,10 @@ describe('historyImportEmail', () => {
     const message = await historyImportEmail({
       to: 'user@example.test',
       url: 'https://macros.example.test/settings/import',
-      outcome: { status: 'failed', error: 'fitness-tracker is down.' },
+      outcome: { status: 'failed', error: 'Cronometer is down.' },
     });
 
     expect(message.subject).toBe('Your import stopped');
-    expect(message.text).toContain('fitness-tracker is down.');
+    expect(message.text).toContain('Cronometer is down.');
   });
 });

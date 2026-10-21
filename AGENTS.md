@@ -367,32 +367,38 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   an ETag, which `next.config.ts` traces into the standalone output.
   `docs/API.md` is the hand-written guide: a key, a curl per endpoint, the envelope, pages and a
   note for agents; its examples are the routes' examples, so change both together.
-- `lib/imports/` — history imports (ADR [0017](docs/adr/0017-import-a-history-in-the-server-with-a-key-used-once.md)).
-  `launchHistoryImport(context, { source, apiKey, timeZone })` (`history-import.ts`) checks the key
-  against the source (a failure is `isFitnessTrackerFailure`, its message for the user), records a
+- `lib/imports/` — history imports (ADR [0017](docs/adr/0017-import-a-history-from-cronometer-in-the-server-with-credentials-used-once.md)).
+  `launchHistoryImport(context, { source, email, password, timeZone })` (`history-import.ts`)
+  signs in to the source (a failure is `isCronometerFailure`, its message for the user), records a
   `history_imports` row (`lib/db/history-imports.ts`; one `running` per user, else it answers the
   running one) and runs the import after answering, with a `finished` promise: progress to the row,
   then `succeeded` with the summary or `failed` with a message, and a mail through
-  `historyImportEmail` linking to `/settings/import`. The key is never stored; a restart fails a
-  running row at boot (`instrumentation.ts`). The `historyImport` router is `start` (`BAD_REQUEST`
-  for a refused key, `CONFLICT` while one runs) and `latest`. `fitness-tracker/` is the one
-  source: `clients.ts` reads Cronometer's diary, foods and weigh-ins from fitness-tracker's
-  read-only `POST /query` at `FITNESS_TRACKER_URL`; `account.ts` is the `Account` port over the
-  caller's services. `cronometer.ts` reads the rows: Cronometer's nutrient ids are USDA nutrient
-  numbers, read through `declaredFromUsda`; a `Recipe` food is per serving, weighed by its `g`
-  measure; `USDAsr:` and `CoFID:` sources are reference ids. `planImport` resolves each food
-  logged on a date the caller has no entries on: the reference food of its source id
-  (`findFoodBySourceId`), else, searching its name, the caller's own food of the same name or a
-  result naming every word of its product name, each only when energy, the three macros and any
-  sugars, fibre and saturated fat both declare agree per 100 g (`macrosAgree`, `match.ts`);
-  otherwise a new food of the caller's own. Each serving is a food entry by the portion of its
-  Cronometer measure, else `1 g`, unless its amounts per 100 g disagree with the food's, it is a
-  quick add, or its food cannot be one of the caller's own (amounts over `maxPer100g`): then a
-  quick entry of Cronometer's totals. Weights are the earliest weigh-in of each local day without
-  one. `applyImport` creates the new foods and logs each meal through `logMeal` and the weights;
-  `summaryOf` is what the row and the page keep. `ImportSettings` (`components/settings/`) is
-  Settings › Import: the source, the key, *Import*, then `historyImport.latest` polled every
-  second while it runs (phase, a progress bar), the summary and what each food became.
+  `historyImportEmail` linking to `/settings/import`. The credentials are never stored; a restart
+  fails a running row at boot (`instrumentation.ts`). The `historyImport` router is `start`
+  (`BAD_REQUEST` for refused credentials, `CONFLICT` while one runs) and `latest`. `cronometer/`
+  is the one source. `client.ts` is Cronometer's undocumented mobile API, ported from
+  fitness-tracker: `login` (as the Android app, never sending a time zone), `diary(date)` (one day,
+  its `Serving` entries), `foods(ids)` (50 a call) and `weights(range)` (the Weight metric in kg),
+  signing in again once when a session expires. `test/cronometer.ts` fakes it for tests, as a
+  `fetch` or an MSW handler. `cronometer.ts` reads its answers: nutrient ids are USDA nutrient
+  numbers, read through `declaredFromUsda`; `servingOf` scales a food to a diary entry (per 100 g,
+  or per serving for a `Recipe` measure); a `Recipe` food is weighed by its `g` measure;
+  `USDAsr:` and `CoFID:` sources are reference ids. `account.ts` is the `Account` port over the
+  caller's services. `planImport` walks the diary back from today a week at a time, past the dates
+  the caller has logged without asking for them, until `emptyDaysBeforeHistoryStarts` (60) days
+  have nothing, or `emptyDaysBeforeGivingUp` (365) before anything is found. It resolves each food:
+  the reference food of its source id (`findFoodBySourceId`), else, searching its name, the
+  caller's own food of the same name or a result naming every word of its product name, each only
+  when energy, the three macros and any sugars, fibre and saturated fat both declare agree per
+  100 g (`macrosAgree`, `match.ts`); otherwise a new food of the caller's own. Each serving is a
+  food entry by the portion of its Cronometer measure, else `1 g`, unless its amounts per 100 g
+  disagree with the food's, it is a quick add, or its food cannot be one of the caller's own
+  (amounts over `maxPer100g`): then a quick entry of Cronometer's totals. Weights are the first of
+  each date without one. `applyImport` creates the new foods and logs each meal through `logMeal`
+  and the weights; `summaryOf` is what the row and the page keep. `ImportSettings`
+  (`components/settings/`) is Settings › Import: the source, the email and password, *Import*,
+  then `historyImport.latest` polled every second while it runs (the days read, then a progress
+  bar), the summary and what each food became.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
   (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or

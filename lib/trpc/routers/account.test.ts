@@ -160,7 +160,7 @@ const giveRecipes = async (
     .values({
       id: `${userId}-import`,
       user_id: userId,
-      source: 'fitness-tracker',
+      source: 'cronometer',
       status: 'succeeded',
       phase: 'weights',
       started_at: '2026-10-20T12:00:00.000Z',

@@ -214,10 +214,11 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Imports you start</strong>: when you import your history
-              from another app, the diary, foods and weights it brings in, which
+              from Cronometer, the diary, foods and weights it brings in, which
               are then what you log, and a record of each import (when it ran,
-              how far it got and a summary of what it brought). The key you give
-              for it is used for that import alone and never stored.
+              how far it got and a summary of what it brought). The Cronometer
+              email and password you give for it are sent to Cronometer to sign
+              in for that import alone, and never stored.
             </li>
           </ul>
 
@@ -323,7 +324,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>No location data</strong>, no other device sensors, no
-              contacts, and no data from fitness trackers or health apps.
+              contacts, and no data from fitness trackers or health apps except
+              the Cronometer history you choose to import.
             </li>
             <li>
               <strong>No payment information.</strong> The Website is free and
@@ -377,8 +379,9 @@ export default function PrivacyPage() {
               started finishes.
             </li>
             <li>
-              To fetch your history from the app you name when you start an
-              import, with the key you give for it, and nothing else from it.
+              To fetch your diary, the foods you logged and your weights from
+              Cronometer when you start an import, signed in with the email and
+              password you give for it, and nothing else from it.
             </li>
             <li>
               To keep the Service working and secure: rate-limiting sign-in,

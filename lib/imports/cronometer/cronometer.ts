@@ -19,35 +19,54 @@ import {
 } from '../../domain/foods/user-food.ts';
 import type { NutrientVector } from '../../domain/nutrition/vector.ts';
 
-const nutrientAmountsSchema = z.array(
-  z.object({ id: z.number().nullable(), amount: z.number().nullable() }),
-);
+const nullable = <Schema extends z.ZodType>(schema: Schema) =>
+  schema.nullish().transform((value) => value ?? null);
+
+const nutrientAmountSchema = z.object({
+  id: nullable(z.number()),
+  amount: nullable(z.number()),
+});
 
 const measureSchema = z.object({
-  name: z.string().nullable(),
-  value: z.number().nullable(),
-  type: z.string().nullable(),
+  id: nullable(z.number()),
+  name: nullable(z.string()),
+  value: nullable(z.number()),
+  type: nullable(z.string()),
   hidden: z.boolean().nullish(),
 });
 
-const jsonOf = <Schema extends z.ZodType>(schema: Schema) =>
+const listOf = <Schema extends z.ZodType>(schema: Schema) =>
   z
-    .string()
-    .nullable()
-    .transform((json) => (json === null ? [] : JSON.parse(json)))
-    .pipe(schema);
+    .array(schema)
+    .nullish()
+    .transform((items) => items ?? []);
 
 export const cronometerFoodSchema = z.object({
-  food_id: z.number(),
+  id: z.number(),
   name: z.string(),
-  source: z.string().nullable(),
-  measures_json: jsonOf(z.array(measureSchema)),
-  nutrients_json: jsonOf(nutrientAmountsSchema),
+  source: nullable(z.string()),
+  defaultMeasureId: nullable(z.number()),
+  measures: listOf(measureSchema),
+  nutrients: listOf(nutrientAmountSchema),
 });
 
 export type CronometerFood = z.infer<typeof cronometerFoodSchema>;
 
 export type CronometerMeasure = z.infer<typeof measureSchema>;
+
+export type NutrientAmounts = CronometerFood['nutrients'];
+
+export const diaryEntrySchema = z.object({
+  type: nullable(z.string()),
+  time: nullable(z.string()),
+  foodId: nullable(z.coerce.number().int()),
+  measureId: nullable(z.coerce.number().int()),
+  grams: nullable(z.number()),
+  servingId: nullable(z.union([z.string(), z.number()]).transform(String)),
+  order: nullable(z.number()),
+});
+
+export type DiaryEntry = z.infer<typeof diaryEntrySchema>;
 
 export const cronometerMealGroups = [
   'breakfast',
@@ -57,28 +76,36 @@ export const cronometerMealGroups = [
   'uncategorized',
 ] as const;
 
-export const cronometerServingSchema = z.object({
-  serving_id: z.string(),
-  day: z.string(),
-  time: z.string().nullable(),
-  meal_group: z.enum(cronometerMealGroups),
-  food_id: z.number().nullable(),
-  measure_name: z.string().nullable(),
-  quantity_grams: z.number().nullable(),
-  energy_kcal: z.number().nullable(),
-  nutrients_json: jsonOf(nutrientAmountsSchema),
-});
+export type CronometerMealGroup = (typeof cronometerMealGroups)[number];
 
-export type CronometerServing = z.infer<typeof cronometerServingSchema>;
+export type CronometerServing = {
+  servingId: string;
+  day: string;
+  time: string | null;
+  mealGroup: CronometerMealGroup;
+  foodId: number | null;
+  measureName: string | null;
+  quantityGrams: number | null;
+  nutrients: NutrientAmounts;
+};
 
-export const weighInSchema = z.object({
-  measured_at: z.string(),
-  weight: z.number(),
-});
+export type Weight = { date: string; kilograms: number };
 
-export type WeighIn = z.infer<typeof weighInSchema>;
+const mealGroupsByNumber: Record<number, CronometerMealGroup> = {
+  1: 'breakfast',
+  2: 'lunch',
+  3: 'dinner',
+  4: 'snacks',
+};
 
-const mealOfGroup: Record<CronometerServing['meal_group'], Meal> = {
+const mealGroupBits = 16;
+
+export const mealGroupOf = (order: number | null): CronometerMealGroup =>
+  order === null
+    ? 'uncategorized'
+    : (mealGroupsByNumber[order >> mealGroupBits] ?? 'uncategorized');
+
+const mealOfGroup: Record<CronometerMealGroup, Meal> = {
   breakfast: 'breakfast',
   lunch: 'lunch',
   dinner: 'dinner',
@@ -86,16 +113,66 @@ const mealOfGroup: Record<CronometerServing['meal_group'], Meal> = {
   uncategorized: 'snack',
 };
 
-export const mealOf = (group: CronometerServing['meal_group']) =>
-  mealOfGroup[group];
+export const mealOf = (group: CronometerMealGroup) => mealOfGroup[group];
 
-const hourAndMinute = /^([01]\d|2[0-3]):[0-5]\d/;
+const hourAndMinute = /^(\d{1,2}):(\d{1,2})/;
+const hoursPerDay = 24;
+const minutesPerHour = 60;
 
-export const timeOf = (time: string | null) =>
-  time?.match(hourAndMinute)?.[0] ?? null;
+export const timeOf = (time: string | null) => {
+  const [, hour, minute] = time?.match(hourAndMinute) ?? [];
+  if (hour === undefined || minute === undefined) {
+    return null;
+  }
+  return Number(hour) < hoursPerDay && Number(minute) < minutesPerHour
+    ? `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
+    : null;
+};
+
+const roundedTo = 4;
+
+const scaledAmounts = (amounts: NutrientAmounts, scale: number) =>
+  amounts.map(({ id, amount }) => ({
+    id,
+    amount:
+      amount === null ? null : Number((amount * scale).toFixed(roundedTo)),
+  }));
+
+const measureOf = (food: CronometerFood, measureId: number | null) =>
+  food.measures.find(({ id }) => id !== null && id === measureId) ??
+  food.measures.find(({ id }) => id !== null && id === food.defaultMeasureId) ??
+  null;
+
+const gramsPer100 = 100;
+
+export const servingOf = (
+  day: string,
+  entry: DiaryEntry,
+  position: number,
+  food: CronometerFood | undefined,
+): CronometerServing => {
+  const measure = food ? measureOf(food, entry.measureId) : null;
+  const scale =
+    entry.grams === null
+      ? null
+      : measure?.type === 'Recipe'
+        ? entry.grams
+        : entry.grams / gramsPer100;
+  return {
+    servingId: entry.servingId ?? `${day}-${position}`,
+    day,
+    time: entry.time,
+    mealGroup: mealGroupOf(entry.order),
+    foodId: entry.foodId,
+    measureName: measure?.name ?? null,
+    quantityGrams: entry.grams,
+    nutrients:
+      food && scale !== null ? scaledAmounts(food.nutrients, scale) : [],
+  };
+};
 
 export const cronometerNutrients = (
-  amounts: CronometerFood['nutrients_json'],
+  amounts: NutrientAmounts,
   basis: NutrientBasis = { per: '100g' },
 ): NutrientVector => {
   const byNumber = new Map<string, number>();
@@ -139,12 +216,12 @@ const isRecipeMeasure = (measure: CronometerMeasure) =>
   measure.type === 'Recipe';
 
 export const isRecipe = (food: CronometerFood) =>
-  food.measures_json.some(isRecipeMeasure);
+  food.measures.some(isRecipeMeasure);
 
 const recipeGramsMeasure = 'g';
 
 export const recipeServingGrams = (food: CronometerFood) => {
-  const grams = food.measures_json.find(
+  const grams = food.measures.find(
     (measure) =>
       isRecipeMeasure(measure) && measure.name?.trim() === recipeGramsMeasure,
   )?.value;
@@ -153,26 +230,26 @@ export const recipeServingGrams = (food: CronometerFood) => {
 
 export const foodNutrientsPer100g = (food: CronometerFood) => {
   if (!isRecipe(food)) {
-    return cronometerNutrients(food.nutrients_json);
+    return cronometerNutrients(food.nutrients);
   }
   const grams = recipeServingGrams(food);
   return grams === null
     ? null
-    : cronometerNutrients(food.nutrients_json, { per: 'serving', grams });
+    : cronometerNutrients(food.nutrients, { per: 'serving', grams });
 };
 
 export const servingGrams = (
   serving: CronometerServing,
   food: CronometerFood,
 ) => {
-  if (serving.quantity_grams === null) {
+  if (serving.quantityGrams === null) {
     return null;
   }
   if (!isRecipe(food)) {
-    return serving.quantity_grams;
+    return serving.quantityGrams;
   }
   const grams = recipeServingGrams(food);
-  return grams === null ? null : serving.quantity_grams * grams;
+  return grams === null ? null : serving.quantityGrams * grams;
 };
 
 const portionLabel = (name: string | null) => {
@@ -187,7 +264,7 @@ const portionLabel = (name: string | null) => {
 export const portionsOf = (food: CronometerFood): Portion[] => {
   const recipeGrams = recipeServingGrams(food);
   const portions: Portion[] = [];
-  for (const measure of food.measures_json) {
+  for (const measure of food.measures) {
     const label = portionLabel(measure.name);
     const grams = isRecipeMeasure(measure)
       ? measure.name?.trim() === recipeGramsMeasure || recipeGrams === null

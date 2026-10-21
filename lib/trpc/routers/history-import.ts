@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { latestHistoryImport } from '../../db/history-imports.ts';
 import { startHistoryImportSchema } from '../../domain/imports/history-import.ts';
-import { isFitnessTrackerFailure } from '../../imports/fitness-tracker/clients.ts';
+import { isCronometerFailure } from '../../imports/cronometer/client.ts';
 import { launchHistoryImport } from '../../imports/history-import.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
@@ -14,7 +14,7 @@ export const historyImportRouter = router({
     .mutation(async ({ ctx, input }) => {
       const launched = await launchHistoryImport(ctx, input).catch(
         (error: unknown) => {
-          if (isFitnessTrackerFailure(error)) {
+          if (isCronometerFailure(error)) {
             throw new TRPCError({
               code: 'BAD_REQUEST',
               message: error.message,

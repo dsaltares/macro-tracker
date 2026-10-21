@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-export const historySources = ['fitness-tracker'] as const;
+export const historySources = ['cronometer'] as const;
 
 export type HistorySource = (typeof historySources)[number];
 
 export const historySourceNames: Record<HistorySource, string> = {
-  'fitness-tracker': 'Cronometer, through fitness-tracker',
+  cronometer: 'Cronometer',
 };
 
 export const historyImportStatuses = [
@@ -80,7 +80,8 @@ export const isTimeZone = (timeZone: string) => {
 
 export const startHistoryImportSchema = z.object({
   source: z.enum(historySources),
-  apiKey: z.string().trim().min(1, 'Enter the API key'),
+  email: z.string().trim().min(1, 'Enter your Cronometer email'),
+  password: z.string().min(1, 'Enter your Cronometer password'),
   timeZone: z.string().refine(isTimeZone, { message: 'Not a time zone' }),
 });
 

@@ -7,17 +7,15 @@ import { migratedDatabasePerTest } from '@/test/db';
 import { restClient } from '@/test/rest';
 import { importFoods } from '../../data/import-foods.ts';
 import { createFixtureSource } from '../../data/sources/fixture.ts';
+import { addDays } from '../../domain/dates.ts';
 import type { NutrientVector } from '../../domain/nutrition/vector.ts';
 import { type Account, accountOf } from './account.ts';
-import type { FitnessTracker } from './clients.ts';
-import type {
-  CronometerFood,
-  CronometerServing,
-  WeighIn,
-} from './cronometer.ts';
+import type { Cronometer } from './client.ts';
+import type { CronometerFood, DiaryEntry, Weight } from './cronometer.ts';
 import {
   applyImport,
-  earliestWeighInPerDay,
+  emptyDaysBeforeGivingUp,
+  emptyDaysBeforeHistoryStarts,
   planImport,
   summaryOf,
 } from './import.ts';
@@ -62,13 +60,7 @@ const cronometerAmountsOf = (vector: NutrientVector) => [
   { id: 204, amount: vector.fat ?? 0 },
 ];
 
-const scaled = (amounts: CronometerFood['nutrients_json'], factor: number) =>
-  amounts.map(({ id, amount }) => ({
-    id,
-    amount: amount === null ? null : amount * factor,
-  }));
-
-const grams = { name: 'g', value: 1, type: 'Weight', hidden: false };
+const grams = { id: 1, name: 'g', value: 1, type: 'Weight', hidden: false };
 
 const cronometerFoods = async (): Promise<
   Record<'eggs' | 'nutella' | 'yogurt' | 'quickAdd', CronometerFood>
@@ -77,31 +69,34 @@ const cronometerFoods = async (): Promise<
   const [nutella] = await account.searchFoods('nutella');
   return {
     eggs: {
-      food_id: 1,
+      id: 1,
       name: 'Eggs, Chicken, Whole, Raw',
       source: 'CoFID:12-911',
-      measures_json: [grams],
-      nutrients_json: cronometerAmountsOf(vectorOf(eggs?.nutrients ?? {})),
+      defaultMeasureId: 1,
+      measures: [grams],
+      nutrients: cronometerAmountsOf(vectorOf(eggs?.nutrients ?? {})),
     },
     nutella: {
-      food_id: 2,
+      id: 2,
       name: 'Ferrero, Nutella',
       source: 'CRDB',
-      measures_json: [
+      defaultMeasureId: 1,
+      measures: [
         grams,
-        { name: 'tbsp', value: 18.5, type: 'Weight', hidden: false },
+        { id: 2, name: 'tbsp', value: 18.5, type: 'Weight', hidden: false },
       ],
-      nutrients_json: cronometerAmountsOf(vectorOf(nutella?.nutrients ?? {})),
+      nutrients: cronometerAmountsOf(vectorOf(nutella?.nutrients ?? {})),
     },
     yogurt: {
-      food_id: 3,
+      id: 3,
       name: 'Goat yogurt with honey and chia',
       source: 'Custom',
-      measures_json: [
+      defaultMeasureId: 1,
+      measures: [
         grams,
-        { name: 'Serving', value: 137.1, type: 'Weight', hidden: false },
+        { id: 3, name: 'Serving', value: 137.1, type: 'Weight', hidden: false },
       ],
-      nutrients_json: [
+      nutrients: [
         { id: 208, amount: 102.7 },
         { id: 203, amount: 4.9 },
         { id: 205, amount: 9.3 },
@@ -110,85 +105,91 @@ const cronometerFoods = async (): Promise<
       ],
     },
     quickAdd: {
-      food_id: 4,
+      id: 4,
       name: 'Quick Add, Protein',
       source: 'CRDB',
-      measures_json: [grams],
-      nutrients_json: [{ id: 203, amount: 100 }],
+      defaultMeasureId: 1,
+      measures: [grams],
+      nutrients: [{ id: 203, amount: 100 }],
     },
   };
 };
 
-const servingOf = (
-  id: string,
-  day: string,
+const breakfast = 1 << 16;
+const snacks = 4 << 16;
+
+const entry = (
   food: CronometerFood,
-  measure: string,
+  measureId: number,
   quantityGrams: number,
-  overrides: Partial<CronometerServing> = {},
-): CronometerServing => ({
-  serving_id: id,
-  day,
+  overrides: Partial<DiaryEntry> = {},
+): DiaryEntry => ({
+  type: 'Serving',
   time: null,
-  meal_group: 'breakfast',
-  food_id: food.food_id,
-  measure_name: measure,
-  quantity_grams: quantityGrams,
-  energy_kcal: null,
-  nutrients_json: scaled(food.nutrients_json, quantityGrams / 100),
+  foodId: food.id,
+  measureId,
+  grams: quantityGrams,
+  servingId: null,
+  order: breakfast,
   ...overrides,
 });
 
-const fitnessTracker = (
-  servings: CronometerServing[],
+const fakeCronometer = (
+  diary: Record<string, DiaryEntry[]>,
   foods: CronometerFood[],
-  weighIns: WeighIn[] = [],
-): FitnessTracker => ({
-  check: async () => {},
-  servings: async ({ from, to }) =>
-    servings.filter(({ day }) => day >= from && day <= to),
-  foods: async (ids) => foods.filter(({ food_id }) => ids.includes(food_id)),
-  weighIns: async () => weighIns,
-});
+  weights: Weight[] = [],
+) => {
+  const asked: string[] = [];
+  const cronometer: Cronometer = {
+    login: async () => {},
+    diary: async (date) => {
+      asked.push(date);
+      return diary[date] ?? [];
+    },
+    foods: async (ids) => foods.filter(({ id }) => ids.includes(id)),
+    weights: async ({ from, to }) =>
+      weights.filter(({ date }) => date >= from && date <= to),
+  };
+  return { cronometer, asked };
+};
 
-const range = { from: '2026-09-01', to: '2026-09-30' };
+const today = '2026-09-30';
 
 const plan = (
-  source: FitnessTracker,
+  { cronometer }: ReturnType<typeof fakeCronometer>,
   onProgress?: Parameters<typeof planImport>[0]['onProgress'],
 ) =>
   planImport({
     ...(onProgress ? { onProgress } : {}),
-    fitnessTracker: source,
+    cronometer,
     account,
-    range,
-    timeZone: 'Europe/Madrid',
+    to: today,
   });
 
 describe('planImport and applyImport', () => {
   it('logs each serving through the food it matched, at Cronometer’s amounts', async () => {
     const { eggs, nutella, yogurt, quickAdd } = await cronometerFoods();
-    const servings = [
-      servingOf('1', '2026-09-01', eggs, 'g', 120),
-      servingOf('2', '2026-09-01', nutella, 'tbsp', 37, {
-        meal_group: 'snacks',
-      }),
-      servingOf('3', '2026-09-02', yogurt, 'Serving', 137.1, {
-        meal_group: 'uncategorized',
-        time: '08:15:00',
-      }),
-      servingOf('4', '2026-09-02', quickAdd, 'g', 30),
-    ];
-    const weighIns = [
-      { measured_at: '2026-09-01T22:30:00.000Z', weight: 71.9 },
-      { measured_at: '2026-09-02T05:00:00.000Z', weight: 71.2 },
-      { measured_at: '2026-09-01T06:00:00.000Z', weight: 71.5 },
-      { measured_at: '2026-09-03T07:00:00.000Z', weight: 500 },
-    ];
-
-    const planned = await plan(
-      fitnessTracker(servings, [eggs, nutella, yogurt, quickAdd], weighIns),
+    const source = fakeCronometer(
+      {
+        '2026-09-01': [
+          entry(eggs, 1, 120),
+          entry(nutella, 1, 37, { order: snacks }),
+        ],
+        '2026-09-02': [
+          entry(yogurt, 3, 137.1, { order: 0, time: '8:15:00' }),
+          entry(quickAdd, 1, 30),
+        ],
+      },
+      [eggs, nutella, yogurt, quickAdd],
+      [
+        { date: '2026-09-01', kilograms: 71.5 },
+        { date: '2026-09-01', kilograms: 71.9 },
+        { date: '2026-09-02', kilograms: 71.2 },
+        { date: '2026-09-03', kilograms: 500 },
+      ],
     );
+
+    const planned = await plan(source);
 
     expect(
       planned.foods.map(({ cronometer, resolution }) => [
@@ -201,14 +202,14 @@ describe('planImport and applyImport', () => {
       ['Goat yogurt with honey and chia', 'new'],
       ['Quick Add, Protein', 'quick'],
     ]);
+    expect(planned.range).toEqual({ from: '2026-09-01', to: today });
     expect(planned.weights).toEqual([
       { date: '2026-09-01', kilograms: 71.5 },
-      { date: '2026-09-02', kilograms: 71.9 },
+      { date: '2026-09-02', kilograms: 71.2 },
     ]);
     expect(planned.skippedWeights).toEqual([
       { date: '2026-09-03', reason: 'out of range' },
     ]);
-
     const progress: string[] = [];
     const outcome = await applyImport(
       account,
@@ -313,33 +314,31 @@ describe('planImport and applyImport', () => {
     ]);
   });
 
-  it('skips the days and weights already logged, and reuses the foods it made', async () => {
+  it('skips the days and weights already logged, without asking Cronometer for them, and reuses the foods it made', async () => {
     const { yogurt } = await cronometerFoods();
-    const weighIns = [
-      { measured_at: '2026-09-01T06:00:00.000Z', weight: 71.5 },
-    ];
+    const weights = [{ date: '2026-09-01', kilograms: 71.5 }];
     await applyImport(
       account,
       await plan(
-        fitnessTracker(
-          [servingOf('1', '2026-09-01', yogurt, 'g', 100)],
+        fakeCronometer(
+          { '2026-09-01': [entry(yogurt, 1, 100)] },
           [yogurt],
-          weighIns,
+          weights,
         ),
       ),
     );
 
-    const again = await plan(
-      fitnessTracker(
-        [
-          servingOf('1', '2026-09-01', yogurt, 'g', 100),
-          servingOf('2', '2026-09-03', yogurt, 'g', 50),
-        ],
-        [yogurt],
-        weighIns,
-      ),
+    const source = fakeCronometer(
+      {
+        '2026-09-01': [entry(yogurt, 1, 100)],
+        '2026-09-03': [entry(yogurt, 1, 50)],
+      },
+      [yogurt],
+      weights,
     );
+    const again = await plan(source);
 
+    expect(source.asked).not.toContain('2026-09-01');
     expect(again.skippedDays).toEqual(['2026-09-01']);
     expect(again.foods.map(({ resolution }) => resolution.kind)).toEqual([
       'own copy',
@@ -351,34 +350,15 @@ describe('planImport and applyImport', () => {
     ]);
   });
 
-  it('logs a serving its food does not add up to as Cronometer’s totals', async () => {
-    const { eggs } = await cronometerFoods();
-    const off = servingOf('1', '2026-09-01', eggs, 'g', 100, {
-      nutrients_json: [
-        { id: 208, amount: 400 },
-        { id: 203, amount: 30 },
-      ],
-    });
-
-    const planned = await plan(fitnessTracker([off], [eggs]));
-
-    expect(planned.fallbacks).toBe(1);
-    expect(planned.meals[0]?.items).toEqual([
-      {
-        kind: 'quick',
-        label: 'Eggs, Chicken, Whole, Raw',
-        nutrients: { energy_kcal: 400, protein: 30 },
-      },
-    ]);
-  });
-
   it('skips a serving Cronometer has no nutrients for', async () => {
     const { quickAdd } = await cronometerFoods();
-    const empty = servingOf('1', '2026-09-01', quickAdd, 'g', 0, {
-      nutrients_json: [],
-    });
 
-    const planned = await plan(fitnessTracker([empty], [quickAdd]));
+    const planned = await plan(
+      fakeCronometer(
+        { '2026-09-01': [{ ...entry(quickAdd, 1, 0), foodId: 99 }] },
+        [quickAdd],
+      ),
+    );
 
     expect(planned.meals).toEqual([]);
     expect(planned.skippedServings).toMatchObject([
@@ -387,17 +367,48 @@ describe('planImport and applyImport', () => {
   });
 });
 
-describe('planImport progress', () => {
-  it('reads, then matches each food in turn', async () => {
+describe('the walk back through the diary', () => {
+  it(`stops after ${emptyDaysBeforeHistoryStarts} empty days before the earliest entry`, async () => {
+    const { yogurt } = await cronometerFoods();
+    const earliest = '2026-08-15';
+    const tooFar = addDays(earliest, -(emptyDaysBeforeHistoryStarts + 1));
+    const source = fakeCronometer(
+      {
+        [earliest]: [entry(yogurt, 1, 100)],
+        '2026-09-29': [entry(yogurt, 1, 100)],
+        [tooFar]: [entry(yogurt, 1, 100)],
+      },
+      [yogurt],
+    );
+
+    const planned = await plan(source);
+
+    expect(planned.days.map(({ date }) => date)).toEqual([
+      earliest,
+      '2026-09-29',
+    ]);
+    expect(planned.range.from).toBe(earliest);
+  });
+
+  it(`gives up after ${emptyDaysBeforeGivingUp} days without a single entry`, async () => {
+    const source = fakeCronometer({}, []);
+
+    const planned = await plan(source);
+
+    expect(planned.meals).toEqual([]);
+    expect(source.asked.length).toBeGreaterThanOrEqual(emptyDaysBeforeGivingUp);
+    expect(source.asked.toSorted()[0]).toBe(
+      addDays(today, -(Math.ceil(emptyDaysBeforeGivingUp / 7) * 7 - 1)),
+    );
+  });
+
+  it('reports the days read, then matches each food in turn', async () => {
     const { eggs, yogurt } = await cronometerFoods();
     const progress: string[] = [];
 
     await plan(
-      fitnessTracker(
-        [
-          servingOf('1', '2026-09-01', eggs, 'g', 100),
-          servingOf('2', '2026-09-01', yogurt, 'g', 100),
-        ],
+      fakeCronometer(
+        { '2026-09-30': [entry(eggs, 1, 100), entry(yogurt, 1, 100)] },
         [eggs, yogurt],
       ),
       ({ phase, done, total }) => {
@@ -405,24 +416,11 @@ describe('planImport progress', () => {
       },
     );
 
-    expect(progress).toEqual(['reading 0/0', 'matching 0/2', 'matching 1/2']);
-  });
-});
-
-describe('earliestWeighInPerDay', () => {
-  it('keeps the first weigh-in of each local day', () => {
-    expect(
-      earliestWeighInPerDay(
-        [
-          { measured_at: '2026-09-01T23:30:00.000Z', weight: 70 },
-          { measured_at: '2026-09-02T07:00:00.000Z', weight: 71 },
-          { measured_at: '2026-09-01T06:00:00.000Z', weight: 72 },
-        ],
-        'Europe/Madrid',
-      ),
-    ).toEqual([
-      { date: '2026-09-01', kilograms: 72 },
-      { date: '2026-09-02', kilograms: 70 },
+    expect(progress.slice(0, 3)).toEqual([
+      'reading 0/0',
+      'reading 7/0',
+      'reading 14/0',
     ]);
+    expect(progress.slice(-2)).toEqual(['matching 0/2', 'matching 1/2']);
   });
 });
