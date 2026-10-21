@@ -23,6 +23,7 @@ import {
   favouritesQuery,
   frequentFoodsQuery,
   lastLoggedAmountsQuery,
+  loggedDatesQuery,
   recentFoodsQuery,
 } from './diary.ts';
 import { ownedFoodsQuery } from './export.ts';
@@ -295,6 +296,16 @@ describe('query plans', () => {
     expectNoScan(foodByBarcodeQuery(db, null, '3017620422003').compile(), [
       'foods',
     ]);
+  });
+
+  it('lists the dates a user has logged in a range without a scan', () => {
+    expectNoScan(
+      loggedDatesQuery(db, 'u', {
+        from: '2011-01-01',
+        to: '2026-10-21',
+      }).compile(),
+      ['diary_entries'],
+    );
   });
 
   it("finds a user's latest and running history imports without a scan", () => {

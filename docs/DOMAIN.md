@@ -143,8 +143,8 @@ food, a recipe or re-importing reference data changes future entries only.
 A **history import** copies a user's diary, the foods they logged and their weights from another
 app into their account, on their say-so and with credentials they give for that run alone, which
 are never stored (ADR [0017](adr/0017-import-a-history-from-cronometer-in-the-server-with-credentials-used-once.md)).
-Its one source so far is Cronometer, signed in with the user's email and password. It reads the
-diary back from today until two months pass with nothing logged, or a year with nothing at all.
+Its one source so far is Cronometer, signed in with the user's email and password. It reads every day of the
+diary from today back to when Cronometer launched, so the whole history comes, gaps and all.
 Each food it meets becomes the reference food with the same source id, a food search finds with
 the same macros, the user's own food of the same name, a new food of their own, or, failing
 those, **quick entries** of the source's totals. A **date** the user has already logged is

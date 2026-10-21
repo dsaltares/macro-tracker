@@ -90,22 +90,21 @@ function ImportForm({ running }: { running: boolean }) {
   return (
     <form
       aria-labelledby="new-import"
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-6"
       method="post"
       noValidate
       onSubmit={onSubmit}
     >
-      <h2 id="new-import" className="font-semibold text-lg">
-        Import your history
-      </h2>
-      <p className="text-muted-foreground text-sm">
-        Brings your diary, the foods you logged and your weights into this
-        account. Days you have already logged here are left alone, so you can
-        run it again to pick up new days. It goes back from today until it finds
-        two months with nothing logged. Your password is used for this import
-        alone and never stored. A Cronometer account that signs in with Google
-        has no password to give.
-      </p>
+      <div className="flex flex-col gap-2">
+        <h2 id="new-import" className="font-semibold text-lg">
+          Import your history
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Brings your diary, the foods you logged and your weights into this
+          account. Days you have already logged here are left alone, so you can
+          run it again to pick up new days.
+        </p>
+      </div>
       {start.isError ? <FormError>{failureOf(start.error)}</FormError> : null}
       <SelectField
         label="Import from"
@@ -118,29 +117,31 @@ function ImportForm({ running }: { running: boolean }) {
           </option>
         ))}
       </SelectField>
-      <TextField
-        label="Cronometer email"
-        type="email"
-        autoComplete="off"
-        error={errors.email}
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-      />
-      <PasswordField
-        label="Cronometer password"
-        autoComplete="off"
-        error={errors.password}
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-      />
-      <Button
-        type="submit"
-        size="lg"
-        disabled={running || start.isPending}
-        className={submitButtonClass}
-      >
-        {start.isPending ? 'Starting…' : 'Import'}
-      </Button>
+      <div className="flex flex-col">
+        <TextField
+          label="Cronometer email"
+          type="email"
+          autoComplete="off"
+          error={errors.email}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <PasswordField
+          label="Cronometer password"
+          autoComplete="off"
+          error={errors.password}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+        <Button
+          type="submit"
+          size="lg"
+          disabled={running || start.isPending}
+          className={submitButtonClass}
+        >
+          {start.isPending ? 'Starting…' : 'Import'}
+        </Button>
+      </div>
     </form>
   );
 }
@@ -151,11 +152,7 @@ function Running({ run }: { run: HistoryImport }) {
     <div className="flex flex-col gap-2">
       <p className="font-medium">
         {phaseLabels[run.phase]}
-        {measured
-          ? ` · ${run.done} of ${run.total}`
-          : run.done > 0
-            ? ` · ${run.done} days`
-            : '…'}
+        {measured ? ` · ${run.done} of ${run.total}` : '…'}
       </p>
       <div
         role="progressbar"

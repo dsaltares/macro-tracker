@@ -1,6 +1,6 @@
 import { nextTurn } from '../../data/import-foods.ts';
 import { weightKgSchema } from '../../domain/body/measurements.ts';
-import { addDays } from '../../domain/dates.ts';
+import { addDays, daysBetween } from '../../domain/dates.ts';
 import { type Meal, maxEntryLabelLength } from '../../domain/diary/entries.ts';
 import {
   oneGram,
@@ -207,11 +207,7 @@ type OnProgress = (progress: HistoryImportProgress) => Promise<void> | void;
 
 const ignoreProgress: OnProgress = () => {};
 
-export const emptyDaysBeforeHistoryStarts = 60;
-
-export const emptyDaysBeforeGivingUp = 365;
-
-const earliestDate = '2000-01-01';
+export const cronometerLaunched = '2011-01-01';
 
 const daysPerRound = 7;
 
@@ -220,66 +216,53 @@ type DiaryDay = { date: string; entries: DiaryEntry[] };
 const walkDiary = async (
   cronometer: Cronometer,
   account: Account,
-  from: string,
+  { from, to }: DateRange,
   onProgress: OnProgress,
 ) => {
+  const logged = await account.loggedDates({ from, to });
+  const total = daysBetween(from, to) + 1;
   const days: DiaryDay[] = [];
-  const logged: string[] = [];
-  let emptyRun = 0;
-  let foundAny = false;
-  let date = from;
-  let firstDate = from;
+  let firstDate: string | null = null;
   let read = 0;
-  const limit = () =>
-    foundAny ? emptyDaysBeforeHistoryStarts : emptyDaysBeforeGivingUp;
-  while (emptyRun < limit() && date >= earliestDate) {
+  for (let date = to; date >= from; date = addDays(date, -daysPerRound)) {
     const round = Array.from({ length: daysPerRound }, (_, index) =>
       addDays(date, -index),
-    ).filter((day) => day >= earliestDate);
+    ).filter((day) => day >= from);
     const fetched = await Promise.all(
-      round.map(async (day) =>
-        (await account.hasEntriesOn(day))
-          ? { day, alreadyLogged: true, entries: [] }
-          : { day, alreadyLogged: false, entries: await cronometer.diary(day) },
-      ),
+      round.map(async (day) => ({
+        day,
+        entries: logged.has(day) ? [] : await cronometer.diary(day),
+      })),
     );
-    for (const { day, alreadyLogged, entries } of fetched) {
-      if (emptyRun >= limit()) {
-        break;
-      }
-      read += 1;
-      if (alreadyLogged) {
-        logged.push(day);
-      } else if (entries.length > 0) {
+    for (const { day, entries } of fetched) {
+      if (entries.length > 0) {
         days.push({ date: day, entries });
       }
-      if (alreadyLogged || entries.length > 0) {
-        foundAny = true;
-        emptyRun = 0;
+      if (entries.length > 0 || logged.has(day)) {
         firstDate = day;
-      } else {
-        emptyRun += 1;
       }
     }
-    await onProgress({ phase: 'reading', done: read, total: 0 });
-    date = addDays(date, -daysPerRound);
+    read += round.length;
+    await onProgress({ phase: 'reading', done: read, total });
   }
-  return { days, logged, firstDate };
+  return { days, logged: [...logged].toSorted(), firstDate: firstDate ?? to };
 };
 
 export const planImport = async ({
   cronometer,
   account,
   to,
+  from = cronometerLaunched,
   onProgress = ignoreProgress,
 }: {
   cronometer: Cronometer;
   account: Account;
   to: string;
+  from?: string;
   onProgress?: OnProgress;
 }): Promise<ImportPlan> => {
   await onProgress({ phase: 'reading', done: 0, total: 0 });
-  const walk = await walkDiary(cronometer, account, to, onProgress);
+  const walk = await walkDiary(cronometer, account, { from, to }, onProgress);
   const foodIds = [
     ...new Set(
       walk.days.flatMap(({ entries }) =>
@@ -377,7 +360,7 @@ export const planImport = async ({
     foods,
     meals: [...meals.values()],
     days: [...days.values()],
-    skippedDays: walk.logged.toSorted(),
+    skippedDays: walk.logged,
     skippedServings,
     weights,
     skippedWeights,

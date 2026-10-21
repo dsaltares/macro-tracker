@@ -20,9 +20,10 @@ wants to follow it and be told when it ends.
 Settings › Import takes the source and the user's Cronometer email and password and calls
 `historyImport.start`, which signs in to check them, records a `history_imports` row (one
 `running` per user, by a partial unique index) and runs the import in the server after
-answering, writing through the same services as the app. It reads the diary back from today,
-a week of days at a time, until two months pass with nothing logged (or a year, before it has
-found anything), skipping the dates already logged here. The row keeps the phase and progress,
+answering, writing through the same services as the app. Cronometer says nowhere when an account's
+history starts, so it reads every day from today back to Cronometer's launch (2011), seven at a
+time, skipping the dates already logged here: about 5,800 calls for a full history, a few
+minutes, with the days read as its progress. The row keeps the phase and progress,
 which the page polls, and the summary; the user is mailed when it ends. The credentials live in
 that run's memory only. The client names itself as the Android app, as the API requires, and
 signs in with no time zone, which would otherwise overwrite the account's. A restart fails a
@@ -48,10 +49,12 @@ like the label scan and the export, it is not offered to API keys.
 The import depends on an undocumented API that Cronometer can change or refuse at any time; when
 it does, a run fails with a message and nothing half-imported is lost. A Cronometer account that
 signs in with Google has no password and cannot be imported. A run shares the server's event
-loop between yields, and a long history is one call per day. Another source is a client beside
+loop between yields, and every run asks for every day not yet logged here, which is a lot of
+calls to an API that may start limiting them. Another source is a client beside
 `lib/imports/cronometer/` and an entry in `historySources`.
 
 ## Revisit trigger
 
-Cronometer changes or blocks the mobile API, publishes an official one, or a user needs to import
+Cronometer changes, rate-limits or blocks the mobile API, publishes an official one or a way to
+find where a history starts, or a user needs to import
 an account that signs in with Google; or a run slows the app for others.

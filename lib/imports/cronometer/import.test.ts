@@ -7,15 +7,14 @@ import { migratedDatabasePerTest } from '@/test/db';
 import { restClient } from '@/test/rest';
 import { importFoods } from '../../data/import-foods.ts';
 import { createFixtureSource } from '../../data/sources/fixture.ts';
-import { addDays } from '../../domain/dates.ts';
+import { daysBetween } from '../../domain/dates.ts';
 import type { NutrientVector } from '../../domain/nutrition/vector.ts';
 import { type Account, accountOf } from './account.ts';
 import type { Cronometer } from './client.ts';
 import type { CronometerFood, DiaryEntry, Weight } from './cronometer.ts';
 import {
   applyImport,
-  emptyDaysBeforeGivingUp,
-  emptyDaysBeforeHistoryStarts,
+  cronometerLaunched,
   planImport,
   summaryOf,
 } from './import.ts';
@@ -155,12 +154,16 @@ const fakeCronometer = (
 
 const today = '2026-09-30';
 
+const since = '2026-08-01';
+
 const plan = (
   { cronometer }: ReturnType<typeof fakeCronometer>,
   onProgress?: Parameters<typeof planImport>[0]['onProgress'],
+  from: string | undefined = since,
 ) =>
   planImport({
     ...(onProgress ? { onProgress } : {}),
+    ...(from ? { from } : {}),
     cronometer,
     account,
     to: today,
@@ -368,41 +371,29 @@ describe('planImport and applyImport', () => {
 });
 
 describe('the walk back through the diary', () => {
-  it(`stops after ${emptyDaysBeforeHistoryStarts} empty days before the earliest entry`, async () => {
+  it('reads every day back to when Cronometer launched, however long the gaps', async () => {
     const { yogurt } = await cronometerFoods();
-    const earliest = '2026-08-15';
-    const tooFar = addDays(earliest, -(emptyDaysBeforeHistoryStarts + 1));
     const source = fakeCronometer(
       {
-        [earliest]: [entry(yogurt, 1, 100)],
+        [cronometerLaunched]: [entry(yogurt, 1, 100)],
         '2026-09-29': [entry(yogurt, 1, 100)],
-        [tooFar]: [entry(yogurt, 1, 100)],
       },
       [yogurt],
     );
 
-    const planned = await plan(source);
+    const planned = await plan(source, undefined, '');
 
     expect(planned.days.map(({ date }) => date)).toEqual([
-      earliest,
+      cronometerLaunched,
       '2026-09-29',
     ]);
-    expect(planned.range.from).toBe(earliest);
-  });
-
-  it(`gives up after ${emptyDaysBeforeGivingUp} days without a single entry`, async () => {
-    const source = fakeCronometer({}, []);
-
-    const planned = await plan(source);
-
-    expect(planned.meals).toEqual([]);
-    expect(source.asked.length).toBeGreaterThanOrEqual(emptyDaysBeforeGivingUp);
-    expect(source.asked.toSorted()[0]).toBe(
-      addDays(today, -(Math.ceil(emptyDaysBeforeGivingUp / 7) * 7 - 1)),
+    expect(planned.range).toEqual({ from: cronometerLaunched, to: today });
+    expect(source.asked).toHaveLength(
+      daysBetween(cronometerLaunched, today) + 1,
     );
   });
 
-  it('reports the days read, then matches each food in turn', async () => {
+  it('reports the days read out of all of them, then matches each food in turn', async () => {
     const { eggs, yogurt } = await cronometerFoods();
     const progress: string[] = [];
 
@@ -418,9 +409,13 @@ describe('the walk back through the diary', () => {
 
     expect(progress.slice(0, 3)).toEqual([
       'reading 0/0',
-      'reading 7/0',
-      'reading 14/0',
+      'reading 7/61',
+      'reading 14/61',
     ]);
-    expect(progress.slice(-2)).toEqual(['matching 0/2', 'matching 1/2']);
+    expect(progress.slice(-3)).toEqual([
+      'reading 61/61',
+      'matching 0/2',
+      'matching 1/2',
+    ]);
   });
 });

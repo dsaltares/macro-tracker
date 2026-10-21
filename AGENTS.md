@@ -384,9 +384,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   numbers, read through `declaredFromUsda`; `servingOf` scales a food to a diary entry (per 100 g,
   or per serving for a `Recipe` measure); a `Recipe` food is weighed by its `g` measure;
   `USDAsr:` and `CoFID:` sources are reference ids. `account.ts` is the `Account` port over the
-  caller's services. `planImport` walks the diary back from today a week at a time, past the dates
-  the caller has logged without asking for them, until `emptyDaysBeforeHistoryStarts` (60) days
-  have nothing, or `emptyDaysBeforeGivingUp` (365) before anything is found. It resolves each food:
+  caller's services. `planImport` reads every day of the diary from today back to `cronometerLaunched`
+  (2011-01-01), seven at a time, without asking for the dates the caller has logged (`loggedDates`,
+  `lib/db/diary.ts`), since nothing says where a history starts. It resolves each food:
   the reference food of its source id (`findFoodBySourceId`), else, searching its name, the
   caller's own food of the same name or a result naming every word of its product name, each only
   when energy, the three macros and any sugars, fibre and saturated fat both declare agree per
@@ -397,8 +397,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   each date without one. `applyImport` creates the new foods and logs each meal through `logMeal`
   and the weights; `summaryOf` is what the row and the page keep. `ImportSettings`
   (`components/settings/`) is Settings › Import: the source, the email and password, *Import*,
-  then `historyImport.latest` polled every second while it runs (the days read, then a progress
-  bar), the summary and what each food became.
+  then `historyImport.latest` polled every second while it runs (the days read of all of them,
+  the foods matched, the meals logged, each as a progress bar), the summary and what each food became.
 - `lib/services/` — what a tRPC procedure and a `/api/v1` route both call: a function over a
   `ServiceContext` (`context.ts`: `db`, a non-null `caller`, `now`, `nextId`). `findAccount`
   (`account.ts`) is behind `account.get` and `/api/v1/me`. `foods.ts` is search, a food by id or

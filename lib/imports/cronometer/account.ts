@@ -1,9 +1,9 @@
+import { loggedDates } from '../../db/diary.ts';
 import type { Food } from '../../db/food-search.ts';
 import type { ReferenceSource } from '../../domain/foods/sources.ts';
 import type { UserFoodFields } from '../../domain/foods/user-food.ts';
 import { listMeasurements, logMeasurement } from '../../services/body.ts';
 import type { ServiceContext } from '../../services/context.ts';
-import { findDiaryDay } from '../../services/diary.ts';
 import {
   createUserFood,
   findFood,
@@ -26,7 +26,7 @@ export type Account = {
   searchFoods: (query: string) => Promise<Candidate[]>;
   food: (id: string) => Promise<AccountFood>;
   createFood: (food: UserFoodFields) => Promise<AccountFood>;
-  hasEntriesOn: (date: string) => Promise<boolean>;
+  loggedDates: (range: { from: string; to: string }) => Promise<Set<string>>;
   weightDates: (range: { from: string; to: string }) => Promise<Set<string>>;
   logMeal: (meal: MealToLog) => Promise<void>;
   logWeight: (date: string, kilograms: number) => Promise<void>;
@@ -79,10 +79,8 @@ export const accountOf = (context: ServiceContext): Account => {
       }
       return food(written.id);
     },
-    hasEntriesOn: async (date) =>
-      (await findDiaryDay(context, date)).meals.some(
-        ({ entries }) => entries.length > 0,
-      ),
+    loggedDates: (range) =>
+      loggedDates(context.db, context.caller.userId, range),
     weightDates: async ({ from, to }) =>
       new Set(
         (
