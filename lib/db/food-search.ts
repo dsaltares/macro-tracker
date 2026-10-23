@@ -8,6 +8,8 @@ import {
 import {
   lowerCaseTerms,
   matchExpression,
+  nameHoldsEveryWordExpression,
+  nameStartsWithExpression,
   searchPageSize,
 } from '../domain/foods/search.ts';
 import type {
@@ -176,36 +178,95 @@ export const searchMatch = (query: string): SearchMatch | null => {
   return match === null ? null : { match, terms: lowerCaseTerms(query) };
 };
 
+const inFoodsFts = (match: string) =>
+  sql<boolean>`foods_fts.rowid in (select rowid from foods_fts where foods_fts match ${match})`;
+
+// matchTier, from the full-text index: a short prefix matches hundreds of thousands of foods,
+// and working out the name's words of each of them took seconds.
+const ftsMatchTier = (terms: readonly string[]) =>
+  sql`case
+    when ${inFoodsFts(nameStartsWithExpression(terms))} then (
+      case when (
+        select ${nameWords} from foods where foods.rowid = foods_fts.rowid
+      ) = ${wholeWord(terms)} then 0 else 1 end
+    )
+    when ${inFoodsFts(nameHoldsEveryWordExpression(terms))} then 2
+    else 3
+  end`;
+
+// The few foods search never shows (archived, other users', disabled sources), so ranking
+// a match reads the full-text index alone rather than every matching food's row.
+const hiddenFoods = (db: Kysely<Database>, userId: string | null) => {
+  const archived = db
+    .selectFrom('foods')
+    .select('foods.rowid')
+    .where('foods.archived_at', 'is not', null);
+  const othersFoods = db
+    .selectFrom('foods')
+    .select('foods.rowid')
+    .where('foods.owner_user_id', 'is not', null);
+  if (userId === null) {
+    return archived.unionAll(othersFoods);
+  }
+  return archived
+    .unionAll(othersFoods.where('foods.owner_user_id', '!=', userId))
+    .unionAll(
+      db
+        .selectFrom('foods')
+        .select('foods.rowid')
+        .where('foods.archived_at', 'is', null)
+        .where('foods.source', 'in', (eb) =>
+          eb
+            .selectFrom('food_source_preferences')
+            .select('food_source_preferences.source')
+            .where('food_source_preferences.user_id', '=', userId)
+            .where('food_source_preferences.enabled', '=', 0),
+        ),
+    );
+};
+
+const notOwnFood = (db: Kysely<Database>, userId: string | null) =>
+  userId === null
+    ? sql<number>`1`
+    : sql<number>`foods_fts.rowid not in (${db
+        .selectFrom('foods')
+        .select('foods.rowid')
+        .where('foods.owner_user_id', '=', userId)})`;
+
 export const searchQuery = (
   db: Kysely<Database>,
   userId: string | null,
   { match, terms }: SearchMatch,
   offset: number,
 ) => {
-  let query = db
+  const ranked = db
     .selectFrom('foods_fts')
-    .innerJoin('foods', 'foods.rowid', 'foods_fts.rowid')
-    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
-    .select(summaryColumns)
+    .select([
+      'foods_fts.rowid',
+      notOwnFood(db, userId).as('not_own'),
+      ftsMatchTier(terms).as('tier'),
+      sql<number>`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`.as(
+        'score',
+      ),
+    ])
     .where(sql<boolean>`foods_fts match ${match}`)
-    .where('foods.archived_at', 'is', null)
-    .where(visibleFoods(userId));
-  if (userId !== null) {
-    query = query.where('foods.source', 'not in', (eb) =>
-      eb
-        .selectFrom('food_source_preferences')
-        .select('food_source_preferences.source')
-        .where('food_source_preferences.user_id', '=', userId)
-        .where('food_source_preferences.enabled', '=', 0),
-    );
-  }
-  return query
-    .orderBy(sql`foods.owner_user_id is null`)
-    .orderBy(matchTier(terms))
-    .orderBy(sql`bm25(foods_fts, ${nameWeight}, ${brandWeight}, ${nameWeight})`)
-    .orderBy('foods.rowid')
+    .where('foods_fts.rowid', 'not in', hiddenFoods(db, userId))
+    .orderBy('not_own')
+    .orderBy('tier')
+    .orderBy('score')
+    .orderBy('foods_fts.rowid')
     .limit(searchPageSize + 1)
     .offset(offset);
+  // The page alone is joined to its foods and nutrients, in the order it was ranked in.
+  return db
+    .selectFrom(ranked.as('ranked'))
+    .innerJoin('foods', 'foods.rowid', 'ranked.rowid')
+    .innerJoin('food_nutrients', 'food_nutrients.food_id', 'foods.id')
+    .select(summaryColumns)
+    .orderBy('ranked.not_own')
+    .orderBy('ranked.tier')
+    .orderBy('ranked.score')
+    .orderBy('ranked.rowid');
 };
 
 export const userFoodsQuery = (
