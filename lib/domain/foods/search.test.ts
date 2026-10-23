@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   lowerCaseTerms,
   matchExpression,
+  nameHoldsEveryWordExpression,
   nameMatchesEveryTerm,
+  nameStartsWithExpression,
   searchPageSize,
   searchTerms,
 } from './search.ts';
@@ -35,9 +37,30 @@ describe('matchExpression', () => {
     expect(matchExpression('nutel')).toBe('"nutel"*');
   });
 
+  it('matches a lone letter as a whole word', () => {
+    expect(matchExpression('c')).toBe('"c"');
+    expect(matchExpression('chicken b')).toBe('"chicken" "b"*');
+  });
+
   it('matches nothing for a query without words', () => {
     expect(matchExpression('')).toBeNull();
     expect(matchExpression(' -*" ')).toBeNull();
+  });
+});
+
+describe('nameStartsWithExpression', () => {
+  it('matches the words as a phrase at the start of the name', () => {
+    expect(nameStartsWithExpression(['dark', 'chocolate'])).toBe(
+      'name : ^"dark chocolate"',
+    );
+  });
+});
+
+describe('nameHoldsEveryWordExpression', () => {
+  it('matches every word whole anywhere in the name', () => {
+    expect(nameHoldsEveryWordExpression(['dark', 'chocolate'])).toBe(
+      'name : ("dark" "chocolate")',
+    );
   });
 });
 
@@ -64,6 +87,11 @@ describe('nameMatchesEveryTerm', () => {
 
   it('refuses a name missing one of the words', () => {
     expect(nameMatchesEveryTerm('Chicken curry', 'chicken soup')).toBe(false);
+  });
+
+  it('matches a lone letter as a whole word', () => {
+    expect(matchExpression('c')).toBe('"c"');
+    expect(matchExpression('chicken b')).toBe('"chicken" "b"*');
   });
 
   it('matches nothing for a query without words', () => {

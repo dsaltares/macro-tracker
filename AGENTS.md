@@ -237,11 +237,17 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
 - `lib/db/food-search.ts` — the food reads behind `food.search`, `food.get` and `food.byBarcode`
   (through `lib/services/foods.ts`),
   over a `FoodReader` (`db` and the caller's `userId`, `null` when nobody is signed in). Search is
-  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`), ranked the
+  FTS5 `MATCH` built by `matchExpression` (`lib/domain/foods/search.ts`; the last word a prefix,
+  unless it is a lone letter), ranked the
   caller's own foods first, then by how the name matches (`matchTier`: the query's words exactly,
   the name starting with them, every word whole, then only as prefixes), then by `bm25` with the
   name and original name weighted over the brand, offset-paged 30 at a
-  time. Every search logs its match, cursor, rows and milliseconds at debug level, which
+  time. A short prefix matches hundreds of thousands of foods, so `searchQuery` ranks in the
+  index alone: the tiers are rowid sets of `name : ^"…"` and `name : (…)` matches, and what
+  search never shows (archived, other users', disabled sources) is a small rowid set by index
+  (`foods_archived`, `foods_owner_user_id`, `foods_live_source`); only the page is joined to
+  `foods` and `food_nutrients`. `food.mine` keeps the per-row `matchTier`, over the caller's
+  foods alone. Every search logs its match, cursor, rows and milliseconds at debug level, which
   production's `info` level leaves out. A user food is visible only through `owner_user_id` on the statement; user portions only
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
