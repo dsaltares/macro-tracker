@@ -788,6 +788,34 @@ describe('FoodSearchSheet', () => {
     );
   });
 
+  it('filters the list it is on by the search, moving to all foods once nothing on it matches', async () => {
+    const { nutella, oats } = await seedFoods();
+    await logged(nutella, '1 serving', 1);
+    await logged(oats, '1 g', 40);
+    const { user } = render();
+
+    await screen.findByRole('dialog', { name: 'Add to lunch' });
+    await user.click(within(sheet()).getByRole('tab', { name: 'Frequent' }));
+    await within(sheet()).findByRole('button', {
+      name: 'Add 40 × 1 g of Rolled oats',
+    });
+    await searchFor(user, 'ferrero nut');
+
+    expect(
+      within(sheet()).getByRole('tab', { name: 'Frequent' }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(await addButtonLabels()).toEqual(['Add 1 × 1 serving of Nutella']);
+
+    await searchFor(user, 'x');
+
+    await vi.waitFor(() =>
+      expect(within(sheet()).getByRole('tab', { name: 'All' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
+    );
+  });
+
   it('lists the foods logged most often on the frequent tab, ready to log again', async () => {
     const { nutella, oats } = await seedFoods();
     await logged(nutella, '1 serving', 1);

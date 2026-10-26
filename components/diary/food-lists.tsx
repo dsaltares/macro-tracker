@@ -7,6 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { FormError } from '@/components/auth/fields';
 import { formatQuantity } from '@/components/diary/amounts';
 import {
@@ -26,6 +27,17 @@ export const foodListFailed = 'These foods could not be loaded.';
 
 export const addAgainFailed = 'Could not add. Try again.';
 
+export const foodMatches = (
+  { name, brand }: Pick<FoodSummary, 'name' | 'brand'>,
+  query: string,
+) => {
+  const text = `${name} ${brand ?? ''}`.toLocaleLowerCase('en');
+  return query
+    .toLocaleLowerCase('en')
+    .split(/\s+/)
+    .every((word) => text.includes(word));
+};
+
 export const lastLoggedAmountOf = ({
   quantity,
   portion,
@@ -36,6 +48,8 @@ type ListProps = {
   date: string;
   meal: Meal;
   empty: string;
+  query: string;
+  onNoMatches: () => void;
   onSelectFood: (food: FoodSummary) => void;
 };
 
@@ -96,8 +110,23 @@ function FoodListItems({
   date,
   meal,
   empty,
+  query,
+  onNoMatches,
   onSelectFood,
 }: ListProps & { foods: UseQueryResult<FoodWithLastLoggedAmount[], unknown> }) {
+  const searching = query.trim() !== '';
+  const matching =
+    foods.data?.filter(
+      (food) => !searching || foodMatches(food, query.trim()),
+    ) ?? [];
+  const noMatches = searching && foods.isSuccess && matching.length === 0;
+
+  useEffect(() => {
+    if (noMatches) {
+      onNoMatches();
+    }
+  }, [noMatches, onNoMatches]);
+
   if (foods.isPending) {
     return <ResultsSkeleton />;
   }
@@ -108,13 +137,16 @@ function FoodListItems({
       </div>
     );
   }
-  if (foods.data.length === 0) {
+  if (noMatches) {
+    return null;
+  }
+  if (matching.length === 0) {
     return <Message>{empty}</Message>;
   }
 
   return (
     <ul className="flex flex-col divide-y">
-      {foods.data.map((food) => (
+      {matching.map((food) => (
         <FoodRow
           key={food.id}
           food={food}
