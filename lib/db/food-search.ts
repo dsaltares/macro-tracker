@@ -98,15 +98,16 @@ const matchTier = (terms: readonly string[]) =>
     else 3
   end`;
 
+// The unary plus keeps SQLite off foods_owner_user_id: past a handful of ids it would walk every
+// reference food through that index rather than look each id up by its key.
+const ownerUserId = sql<string | null>`+${sql.ref('foods.owner_user_id')}`;
+
 const visibleFoods =
   (userId: string | null) =>
   ({ eb, or }: ExpressionBuilder<Database, 'foods'>) =>
     userId === null
-      ? eb('foods.owner_user_id', 'is', null)
-      : or([
-          eb('foods.owner_user_id', 'is', null),
-          eb('foods.owner_user_id', '=', userId),
-        ]);
+      ? eb(ownerUserId, 'is', null)
+      : or([eb(ownerUserId, 'is', null), eb(ownerUserId, '=', userId)]);
 
 const visiblePortions =
   (userId: string | null) =>

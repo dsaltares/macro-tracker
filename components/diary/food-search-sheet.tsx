@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FormError } from '@/components/auth/fields';
 import { mealNames } from '@/components/diary/amounts';
 import {
@@ -95,6 +95,7 @@ function SearchStep({
   onEstimate: (() => void) | null;
 }) {
   const debouncedQuery = useDebouncedValue(query, searchDebounceMs);
+  const showAll = useCallback(() => onListChange('all'), [onListChange]);
 
   return (
     <>
@@ -109,12 +110,7 @@ function SearchStep({
             enterKeyHint="search"
             className="h-11 pl-9 text-base"
             value={query}
-            onChange={(event) => {
-              onQueryChange(event.target.value);
-              if (event.target.value.trim() !== '' && list !== 'recipes') {
-                onListChange('all');
-              }
-            }}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
         <Button
@@ -166,6 +162,8 @@ function SearchStep({
               date={date}
               meal={meal}
               empty={empty}
+              query={query}
+              onNoMatches={showAll}
               onSelectFood={onSelectFood}
             />
           </TabsContent>

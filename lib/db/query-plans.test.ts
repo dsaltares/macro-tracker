@@ -21,6 +21,7 @@ import {
   diaryMealDeletion,
   favouriteDeletion,
   favouritesQuery,
+  foodListLength,
   frequentFoodsQuery,
   lastLoggedAmountsQuery,
   loggedDatesQuery,
@@ -572,6 +573,22 @@ describe('query plans', () => {
       'foods',
       'food_nutrients',
     ]);
+  });
+
+  it('looks each food of a whole food list up by its key', () => {
+    const foodIds = Array.from({ length: foodListLength }, (_, i) => `f${i}`);
+    for (const userId of ['u', null]) {
+      for (const query of [
+        foodSummariesQuery(db, userId, foodIds),
+        foodNutrientsQuery(db, userId, foodIds),
+      ]) {
+        expect(planOf(query.compile())).toContainEqual(
+          expect.stringMatching(
+            /SEARCH foods USING INDEX sqlite_autoindex_foods_1 \(id=\?\)/,
+          ),
+        );
+      }
+    }
   });
 
   it('reads the nutrients of some foods a user sees with a search', () => {
