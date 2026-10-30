@@ -12,13 +12,16 @@ export type TrendPoint = { date: string; weight: number; trend: number };
 
 export const weightTrend = (weights: readonly DatedWeight[]): TrendPoint[] => {
   const oldestFirst = [...weights].sort((a, b) => a.date.localeCompare(b.date));
-  let trend: number | undefined;
+  let previous: TrendPoint | undefined;
   return oldestFirst.map(({ date, value }) => {
-    trend =
-      trend === undefined
+    const trend =
+      previous === undefined
         ? value
-        : trend + trendSmoothingPerDay * (value - trend);
-    return { date, weight: value, trend };
+        : previous.trend +
+          (1 - (1 - trendSmoothingPerDay) ** daysBetween(previous.date, date)) *
+            (value - previous.trend);
+    previous = { date, weight: value, trend };
+    return previous;
   });
 };
 

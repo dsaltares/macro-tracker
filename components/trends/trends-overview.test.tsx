@@ -166,10 +166,10 @@ describe('TrendsOverview', () => {
       await within(await findSection('Weight')).findByRole('figure', {
         name:
           `From ${formatDay(addDays(today, -7))} to ${formatDay(today)}: ` +
-          '2 weights between 78 kg and 80 kg; the trend went from 80 kg to 79.8 kg.',
+          '2 weights between 78 kg and 80 kg; the trend went from 80 kg to 79 kg.',
       }),
     ).toBeInTheDocument();
-    expect(shown('Weekly weight rate')).toBe('-0.2 kg a week');
+    expect(shown('Weekly weight rate')).toBe('-1 kg a week');
     expect(
       within(section('Weight')).getByRole('link', { name: 'Weight log' }),
     ).toHaveAttribute('href', routes.body);

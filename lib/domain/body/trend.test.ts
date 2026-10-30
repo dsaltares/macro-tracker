@@ -27,7 +27,7 @@ describe('weightTrend', () => {
     expect(weightTrend([])).toEqual([]);
   });
 
-  it('starts at the first weight and moves a tenth of the way to each next one, carrying the trend over the days without one', () => {
+  it('starts at the first weight and moves a tenth of the way to each next one for every day since the one before', () => {
     const trend = weightTrend([
       { date: '2026-01-15', value: 82 },
       { date: '2026-01-01', value: 80 },
@@ -44,22 +44,28 @@ describe('weightTrend', () => {
     expect(trend.map(({ trend }) => trend)).toEqual([
       80,
       expect.closeTo(80.1, 10),
-      expect.closeTo(80, 10),
-      expect.closeTo(80.2, 10),
+      expect.closeTo(79.829, 10),
+      expect.closeTo(81.243_019_106_5, 10),
     ]);
   });
 
-  it('weighs a weight after a long gap like the one after a day', () => {
+  it('weighs a weight after a gap as if it had been logged on each day of it', () => {
     const daily = weightTrend([
       { date: '2026-01-01', value: 80 },
       { date: '2026-01-02', value: 90 },
+      { date: '2026-01-03', value: 90 },
+      { date: '2026-01-04', value: 90 },
+      { date: '2026-01-05', value: 90 },
+      { date: '2026-01-06', value: 90 },
+      { date: '2026-01-07', value: 90 },
+      { date: '2026-01-08', value: 90 },
     ]);
-    const afterAMonth = weightTrend([
+    const afterAWeek = weightTrend([
       { date: '2026-01-01', value: 80 },
-      { date: '2026-02-01', value: 90 },
+      { date: '2026-01-08', value: 90 },
     ]);
 
-    expect(afterAMonth.at(-1)?.trend).toBe(daily.at(-1)?.trend);
+    expect(afterAWeek.at(-1)?.trend).toBeCloseTo(daily.at(-1)?.trend ?? 0, 10);
   });
 });
 

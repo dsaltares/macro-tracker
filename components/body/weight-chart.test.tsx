@@ -30,7 +30,7 @@ describe('WeightChart', () => {
 
     expect(
       within(trend()).getByRole('figure', {
-        name: 'From Thu, 1 Oct 2026 to Thu, 15 Oct 2026: 4 weights between 79.1 kg and 82 kg; the trend went from 80 kg to 80.2 kg.',
+        name: 'From Thu, 1 Oct 2026 to Thu, 15 Oct 2026: 4 weights between 79.1 kg and 82 kg; the trend went from 80 kg to 81.2 kg.',
       }),
     ).toBeInTheDocument();
   });
@@ -38,8 +38,8 @@ describe('WeightChart', () => {
   it('shows the trend weight and the weekly rate', () => {
     render(weightsWithGaps);
 
-    expect(shown('Trend weight')).toBe('80.2 kg');
-    expect(shown('Weekly rate')).toBe('+0.1 kg a week');
+    expect(shown('Trend weight')).toBe('81.2 kg');
+    expect(shown('Weekly rate')).toBe('+0.6 kg a week');
   });
 
   it('shows the last 90 days until another range is chosen', async () => {
@@ -79,15 +79,16 @@ describe('WeightChart', () => {
 
   it('keeps the trend of the weights before the range', async () => {
     const { user } = render([
-      { date: '2026-06-01', value: 90 },
-      { date: '2026-10-01', value: 80 },
+      { date: '2026-09-14', value: 90 },
+      { date: '2026-09-21', value: 80 },
     ]);
 
-    expect(shown('Trend weight')).toBe('89 kg');
+    await user.click(screen.getByRole('button', { name: '30 days' }));
+    expect(shown('Trend weight')).toBe('84.8 kg');
 
     await user.click(screen.getByRole('button', { name: 'All' }));
-    expect(shown('Trend weight')).toBe('89 kg');
-    expect(shown('Weekly rate')).toBe('-0.1 kg a week');
+    expect(shown('Trend weight')).toBe('84.8 kg');
+    expect(shown('Weekly rate')).toBe('-5.2 kg a week');
   });
 
   it('says when the range has no weights', async () => {
