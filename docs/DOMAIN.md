@@ -204,8 +204,8 @@ defaults chosen, to keep or change. After that both are edited in settings.
 
 A **body measurement** is a user, a date, a metric and a value. Only `weight_kg` ships in v1.
 The **trend weight** is an exponential moving average over the log: it starts at the first weight
-and moves a tenth of the way toward each next one, carried unchanged over the days without a
-weight. The **weekly rate** is how much the trend weight changed over a range, per week; a range
+and moves a tenth of the way toward each next one for every day since the one before, so a weight
+after n days moves it 1 − 0.9ⁿ of the way, as if that weight had been logged on each of them. The **weekly rate** is how much the trend weight changed over a range, per week; a range
 that spans less than a week has none.
 
 **BMR** is Mifflin-St Jeor over profile and latest weight, with the age on the date. **TDEE** is
