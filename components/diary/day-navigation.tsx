@@ -64,7 +64,7 @@ export function DayNavigation({
         <IconChevronLeft className="size-5" />
         <span className="sr-only">Previous day</span>
       </Button>
-      <div className="relative">
+      <div className="relative overflow-hidden rounded-md">
         <label
           htmlFor={id}
           className="flex h-11 min-w-24 items-center justify-center rounded-md px-2 font-medium text-sm hover:bg-muted"
@@ -83,7 +83,7 @@ export function DayNavigation({
               onDateChange(event.target.value);
             }
           }}
-          className="absolute inset-0 cursor-pointer opacity-0"
+          className="absolute inset-0 min-w-0 cursor-pointer appearance-none opacity-0"
         />
       </div>
       <Button
