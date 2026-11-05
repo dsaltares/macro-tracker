@@ -107,6 +107,21 @@ describe('food search order', () => {
     );
   });
 
+  it('ranks the exact name first whatever its case and punctuation', async () => {
+    await insertReferenceFoods([
+      'Chicken breast, grilled',
+      'Chicken breast fillets',
+      'CHICKEN-BREAST',
+    ]);
+
+    const { foods } = await searchFoods(
+      { db: database(), userId: null },
+      { query: 'chicken breast', cursor: 0 },
+    );
+
+    expect(foods.map(({ name }) => name)[0]).toBe('CHICKEN-BREAST');
+  });
+
   it('ranks a name holding every word whole above one matching a word as a prefix', async () => {
     await insertReferenceFoods([
       'Dark chocolatey spread',

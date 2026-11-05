@@ -9,10 +9,13 @@ const busyTimeoutMs = 5000;
 // A checkpoint truncates the WAL back to this, so one long import doesn't leave it hundreds of
 // megabytes long.
 const walSizeLimitBytes = 64 * 1024 * 1024;
-const bulkCacheKib = 256 * 1024;
+// Room for the full-text index (about 115 MB), of which food search reads thousands of pages for
+// a common word; at SQLite's default 2 MB each search read them again from disk. Pages fill in as
+// they're read, so a connection that never searches doesn't use it.
+const cacheKib = 256 * 1024;
 
 export type DatabaseOptions = {
-  // For the food importer's own connection: a large page cache, and no fsync on each commit
+  // For the food importer's own connection: no fsync on each commit
   // (WAL stays consistent; a power cut may lose the last batches, which the next run rewrites).
   bulkWrites?: boolean;
 };
@@ -29,9 +32,9 @@ export const createDatabase = (
   database.pragma(`busy_timeout = ${busyTimeoutMs}`);
   database.pragma('foreign_keys = ON');
   database.pragma(`journal_size_limit = ${walSizeLimitBytes}`);
+  database.pragma(`cache_size = -${cacheKib}`);
   if (bulkWrites) {
     database.pragma('synchronous = NORMAL');
-    database.pragma(`cache_size = -${bulkCacheKib}`);
   }
   return new Kysely<Database>({
     dialect: new SqliteDialect({ database }),

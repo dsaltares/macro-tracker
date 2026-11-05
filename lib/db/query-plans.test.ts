@@ -269,6 +269,18 @@ describe('query plans', () => {
     expect(scansOf(plan, ['foods', 'food_nutrients'])).toEqual([]);
   });
 
+  it('ranks the matches without reading their foods, only the page’s', () => {
+    const plan = planOf(
+      searchQuery(db, null, { match: '"nut"*', terms: ['nut'] }, 0).compile(),
+    );
+
+    expect(
+      plan.filter((step) =>
+        /^SEARCH foods USING INTEGER PRIMARY KEY/.test(step),
+      ),
+    ).toHaveLength(1);
+  });
+
   it("searches a user's foods and enabled sources without a scan", () => {
     expectNoScan(
       searchQuery(db, 'u', { match: '"nut"*', terms: ['nut'] }, 30).compile(),

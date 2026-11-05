@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import { Worker } from 'node:worker_threads';
+import { getDatabase } from '../db/client.ts';
 import type { FoodImportStart } from '../db/food-imports.ts';
+import { warmFoodSearchInBackground } from '../db/search-warmup.ts';
 import { getLogger } from '../logger.ts';
 import { type ImportFoodsOptions, launchFoodImport } from './import-foods.ts';
 import type { ImportWorkerData, ImportWorkerMessage } from './import-worker.ts';
@@ -58,6 +60,8 @@ export const serverFoodImport: StartFoodImport = (sources) =>
       }
     });
     worker.on('exit', (code) => {
+      // The import's writes, from the worker's own connection, emptied this one's page cache.
+      warmFoodSearchInBackground(getDatabase());
       if (!answered) {
         reject(new Error(`The food import worker exited with ${code}`));
       }

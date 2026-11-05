@@ -220,8 +220,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   plumbing, not part of `/api/v1`. The route in `app/api/internal/` only wires it to the server.
 - `lib/db/` — SQLite through Kysely (ADR [0001](docs/adr/0001-one-container-sqlite-on-a-volume.md)).
   `createDatabase(url, { bulkWrites })` opens a connection with WAL, foreign keys, a busy timeout
-  and a 64 MB WAL size limit; `bulkWrites`, for the importer's connection, adds a 256 MB page
-  cache and `synchronous = NORMAL`. Ids are `v7` from `uuid`: they sort in the order they were made,
+  and a 64 MB WAL size limit and a 256 MB page cache, room for the full-text index food search
+  reads; `bulkWrites`, for the importer's connection, adds `synchronous = NORMAL`. Ids are `v7` from `uuid`: they sort in the order they were made,
   so inserts append to the indexes on them instead of scattering;
   `DATABASE_URL` is read in `url.ts` and nowhere else. The typed `Database` is in `schema.ts`.
   Migrations are an ordered map of static imports in `migrator.ts`, never a directory read —
@@ -243,11 +243,15 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the name starting with them, every word whole, then only as prefixes), then by `bm25` with the
   name and original name weighted over the brand, offset-paged 30 at a
   time. A short prefix matches hundreds of thousands of foods, so `searchQuery` ranks in the
-  index alone: the tiers are rowid sets of `name : ^"…"` and `name : (…)` matches, and what
+  index alone: the tiers are rowid sets of `name : ^"…"` and `name : (…)` matches, the exact
+  name one of the first whose name token count, the first byte of its `foods_fts_docsize` row
+  (which `bm25` reads anyway), is the query's word count, and what
   search never shows (archived, other users', disabled sources) is a small rowid set by index
   (`foods_archived`, `foods_owner_user_id`, `foods_live_source`); only the page is joined to
   `foods` and `food_nutrients`. `food.mine` keeps the per-row `matchTier`, over the caller's
-  foods alone. Every search logs its match, cursor, rows and milliseconds at debug level, which
+  foods alone. A common word still reads thousands of index pages, so `search-warmup.ts` reads the
+  whole index (about 115 MB) into the page cache in small chunks, yielding between them, at boot
+  and after each food import, whose writes from the worker's connection empty the cache. Every search logs its match, cursor, rows and milliseconds at debug level, which
   production's `info` level leaves out. A user food is visible only through `owner_user_id` on the statement; user portions only
   through `user_id`. `food-source-preferences.ts` lists the reference sources with their live
   food counts and saves a user's generic source preferences; search drops a disabled source in a
@@ -464,8 +468,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `ExportSettings` (`components/settings/`) is Settings › Export: a date range and the three
   downloads.
 - `instrumentation.ts` — migrates the database to the latest version when the server boots, so
-  the container needs nothing run before it, fails imports a restart interrupted, and starts the
-  food import schedule. Anything else that must start with the server goes
+  the container needs nothing run before it, fails imports a restart interrupted, reads the food
+  search index into the cache in the background, and starts the food import schedule. Anything else that must start with the server goes
   here too.
 - `lib/auth/` — Better Auth (ADR [0006](docs/adr/0006-sessions-only-for-a-confirmed-address.md)).
   `createAuth({ db, secret, baseUrl, sendEmail, limitRequests })` over the Kysely instance, served
