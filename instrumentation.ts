@@ -8,6 +8,9 @@ export const register = async () => {
   const { getLogger } = await import('./lib/logger.ts');
   const { migrateToLatest } = await import('./lib/db/migrator.ts');
   const { getDatabase } = await import('./lib/db/client.ts');
+  const { warmFoodSearchInBackground } = await import(
+    './lib/db/search-warmup.ts'
+  );
   const { failInterruptedFoodImports } = await import(
     './lib/db/food-imports.ts'
   );
@@ -24,6 +27,7 @@ export const register = async () => {
   const logger = getLogger('db');
   const applied = await migrateToLatest();
   logger.info({ applied }, 'Database migrated');
+  warmFoodSearchInBackground(getDatabase());
   const interrupted = await failInterruptedFoodImports(getDatabase(), () =>
     new Date().toISOString(),
   );

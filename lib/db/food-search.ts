@@ -182,14 +182,23 @@ export const searchMatch = (query: string): SearchMatch | null => {
 const inFoodsFts = (match: string) =>
   sql<boolean>`foods_fts.rowid in (select rowid from foods_fts where foods_fts match ${match})`;
 
-// matchTier, from the full-text index: a short prefix matches hundreds of thousands of foods,
-// and working out the name's words of each of them took seconds.
+// The first byte of a docsize row is the name's token count, a varint and so a single byte under
+// 128. bm25 reads that row for every match anyway.
+const nameTokenCount = sql`(
+  select substr(foods_fts_docsize.sz, 1, 1) from foods_fts_docsize
+  where foods_fts_docsize.id = foods_fts.rowid
+)`;
+
+const singleByteVarint = (count: number) =>
+  count < 0x80 ? Buffer.from([count]) : null;
+
+// matchTier, from the full-text index alone: a name starting with the terms and holding no other
+// token is the terms. Reading each such food's row to compare its name took thousands of random
+// page reads for a common word.
 const ftsMatchTier = (terms: readonly string[]) =>
   sql`case
     when ${inFoodsFts(nameStartsWithExpression(terms))} then (
-      case when (
-        select ${nameWords} from foods where foods.rowid = foods_fts.rowid
-      ) = ${wholeWord(terms)} then 0 else 1 end
+      case when ${nameTokenCount} = ${singleByteVarint(terms.length)} then 0 else 1 end
     )
     when ${inFoodsFts(nameHoldsEveryWordExpression(terms))} then 2
     else 3
