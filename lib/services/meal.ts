@@ -13,7 +13,7 @@ import {
   timeSchema,
 } from './diary.ts';
 
-export const maxMealItems = 50;
+export const maxMealItems = 1000;
 
 export const mealEntrySchema = z.discriminatedUnion('kind', [
   z.strictObject({
