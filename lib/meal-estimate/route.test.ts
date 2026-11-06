@@ -9,7 +9,11 @@ import {
   maxMealPhotos,
 } from '../domain/diary/meal-estimate.ts';
 import { maxPhotoBytes } from '../photo-upload.ts';
-import { maxMealEstimateBytes, mealEstimateRoute } from './route.ts';
+import {
+  keepAliveMs,
+  maxMealEstimateBytes,
+  mealEstimateRoute,
+} from './route.ts';
 
 const signedInHeader = 'x-test-user';
 
@@ -179,7 +183,9 @@ describe('the meal estimate route', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe(
+      'no-store, no-transform',
+    );
     const answered = await response.json();
     expect(answered).toMatchObject({
       items: [
@@ -205,6 +211,7 @@ describe('the meal estimate route', () => {
         getFood: expect.any(Function),
         resolveMatches: expect.any(Function),
       }),
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -330,21 +337,16 @@ describe('the meal estimate route', () => {
     expect(estimateMeal).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['unreadable', 422],
-    ['rejected', 422],
-    ['rate-limited', 429],
-    ['unavailable', 503],
-  ] as const)(
-    'answers %s with %i, logged without the photos',
-    async (failure, status) => {
+  it.each(['unreadable', 'rejected', 'rate-limited', 'unavailable'] as const)(
+    'streams %s as the error of a 200, logged without the photos',
+    async (failure) => {
       const { handle, warn } = route(
         estimates({ estimated: false, failure, message: 'It failed' }),
       );
 
       const response = await handle(post());
 
-      expect(response.status).toBe(status);
+      expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ error: failure });
       expect(warn).toHaveBeenCalledWith(
         { userId: 'user-1', failure, error: 'It failed' },
@@ -352,4 +354,54 @@ describe('the meal estimate route', () => {
       );
     },
   );
+
+  it('streams unavailable when the estimate throws', async () => {
+    const response = await route(async () => {
+      throw new Error('The database went away');
+    }).handle(post());
+
+    expect(await response.json()).toEqual({ error: 'unavailable' });
+  });
+
+  it('keeps the answer alive with whitespace while the estimator works', async () => {
+    vi.useFakeTimers();
+    try {
+      let finish = (_: MealEstimateResult) => {};
+      const response = await route(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      ).handle(post());
+      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+      const decoder = new TextDecoder();
+
+      expect(decoder.decode((await reader.read()).value)).toBe('\n');
+      await vi.advanceTimersByTimeAsync(keepAliveMs * 2);
+      expect(decoder.decode((await reader.read()).value)).toBe('\n');
+      expect(decoder.decode((await reader.read()).value)).toBe('\n');
+
+      finish({ estimated: false, failure: 'unreadable', message: 'No' });
+      expect(decoder.decode((await reader.read()).value)).toBe(
+        '{"error":"unreadable"}',
+      );
+      expect((await reader.read()).done).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts the estimate when the browser goes away', async () => {
+    let signal: AbortSignal | undefined;
+    const response = await route(
+      (request) =>
+        new Promise(() => {
+          signal = request.signal;
+        }),
+    ).handle(post());
+
+    await response.body?.cancel();
+
+    expect(signal?.aborted).toBe(true);
+  });
 });

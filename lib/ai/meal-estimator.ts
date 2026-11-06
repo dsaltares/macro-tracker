@@ -59,6 +59,8 @@ export type MealEstimateRequest = {
   description: string | null;
   foods: MealEstimatorFoods;
   previous?: PreviousEstimate;
+  // Aborted when the browser goes away, so the model stops spending on an answer nobody reads.
+  signal?: AbortSignal;
 };
 
 export type MealEstimateResult =
@@ -130,7 +132,7 @@ const messagesOf = ({
 
 const estimateWith = (
   model: LanguageModel,
-  { foods }: MealEstimateRequest,
+  { foods, signal }: MealEstimateRequest,
   messages: ModelMessage[],
   maxSteps: number,
 ) =>
@@ -141,6 +143,7 @@ const estimateWith = (
     tools: toolsOver(foods),
     stopWhen: stepCountIs(maxSteps),
     messages,
+    ...(signal === undefined ? {} : { abortSignal: signal }),
   });
 
 export const createMealEstimator = ({
