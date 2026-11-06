@@ -45,6 +45,9 @@ const formOf = ({ photos, description, previous }: MealToEstimate) => {
   return form;
 };
 
+const hasError = (body: unknown) =>
+  typeof body !== 'object' || body === null || 'error' in body;
+
 export const requestMealEstimate = async (
   meal: MealToEstimate,
   onProgress: UploadProgress,
@@ -57,7 +60,9 @@ export const requestMealEstimate = async (
   if (!answer.answered) {
     return { estimated: false, error: 'offline' };
   }
-  return answer.ok
+  // The route answers 200 as soon as the photos are valid and streams the estimate after, so a
+  // failure of the estimator comes as `{ error }` with that 200.
+  return answer.ok && !hasError(answer.body)
     ? { estimated: true, draft: answer.body as MealDraft }
     : { estimated: false, error: errorOf<EstimateError>(answer.body) };
 };

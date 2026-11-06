@@ -332,7 +332,12 @@ describe('MealPhotoStep', () => {
   });
 
   it('offers no retry when the photos were refused', async () => {
-    answering(HttpResponse.json({ error: 'rejected' }, { status: 422 }));
+    // The route streams the estimator's failure after a 200, behind keep-alive whitespace.
+    answering(
+      new HttpResponse('\n\n{"error":"rejected"}', {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
     const { user } = renderSheet();
 
     await choosePhotosAndDescribe(user);

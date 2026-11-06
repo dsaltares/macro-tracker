@@ -8,6 +8,7 @@ import {
 } from '../db/meal-estimator-foods.ts';
 import type { Database } from '../db/schema.ts';
 import {
+  type MealDraft,
   maxMealDescriptionLength,
   maxMealPhotos,
   mealDraft,
@@ -15,7 +16,6 @@ import {
   previousEstimateSchema,
 } from '../domain/diary/meal-estimate.ts';
 import {
-  aiFailureStatuses,
   declaredLength,
   isJpegOrWebp,
   maxPhotoBytes,
@@ -112,6 +112,59 @@ const fieldsOf = (form: FormData): MealEstimateForm | null => {
     : null;
 };
 
+// A proxy in front of the server, such as Cloudflare's, drops a request whose answer has not
+// started within 100 seconds, and an estimate of many photos can take longer. So once the
+// request is valid the answer starts at once, 200 with whitespace every few seconds, and ends
+// with the draft, or with the estimator's failure as `{ error }`. Whitespace before a JSON value
+// is still JSON, so the browser parses the body as it is.
+export const keepAliveMs = 10_000;
+
+const encoder = new TextEncoder();
+
+const keepAlive = encoder.encode('\n');
+
+const streamed = (
+  requestSignal: AbortSignal,
+  logger: Logger,
+  answer: (signal: AbortSignal) => Promise<MealDraft | { error: AiFailure }>,
+) => {
+  const closed = new AbortController();
+  const aborted = AbortSignal.any([requestSignal, closed.signal]);
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start: (controller) => {
+      controller.enqueue(keepAlive);
+      timer = setInterval(() => controller.enqueue(keepAlive), keepAliveMs);
+      answer(aborted)
+        .catch((error: unknown) => {
+          logger.error({ err: error }, 'A meal estimate failed');
+          return { error: 'unavailable' as const };
+        })
+        .then((value) => {
+          clearInterval(timer);
+          try {
+            controller.enqueue(encoder.encode(JSON.stringify(value)));
+            controller.close();
+          } catch {
+            // The browser went away and cancelled the stream.
+          }
+        });
+    },
+    cancel: () => {
+      clearInterval(timer);
+      closed.abort();
+    },
+  });
+  return new Response(body, {
+    headers: {
+      'content-type': 'application/json',
+      // no-transform keeps Next's compression and the proxy's from holding the keep-alives back.
+      'cache-control': 'no-store, no-transform',
+      'x-accel-buffering': 'no',
+    },
+  });
+};
+
 export type MealEstimateRouteOptions = {
   estimateMeal: EstimateMeal | null;
   resolveCaller: (headers: Headers) => Promise<Caller | null>;
@@ -154,26 +207,28 @@ export const mealEstimateRoute =
       return failed('UNSUPPORTED_PHOTO', 415);
     }
     const reader = { db, userId: caller.userId };
-    const result = await estimateMeal({
-      photos,
-      description: fields.description,
-      foods: mealEstimatorFoods(reader),
-      ...(fields.previous === undefined ? {} : { previous: fields.previous }),
-    });
-    if (!result.estimated) {
-      logger.warn(
-        {
-          userId: caller.userId,
-          failure: result.failure,
-          error: result.message,
-        },
-        'A meal could not be estimated',
+    return streamed(request.signal, logger, async (aborted) => {
+      const result = await estimateMeal({
+        photos,
+        description: fields.description,
+        foods: mealEstimatorFoods(reader),
+        signal: aborted,
+        ...(fields.previous === undefined ? {} : { previous: fields.previous }),
+      });
+      if (!result.estimated) {
+        logger.warn(
+          {
+            userId: caller.userId,
+            failure: result.failure,
+            error: result.message,
+          },
+          'A meal could not be estimated',
+        );
+        return { error: result.failure };
+      }
+      return mealDraft(
+        result.estimate,
+        await resolveMealMatches(reader, result.estimate),
       );
-      return failed(result.failure, aiFailureStatuses[result.failure]);
-    }
-    const draft = mealDraft(
-      result.estimate,
-      await resolveMealMatches(reader, result.estimate),
-    );
-    return Response.json(draft, { headers: { 'cache-control': 'no-store' } });
+    });
   };

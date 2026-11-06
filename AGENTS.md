@@ -535,7 +535,7 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   failures `failureOf` maps errors to). Tests drive it with `MockLanguageModelV4` from
   `ai/test`. `createMealEstimator({ model })` (`meal-estimator.ts`, ADR
   [0016](docs/adr/0016-estimate-meals-with-an-agent-over-the-users-own-search.md)) is
-  `estimateMeal({ photos, description, foods, previous? })`, which never throws either: the
+  `estimateMeal({ photos, description, foods, previous?, signal? })`, which never throws either: the
   `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10) `unreadable`. It is a tool
   loop with `prompts/meal.ts` and two tools over `foods`, a `MealEstimatorFoods` port:
   `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo. An
@@ -568,8 +568,12 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
   (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
   the estimator is off, `400` on a bad part, `413` for a photo over `maxPhotoBytes`, `415` for one
-  that is not a JPEG or WebP, and otherwise the `MealDraft`, resolved on the server with
-  `mealDraft` over `resolveMealMatches`, or the estimator's failure, logged without the photos.
+  that is not a JPEG or WebP, and otherwise `200` at once, streamed: a newline every `keepAliveMs`
+  (10 s) so a proxy's timeout (Cloudflare's 100 s, a `524`) never fires on a long estimate, then
+  the `MealDraft`, resolved on the server with `mealDraft` over `resolveMealMatches`, or the
+  estimator's failure as `{ error }`, logged without the photos. Leading whitespace is still JSON.
+  `cache-control: no-transform` keeps Next's and the proxy's compression from buffering it. The
+  browser going away cancels the stream and aborts the model through the request's `signal`.
   The route in `app/api/meal-estimate/` only wires it to the server.
 - `components/label-scan/` — `LabelCapture`: *Take a photo* (a file input with
   `capture="environment"`) or *Choose a photo*, shrunk in the browser to 1,600 px on the long edge
