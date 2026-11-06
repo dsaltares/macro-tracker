@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import type { EstimateMeal, MealEstimateResult } from '../ai/meal-estimator.ts';
 import { insertFood } from '../db/foods.ts';
-import type { MealDraft, MealEstimate } from '../domain/diary/meal-estimate.ts';
+import {
+  type MealDraft,
+  type MealEstimate,
+  maxMealPhotos,
+} from '../domain/diary/meal-estimate.ts';
 import { maxPhotoBytes } from '../photo-upload.ts';
 import { maxMealEstimateBytes, mealEstimateRoute } from './route.ts';
 
@@ -242,7 +246,10 @@ describe('the meal estimate route', () => {
 
   it.each([
     ['no photos', { photos: [] }],
-    ['five photos', { photos: [jpeg(), jpeg(), jpeg(), jpeg(), jpeg()] }],
+    [
+      'too many photos',
+      { photos: Array.from({ length: maxMealPhotos + 1 }, () => jpeg()) },
+    ],
     ['a description over 500 characters', { description: 'a'.repeat(501) }],
     ['a previous round that is not JSON', { previous: '{draft' }],
     [

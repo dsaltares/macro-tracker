@@ -17,7 +17,7 @@ export const maxEstimateNoteLength = 300;
 
 export const maxMealDescriptionLength = 500;
 
-export const maxMealPhotos = 4;
+export const maxMealPhotos = 20;
 
 export const maxDraftItemNameLength = 300;
 

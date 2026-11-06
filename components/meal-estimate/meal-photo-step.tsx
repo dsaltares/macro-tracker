@@ -13,7 +13,7 @@ import {
   photoUnusable,
   UploadProgress,
 } from '@/components/label-scan/label-capture';
-import { shrinkPhoto } from '@/components/label-scan/photo';
+import { mealPhoto, shrinkPhoto } from '@/components/label-scan/photo';
 import {
   type EstimateError,
   requestMealEstimate,
@@ -25,8 +25,7 @@ import {
   maxMealPhotos,
 } from '@/lib/domain/diary/meal-estimate';
 
-export const mealCapturePrompt =
-  'Take or choose up to four photos of the meal, from above and in good light.';
+export const mealCapturePrompt = `Take or choose up to ${maxMealPhotos} photos of the meal, from above and in good light.`;
 
 export const descriptionHint = 'two eggs, sourdough, butter, latte';
 
@@ -137,7 +136,7 @@ export function MealPhotoStep({
     const shrunk = await Promise.all(
       originals
         .slice(0, room)
-        .map((original) => shrinkPhoto(original).catch(() => null)),
+        .map((original) => shrinkPhoto(original, mealPhoto).catch(() => null)),
     );
     const usable = shrunk.filter((photo): photo is Blob => photo !== null);
     onPhotosChange([...photos, ...usable.map(photoOf)]);
