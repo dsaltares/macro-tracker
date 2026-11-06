@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiaryDay } from '@/components/diary/diary-day';
 import { FoodSearchSheet } from '@/components/diary/food-search-sheet';
 import { emptyRecipe } from '@/components/diary/recipe-step';
-import { shrinkPhoto } from '@/components/label-scan/photo';
+import { mealPhoto, shrinkPhoto } from '@/components/label-scan/photo';
 import {
   logMealFailed,
   revisedNote,
@@ -26,6 +26,7 @@ import { createRecipe } from '@/lib/db/recipes';
 import {
   type MatchedFood,
   type MealDraft,
+  maxMealPhotos,
   mealDraft,
   mealEstimateSchema,
   previousEstimateSchema,
@@ -260,6 +261,7 @@ describe('MealPhotoStep', () => {
     await choosePhotosAndDescribe(user);
 
     expect(shrinkPhoto).toHaveBeenCalledTimes(2);
+    expect(shrinkPhoto).toHaveBeenCalledWith(expect.any(File), mealPhoto);
     const thumbnails = screen.getByRole('list', { name: 'Photos' });
     expect(within(thumbnails).getAllByRole('img')).toHaveLength(2);
 
@@ -268,7 +270,7 @@ describe('MealPhotoStep', () => {
     expect(within(thumbnails).getAllByRole('img')).toHaveLength(1);
   });
 
-  it('keeps four photos at most and then offers no more', async () => {
+  it('keeps maxMealPhotos photos at most and then offers no more', async () => {
     const { user } = renderSheet();
 
     await user.click(
@@ -276,12 +278,14 @@ describe('MealPhotoStep', () => {
     );
     await user.upload(
       screen.getByLabelText('Choose photos'),
-      ['1', '2', '3', '4', '5'].map((index) => photo(`IMG_000${index}.jpg`)),
+      Array.from({ length: maxMealPhotos + 1 }, (_, index) =>
+        photo(`IMG_${index}.jpg`),
+      ),
     );
 
     expect(
       within(screen.getByRole('list', { name: 'Photos' })).getAllByRole('img'),
-    ).toHaveLength(4);
+    ).toHaveLength(maxMealPhotos);
     expect(screen.queryByLabelText('Choose photos')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Take a photo')).not.toBeInTheDocument();
   });

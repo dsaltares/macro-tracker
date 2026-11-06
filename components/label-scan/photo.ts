@@ -6,7 +6,15 @@ export const longEdgePx = 1600;
 
 const photoQuality = 0.85;
 
-const encode = (canvas: HTMLCanvasElement, type: string) =>
+export type ShrinkOptions = { longEdgePx: number; quality: number };
+
+const labelPhoto: ShrinkOptions = { longEdgePx, quality: photoQuality };
+
+// A meal can take many photos, each sent to the model on every step, so they
+// are smaller than a label's, whose small print has to stay legible.
+export const mealPhoto: ShrinkOptions = { longEdgePx: 1024, quality: 0.75 };
+
+const encode = (canvas: HTMLCanvasElement, type: string, quality: number) =>
   new Promise<Blob>((resolve, reject) =>
     canvas.toBlob(
       (blob) =>
@@ -14,11 +22,14 @@ const encode = (canvas: HTMLCanvasElement, type: string) =>
           ? reject(new Error('The photo could not be encoded'))
           : resolve(blob),
       type,
-      photoQuality,
+      quality,
     ),
   );
 
-export const shrinkPhoto = async (photo: Blob): Promise<Blob> => {
+export const shrinkPhoto = async (
+  photo: Blob,
+  { longEdgePx, quality }: ShrinkOptions = labelPhoto,
+): Promise<Blob> => {
   const bitmap = await createImageBitmap(photo, {
     imageOrientation: 'from-image',
   });
@@ -33,9 +44,11 @@ export const shrinkPhoto = async (photo: Blob): Promise<Blob> => {
   }
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
-  const webp = await encode(canvas, 'image/webp');
+  const webp = await encode(canvas, 'image/webp', quality);
   // Safari cannot encode WebP and hands back a PNG, which the route refuses.
-  return webp.type === 'image/webp' ? webp : encode(canvas, 'image/jpeg');
+  return webp.type === 'image/webp'
+    ? webp
+    : encode(canvas, 'image/jpeg', quality);
 };
 
 export type ScanError = LabelScanError | 'offline';

@@ -562,7 +562,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   with the meal estimate: `maxPhotoBytes`, `isJpegOrWebp`, `readUpTo` and `aiFailureStatuses`.
 - `lib/meal-estimate/route.ts` — `POST /api/meal-estimate`, session-only like label scan.
   `mealEstimateRoute({ estimateMeal, resolveCaller, db, logger })` reads `multipart/form-data` of
-  at most `maxMealEstimateBytes`: one to four `photos` (`maxMealPhotos`, in
+  at most `maxMealEstimateBytes` (32 MB of photos, not `maxMealPhotos` times `maxPhotoBytes`):
+  one to twenty `photos` (`maxMealPhotos`, in
   `lib/domain/diary/meal-estimate.ts` for the browser to read too), an optional
   `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
   (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
@@ -581,9 +582,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   the barcode one while estimation is on (`getMealEstimator()`, passed down from the diary page
   as `mealEstimates`). It keeps the photos and description while it switches between
   `MealPhotoStep` (*Take a photo* or *Choose photos*, up to `maxMealPhotos`, each through
-  `shrinkPhoto` with a thumbnail and remove, a description, *Estimate*: `requestMealEstimate`
-  (`estimate.ts`) posts the form to `/api/meal-estimate` with upload progress, then *Looking at
-  your meal…*; failures as `LabelCapture` shows them, *Try again* keeping the photos) and
+  `shrinkPhoto` with `mealPhoto` (1,024 px at quality 0.75, smaller than a label's), with a
+  thumbnail and remove, a description, *Estimate*: `requestMealEstimate` (`estimate.ts`) posts
+  the form to `/api/meal-estimate` with upload progress, then *Looking at your meal…*; failures
+  as `LabelCapture` shows them, *Try again* keeping the photos) and
   `MealDraftReview`: the totals of the draft over one row per item (name, source badge, *Recipe*
   or *Estimate*, grams, kcal), unsure and unresolved rows flagged *Check* with their notes. A
   row opens its amount (`draft-item-editors.tsx`: `EntryForm` with `amountOnly` for a food or a

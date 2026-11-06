@@ -25,8 +25,11 @@ import type { Caller } from '../trpc/context.ts';
 
 const maxFieldBytes = 256 * 1024;
 
-export const maxMealEstimateBytes =
-  maxMealPhotos * maxPhotoBytes + maxFieldBytes;
+// The browser shrinks each meal photo to a few hundred kilobytes, so the whole
+// request is capped well under maxMealPhotos * maxPhotoBytes, which is held in memory.
+const maxMealPhotosBytes = 32 * 1024 * 1024;
+
+export const maxMealEstimateBytes = maxMealPhotosBytes + maxFieldBytes;
 
 export type MealEstimateError =
   | 'UNAUTHORIZED'
