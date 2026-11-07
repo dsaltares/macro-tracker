@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dayTotals,
   entryKinds,
+  hasMainMeals,
   mealAtHour,
   meals,
   mealTotals,
@@ -154,6 +155,38 @@ describe('dayTotals', () => {
 
   it('is empty for a day with nothing logged', () => {
     expect(dayTotals([])).toEqual({});
+  });
+});
+
+describe('hasMainMeals', () => {
+  it('needs breakfast, lunch and dinner, with or without a snack', () => {
+    expect(
+      hasMainMeals([
+        { meal: 'dinner' },
+        { meal: 'breakfast' },
+        { meal: 'lunch' },
+      ]),
+    ).toBe(true);
+    expect(
+      hasMainMeals([
+        { meal: 'breakfast' },
+        { meal: 'lunch' },
+        { meal: 'dinner' },
+        { meal: 'snack' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('is false while a main meal is missing, whatever the snacks', () => {
+    expect(hasMainMeals(entries)).toBe(false);
+    expect(
+      hasMainMeals([
+        { meal: 'breakfast' },
+        { meal: 'lunch' },
+        { meal: 'snack' },
+      ]),
+    ).toBe(false);
+    expect(hasMainMeals([])).toBe(false);
   });
 });
 

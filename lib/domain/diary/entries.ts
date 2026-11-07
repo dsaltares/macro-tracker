@@ -10,6 +10,11 @@ export const meals = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 
 export type Meal = (typeof meals)[number];
 
+export const mainMeals = ['breakfast', 'lunch', 'dinner'] as const;
+
+export const hasMainMeals = (entries: readonly { meal: Meal }[]) =>
+  mainMeals.every((meal) => entries.some((entry) => entry.meal === meal));
+
 const mealEndHours = [
   [11, 'breakfast'],
   [16, 'lunch'],
