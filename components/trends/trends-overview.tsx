@@ -11,6 +11,7 @@ import { ChartSkeleton } from '@/components/chart-skeleton';
 import { nutrientNames } from '@/components/nutrients/nutrient-names';
 import { formatShare } from '@/components/nutrients/progress';
 import { macros } from '@/components/trends/macros';
+import { useTrendEnd } from '@/components/trends/use-trend-end';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useToday } from '@/components/use-today';
 import {
@@ -114,12 +115,13 @@ const macroSummary = (average: NutrientVector) =>
 export function TrendsOverview() {
   const trpc = useTRPC();
   const today = useToday();
+  const end = useTrendEnd();
   const [range, setRange] = useState<TrendRangeOption>(defaultRange);
   const trend = useQuery({
     ...trpc.trends.range.queryOptions(
-      today === null
+      end === null
         ? skipToken
-        : { from: addDays(today, 1 - range.days), to: today },
+        : { from: addDays(end, 1 - range.days), to: end },
     ),
     placeholderData: keepPreviousData,
   });
@@ -131,7 +133,7 @@ export function TrendsOverview() {
     if (trend.isError) {
       return <FormError>{loadFailed}</FormError>;
     }
-    if (today === null || trend.isPending) {
+    if (today === null || end === null || trend.isPending) {
       return <p className="text-muted-foreground text-sm">Loading…</p>;
     }
     const days = trend.data.days;

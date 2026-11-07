@@ -6,7 +6,8 @@ import {
 } from '@/components/nutrients/nutrient-report';
 import { noData } from '@/components/nutrients/nutrient-rows';
 import { insertDiaryEntry } from '@/lib/db/diary';
-import { addDays, localDateOf } from '@/lib/domain/dates';
+import { addDays, formatDay, localDateOf } from '@/lib/domain/dates';
+import type { Meal } from '@/lib/domain/diary/entries';
 import type { NutrientVector } from '@/lib/domain/nutrition/vector';
 import { serveApi } from '@/test/api';
 import { seedManualGoal } from '@/test/diary';
@@ -18,16 +19,20 @@ const today = localDateOf(new Date());
 
 let seeded = 0;
 
-const logQuick = (daysAgo: number, nutrients: NutrientVector) =>
+const logQuick = (
+  daysAgo: number,
+  nutrients: NutrientVector,
+  meal: Meal = 'dinner',
+) =>
   insertDiaryEntry(
     api.database(),
     'user-1',
     {
       kind: 'quick',
       date: addDays(today, -daysAgo),
-      meal: 'dinner',
+      meal,
       time: null,
-      label: 'Dinner',
+      label: meal,
       nutrients,
     },
     {
@@ -41,6 +46,8 @@ const seedMonth = async () => {
   await logQuick(20, { energy_kcal: 1800, vitamin_c: 30 });
   await logQuick(10, { energy_kcal: 2200, protein: 100 });
   await logQuick(0, { energy_kcal: 2000 });
+  await logQuick(0, {}, 'breakfast');
+  await logQuick(0, {}, 'lunch');
   await logQuick(40, { energy_kcal: 9000, iron: 100 });
 };
 
@@ -115,6 +122,20 @@ describe('NutrientReport', () => {
       await screen.findByText(/over the 4 days logged/),
     ).toBeInTheDocument();
     expect(row('Iron')).toHaveTextContent('Data on 1 of 4 days');
+  });
+
+  it('ends the range yesterday while today misses breakfast, lunch or dinner', async () => {
+    await logQuick(0, { energy_kcal: 600 }, 'breakfast');
+    await logQuick(0, { energy_kcal: 300 }, 'snack');
+    await logQuick(1, { energy_kcal: 2000 });
+    render();
+
+    expect(
+      await screen.findByText(
+        `Daily averages over the 1 day logged from ${formatDay(addDays(today, -30))} to ${formatDay(addDays(today, -1))}. Days with nothing logged are left out.`,
+      ),
+    ).toBeInTheDocument();
+    expect(row('Energy')).toHaveTextContent('2,000 kcal');
   });
 
   it('says so when nothing is logged in the range', async () => {

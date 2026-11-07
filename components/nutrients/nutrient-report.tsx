@@ -7,9 +7,9 @@ import {
   NutrientGroups,
   NutrientList,
 } from '@/components/nutrients/nutrient-rows';
+import { useTrendEnd } from '@/components/trends/use-trend-end';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { useToday } from '@/components/use-today';
 import { addDays, formatDay } from '@/lib/domain/dates';
 import {
   byShare,
@@ -87,18 +87,18 @@ function Choice<Option extends { id: string; label: string }>({
 }
 
 function Report({
-  today,
+  end,
   range,
   order,
 }: {
-  today: string;
+  end: string;
   range: ReportRange;
   order: Order;
 }) {
   const trpc = useTRPC();
-  const from = addDays(today, 1 - range.days);
+  const from = addDays(end, 1 - range.days);
   const report = useQuery(
-    trpc.trends.nutrients.queryOptions({ from, to: today }),
+    trpc.trends.nutrients.queryOptions({ from, to: end }),
   );
 
   if (report.isPending) {
@@ -126,8 +126,8 @@ function Report({
     <div className="flex flex-col gap-6">
       <p className="text-muted-foreground text-sm">
         Daily averages over the {daysOf(loggedDays)} logged from{' '}
-        {formatDay(from)} to {formatDay(today)}. Days with nothing logged are
-        left out.
+        {formatDay(from)} to {formatDay(end)}. Days with nothing logged are left
+        out.
       </p>
       {order === 'share' ? (
         <NutrientList rows={byShare(rows)} noteOf={noteOf} />
@@ -139,7 +139,7 @@ function Report({
 }
 
 export function NutrientReport() {
-  const today = useToday();
+  const end = useTrendEnd();
   const [range, setRange] = useState<ReportRange>(defaultRange);
   const [order, setOrder] = useState<Order>('group');
 
@@ -159,10 +159,10 @@ export function NutrientReport() {
           onChange={({ id }) => setOrder(id)}
         />
       </div>
-      {today === null ? (
+      {end === null ? (
         <ReportSkeleton />
       ) : (
-        <Report today={today} range={range} order={order} />
+        <Report end={end} range={range} order={order} />
       )}
     </div>
   );

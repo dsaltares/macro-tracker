@@ -7,6 +7,7 @@ import {
 import { logMeasurement } from '@/lib/db/body-measurements';
 import { insertDiaryEntry } from '@/lib/db/diary';
 import { addDays, formatDay, localDateOf } from '@/lib/domain/dates';
+import { type Meal, mainMeals } from '@/lib/domain/diary/entries';
 import type { NutrientVector } from '@/lib/domain/nutrition/vector';
 import { routes } from '@/lib/routes';
 import { serveApi } from '@/test/api';
@@ -22,20 +23,20 @@ const seeding = (id: string) => ({
   now: () => '2026-10-20T08:00:00.000Z',
 });
 
-const logDay = (date: string, nutrients: NutrientVector) =>
+const logMeal = (date: string, meal: Meal, nutrients: NutrientVector) =>
   insertDiaryEntry(
     api.database(),
     'user-1',
-    {
-      kind: 'quick',
-      date,
-      meal: 'lunch',
-      time: null,
-      label: 'Lunch',
-      nutrients,
-    },
-    seeding(`entry-${date}`),
+    { kind: 'quick', date, meal, time: null, label: meal, nutrients },
+    seeding(`entry-${date}-${meal}`),
   );
+
+const logDay = async (date: string, nutrients: NutrientVector) => {
+  await logMeal(date, 'lunch', nutrients);
+  for (const meal of mainMeals.filter((main) => main !== 'lunch')) {
+    await logMeal(date, meal, {});
+  }
+};
 
 const logWeight = (date: string, value: number) =>
   logMeasurement(
@@ -132,6 +133,41 @@ describe('TrendsOverview', () => {
     await user.click(screen.getByRole('button', { name: '90 days' }));
     expect(await screen.findByText('3 of 90 days logged')).toBeInTheDocument();
     expect(shown('Average energy')).toBe('1,800 kcal');
+  });
+
+  it('ends every range yesterday while today misses breakfast, lunch or dinner', async () => {
+    await logDay(addDays(today, -1), { energy_kcal: 2400 });
+    await logMeal(today, 'breakfast', { energy_kcal: 500 });
+    await logMeal(today, 'lunch', { energy_kcal: 700 });
+    await logMeal(today, 'snack', { energy_kcal: 200 });
+    const { user } = render();
+
+    expect(await screen.findByText('1 of 30 days logged')).toBeInTheDocument();
+    expect(shown('Average energy')).toBe('2,400 kcal');
+    expect(figureIn('Energy')).toHaveAccessibleName(
+      new RegExp(
+        `^From ${formatDay(addDays(today, -30))} to ${formatDay(addDays(today, -1))}: `,
+      ),
+    );
+
+    await user.click(screen.getByRole('button', { name: '7 days' }));
+    expect(await screen.findByText('1 of 7 days logged')).toBeInTheDocument();
+    expect(figureIn('Energy')).toHaveAccessibleName(
+      new RegExp(
+        `^From ${formatDay(addDays(today, -7))} to ${formatDay(addDays(today, -1))}: `,
+      ),
+    );
+  });
+
+  it('counts today once breakfast, lunch and dinner are logged, snack or not', async () => {
+    await logDay(addDays(today, -1), { energy_kcal: 2400 });
+    await logMeal(today, 'breakfast', { energy_kcal: 500 });
+    await logMeal(today, 'lunch', { energy_kcal: 700 });
+    await logMeal(today, 'dinner', { energy_kcal: 800 });
+    render();
+
+    expect(await screen.findByText('2 of 30 days logged')).toBeInTheDocument();
+    expect(shown('Average energy')).toBe('2,200 kcal');
   });
 
   it('leaves out the charts of a range with nothing logged', async () => {

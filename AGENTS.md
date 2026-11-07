@@ -90,7 +90,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   and `isDate` work at UTC midnight, so a change of clocks never moves a day.
 - `lib/domain/diary/entries.ts` — the meals in order and the entry kinds; `resolveEntry(food,
   portion, quantity)` and `quickEntryNutrients` resolve a snapshot, filling missing energy from
-  the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots. Coverage on
+  the macros (`withEnergy`); `mealTotals` and `dayTotals` sum snapshots; `hasMainMeals` is whether
+  entries cover breakfast, lunch and dinner (`mainMeals`). Coverage on
   `lib/domain/diary/` is gated at 100%.
 - `lib/domain/diary/meal-estimate.ts` — `mealEstimateSchema`, what the meal estimator answers:
   `items`, each `{ kind, name, grams, confidence, note }` with a `food` (`foodId`, an optional
@@ -690,7 +691,9 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `node_modules/zxing-wasm/dist/reader/zxing_reader.wasm` there. Component tests fake the camera
   and the detector with `fakeCamera` (`test/camera.ts`).
 - `app/(app)/trends/` — `TrendsOverview` (`components/trends/`): range chips (7, 30 or 90 days
-  ending today, 30 by default) over `trends.range`, kept on screen while the next range loads. A
+  ending on `useTrendEnd()` — today once its breakfast, lunch and dinner are logged, yesterday
+  until then, snacks aside, so a day still being logged never drags the averages down; the
+  nutrient report ends there too — 30 by default) over `trends.range`, kept on screen while the next range loads. A
   summary (the averages of energy and the macros over the logged days, adherence and the weekly
   rate of the trend weight in the range, and a link to the nutrient report), then, with a logged day in the range, the Energy chart
   (daily kcal bars, the goal as a dashed step line, the rolling average) and the Macros chart
