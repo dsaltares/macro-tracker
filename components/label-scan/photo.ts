@@ -65,15 +65,18 @@ export type Answer =
   | { answered: true; ok: boolean; body: unknown }
   | { answered: false };
 
+// With onText the answer is read as text, handed over each time more of it arrives, for an
+// answer the server streams; otherwise it is parsed as JSON once it is all in.
 export const postWithProgress = (
   url: string,
   body: Blob | FormData,
   onProgress: UploadProgress,
+  onText?: (text: string) => void,
 ) =>
   new Promise<Answer>((resolve) => {
     const request = new XMLHttpRequest();
     request.open('POST', url);
-    request.responseType = 'json';
+    request.responseType = onText === undefined ? 'json' : 'text';
     if (body instanceof Blob) {
       request.setRequestHeader('content-type', body.type);
     }
@@ -83,12 +86,17 @@ export const postWithProgress = (
       }
     };
     request.upload.onload = () => onProgress(1);
-    request.onload = () =>
+    if (onText !== undefined) {
+      request.onprogress = () => onText(request.responseText);
+    }
+    request.onload = () => {
+      onText?.(request.responseText);
       resolve({
         answered: true,
         ok: request.status === ok,
         body: request.response,
       });
+    };
     request.onerror = () => resolve({ answered: false });
     request.send(body);
   });

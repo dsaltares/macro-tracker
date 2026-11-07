@@ -186,7 +186,8 @@ describe('the meal estimate route', () => {
     expect(response.headers.get('cache-control')).toBe(
       'no-store, no-transform',
     );
-    const answered = await response.json();
+    expect(response.headers.get('content-type')).toBe('application/x-ndjson');
+    const { draft: answered } = await response.json();
     expect(answered).toMatchObject({
       items: [
         {
@@ -212,6 +213,7 @@ describe('the meal estimate route', () => {
         resolveMatches: expect.any(Function),
       }),
       signal: expect.any(AbortSignal),
+      onProgress: expect.any(Function),
     });
   });
 
@@ -219,9 +221,31 @@ describe('the meal estimate route', () => {
     const response = await route().handle(post({}, 'user-2'));
 
     expect(await response.json()).toMatchObject({
-      items: [{ kind: 'guess', name: 'Oats', unresolved: true, nutrients: {} }],
-      totals: {},
+      draft: {
+        items: [
+          { kind: 'guess', name: 'Oats', unresolved: true, nutrients: {} },
+        ],
+        totals: {},
+      },
     });
+  });
+
+  it('streams a line for each thing the estimator does before the draft', async () => {
+    const response = await route(async ({ onProgress }) => {
+      onProgress?.({ kind: 'thinking', text: 'Porridge.' });
+      onProgress?.({ kind: 'searching', query: 'oats' });
+      return { estimated: true, estimate };
+    }).handle(post());
+
+    const lines = (await response.text())
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line));
+    expect(lines).toMatchObject([
+      { progress: { kind: 'thinking', text: 'Porridge.' } },
+      { progress: { kind: 'searching', query: 'oats' } },
+      { draft: { items: [{ name: 'Rolled oats' }] } },
+    ]);
   });
 
   it("gives the estimator the caller's foods", async () => {
@@ -363,7 +387,7 @@ describe('the meal estimate route', () => {
     expect(await response.json()).toEqual({ error: 'unavailable' });
   });
 
-  it('keeps the answer alive with whitespace while the estimator works', async () => {
+  it('keeps the answer alive with blank lines while the estimator works', async () => {
     vi.useFakeTimers();
     try {
       let finish = (_: MealEstimateResult) => {};
@@ -383,7 +407,7 @@ describe('the meal estimate route', () => {
 
       finish({ estimated: false, failure: 'unreadable', message: 'No' });
       expect(decoder.decode((await reader.read()).value)).toBe(
-        '{"error":"unreadable"}',
+        '{"error":"unreadable"}\n',
       );
       expect((await reader.read()).done).toBe(true);
     } finally {

@@ -8,6 +8,10 @@ import {
   requestMealEstimate,
 } from '@/components/meal-estimate/estimate';
 import {
+  EstimateActivity,
+  useEstimateActivity,
+} from '@/components/meal-estimate/estimate-activity';
+import {
   estimateErrorMessages,
   type MealPhoto,
 } from '@/components/meal-estimate/meal-photo-step';
@@ -48,9 +52,11 @@ export function MealFeedback({
   const [state, setState] = useState<FeedbackState>({ step: 'writing' });
   const busy = state.step === 'uploading' || state.step === 'revising';
   const spent = roundsLeft <= 0;
+  const { activity, onEstimating, reset } = useEstimateActivity();
 
   const send = async () => {
     const sent = draft;
+    reset();
     setState({ step: 'uploading', sent: 0 });
     const result = await requestMealEstimate(
       {
@@ -64,6 +70,7 @@ export function MealFeedback({
             ? { step: 'uploading', sent: progress }
             : { step: 'revising' },
         ),
+      onEstimating,
     );
     if (result.estimated) {
       onRevised(sent, result.draft);
@@ -92,9 +99,7 @@ export function MealFeedback({
         <UploadProgress sent={state.sent} label="Sending the photos" />
       ) : null}
       {state.step === 'revising' ? (
-        <p role="status" className="text-center text-muted-foreground text-sm">
-          Revising the meal…
-        </p>
+        <EstimateActivity activity={activity} idle="Revising the meal" />
       ) : null}
       {busy ? null : (
         <Button

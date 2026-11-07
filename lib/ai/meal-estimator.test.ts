@@ -1,6 +1,9 @@
-import type { LanguageModelV4GenerateResult } from '@ai-sdk/provider';
+import type {
+  LanguageModelV4GenerateResult,
+  LanguageModelV4StreamPart,
+} from '@ai-sdk/provider';
 import { APICallError } from 'ai';
-import { MockLanguageModelV4 } from 'ai/test';
+import { convertArrayToReadableStream, MockLanguageModelV4 } from 'ai/test';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import { insertFood } from '../db/foods.ts';
@@ -76,12 +79,55 @@ const callingTool = (
   warnings: [],
 });
 
+const thinkingFirst = (
+  text: string,
+  step: LanguageModelV4GenerateResult,
+): LanguageModelV4GenerateResult => ({
+  ...step,
+  content: [{ type: 'reasoning', text }, ...step.content],
+});
+
+// The estimator streams, so each step is answered as the parts a provider streams it in.
+const partsOf = ({
+  content,
+  finishReason,
+  usage: stepUsage,
+}: LanguageModelV4GenerateResult): LanguageModelV4StreamPart[] => [
+  { type: 'stream-start', warnings: [] },
+  ...content.flatMap((part, index): LanguageModelV4StreamPart[] => {
+    const id = `part-${index}`;
+    switch (part.type) {
+      case 'text':
+        return [
+          { type: 'text-start', id },
+          { type: 'text-delta', id, delta: part.text },
+          { type: 'text-end', id },
+        ];
+      case 'reasoning':
+        return [
+          { type: 'reasoning-start', id },
+          { type: 'reasoning-delta', id, delta: part.text },
+          { type: 'reasoning-end', id },
+        ];
+      case 'tool-call':
+        return [part];
+      default:
+        throw new Error(`No stream for ${part.type}`);
+    }
+  }),
+  { type: 'finish', finishReason, usage: stepUsage },
+];
+
 const answering = (...steps: LanguageModelV4GenerateResult[]) =>
-  new MockLanguageModelV4({ doGenerate: steps });
+  new MockLanguageModelV4({
+    doStream: steps.map((step) => ({
+      stream: convertArrayToReadableStream(partsOf(step)),
+    })),
+  });
 
 const failingWith = (error: unknown) =>
   new MockLanguageModelV4({
-    doGenerate: async () => {
+    doStream: async () => {
       throw error;
     },
   });
@@ -172,7 +218,7 @@ const oats = {
 
 const toolResultsOf = (model: MockLanguageModelV4, call: number) =>
   JSON.stringify(
-    model.doGenerateCalls[call]?.prompt.filter(({ role }) => role === 'tool'),
+    model.doStreamCalls[call]?.prompt.filter(({ role }) => role === 'tool'),
   );
 
 beforeEach(() => {
@@ -200,10 +246,57 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toEqual({ estimated: true, estimate });
-    expect(model.doGenerateCalls).toHaveLength(3);
+    expect(model.doStreamCalls).toHaveLength(3);
     expect(foods.searchFoods).toHaveBeenCalledExactlyOnceWith('oats');
     expect(foods.getFood).toHaveBeenCalledExactlyOnceWith('oats');
     expect(toolResultsOf(model, 2)).toContain('1 cup');
+  });
+
+  it('tells what it is doing as it does it: its thinking, each search and food, the answer', async () => {
+    const onProgress = vi.fn();
+    const model = answering(
+      thinkingFirst(
+        'A bowl of porridge.',
+        callingTool('searchFoods', { query: 'oats' }),
+      ),
+      callingTool('getFood', { id: 'oats' }),
+      callingTool('getFood', { id: 'missing' }),
+      answer(estimate),
+    );
+
+    await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: {
+        ...noFoods,
+        getFood: async (id) => (id === 'oats' ? oats : null),
+      },
+      onProgress,
+    });
+
+    expect(onProgress.mock.calls.map(([progress]) => progress)).toEqual([
+      { kind: 'thinking', text: 'A bowl of porridge.' },
+      { kind: 'searching', query: 'oats' },
+      { kind: 'reading', name: 'Rolled oats' },
+      { kind: 'answering' },
+    ]);
+  });
+
+  it('tells which lines it double-checks in the repair round', async () => {
+    const onProgress = vi.fn();
+    const model = answering(answer(madeUp), answer(repaired));
+
+    await createMealEstimator({ model }).estimateMeal({
+      photos: [photo],
+      description: null,
+      foods: resolvingOnly('oats'),
+      onProgress,
+    });
+
+    expect(onProgress).toHaveBeenCalledWith({
+      kind: 'checking',
+      names: ['Salată Starter Plus', 'Dressing'],
+    });
   });
 
   it('hands the model the instructions, the description, every photo and the tools', async () => {
@@ -215,7 +308,7 @@ describe('createMealEstimator', () => {
       foods: noFoods,
     });
 
-    const [call] = model.doGenerateCalls;
+    const [call] = model.doStreamCalls;
     expect(call?.prompt[0]).toMatchObject({ role: 'system' });
     expect(call?.prompt.at(-1)).toMatchObject({
       role: 'user',
@@ -244,7 +337,7 @@ describe('createMealEstimator', () => {
       foods: noFoods,
     });
 
-    const format = model.doGenerateCalls[0]?.responseFormat;
+    const format = model.doStreamCalls[0]?.responseFormat;
     const schema = JSON.stringify(format?.type === 'json' && format.schema);
     expect(schema).toContain('"anyOf"');
     expect(schema).not.toContain('oneOf');
@@ -282,7 +375,7 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toEqual({ estimated: true, estimate: repaired });
-    const repair = model.doGenerateCalls[1]?.prompt ?? [];
+    const repair = model.doStreamCalls[1]?.prompt ?? [];
     expect(repair.slice(-2).map(({ role }) => role)).toEqual([
       'assistant',
       'user',
@@ -307,7 +400,7 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toEqual({ estimated: true, estimate: madeUp });
-    expect(model.doGenerateCalls).toHaveLength(2);
+    expect(model.doStreamCalls).toHaveLength(2);
   });
 
   it('answers unreadable when the repair round passes its step limit', async () => {
@@ -325,7 +418,7 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toMatchObject({ estimated: false, failure: 'unreadable' });
-    expect(model.doGenerateCalls).toHaveLength(1 + maxRepairSteps);
+    expect(model.doStreamCalls).toHaveLength(1 + maxRepairSteps);
   });
 
   it('answers unreadable past the step limit', async () => {
@@ -342,7 +435,7 @@ describe('createMealEstimator', () => {
     });
 
     expect(result).toMatchObject({ estimated: false, failure: 'unreadable' });
-    expect(model.doGenerateCalls).toHaveLength(maxEstimatorSteps);
+    expect(model.doStreamCalls).toHaveLength(maxEstimatorSteps);
   });
 
   it('answers unreadable when the estimate does not fit its schema', async () => {
@@ -395,7 +488,7 @@ describe('createMealEstimator', () => {
       previous: { draft, feedback: 'There was no honey' },
     });
 
-    const prompt = model.doGenerateCalls[0]?.prompt ?? [];
+    const prompt = model.doStreamCalls[0]?.prompt ?? [];
     expect(prompt.map(({ role }) => role)).toEqual([
       'system',
       'user',

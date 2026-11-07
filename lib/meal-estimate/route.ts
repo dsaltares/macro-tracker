@@ -9,6 +9,7 @@ import {
 import type { Database } from '../db/schema.ts';
 import {
   type MealDraft,
+  type MealEstimateProgress,
   maxMealDescriptionLength,
   maxMealPhotos,
   mealDraft,
@@ -114,36 +115,55 @@ const fieldsOf = (form: FormData): MealEstimateForm | null => {
 
 // A proxy in front of the server, such as Cloudflare's, drops a request whose answer has not
 // started within 100 seconds, and an estimate of many photos can take longer. So once the
-// request is valid the answer starts at once, 200 with whitespace every few seconds, and ends
-// with the draft, or with the estimator's failure as `{ error }`. Whitespace before a JSON value
-// is still JSON, so the browser parses the body as it is.
+// request is valid the answer starts at once, 200, as newline-delimited JSON: a line
+// `{ progress }` for each thing the estimator does (`MealEstimateProgress`), a blank line every
+// few seconds while it is quiet, and a last line `{ draft }` or the estimator's failure as
+// `{ error }`.
 export const keepAliveMs = 10_000;
+
+export type MealEstimateLine =
+  | { progress: MealEstimateProgress }
+  | { draft: MealDraft }
+  | { error: AiFailure };
 
 const encoder = new TextEncoder();
 
 const keepAlive = encoder.encode('\n');
 
+const lineOf = (line: MealEstimateLine) =>
+  encoder.encode(`${JSON.stringify(line)}\n`);
+
 const streamed = (
   requestSignal: AbortSignal,
   logger: Logger,
-  answer: (signal: AbortSignal) => Promise<MealDraft | { error: AiFailure }>,
+  answer: (
+    signal: AbortSignal,
+    onProgress: (progress: MealEstimateProgress) => void,
+  ) => Promise<MealEstimateLine>,
 ) => {
   const closed = new AbortController();
   const aborted = AbortSignal.any([requestSignal, closed.signal]);
   let timer: ReturnType<typeof setInterval> | undefined;
   const body = new ReadableStream<Uint8Array>({
     start: (controller) => {
-      controller.enqueue(keepAlive);
-      timer = setInterval(() => controller.enqueue(keepAlive), keepAliveMs);
-      answer(aborted)
-        .catch((error: unknown) => {
+      const send = (chunk: Uint8Array) => {
+        try {
+          controller.enqueue(chunk);
+        } catch {
+          // The browser went away and cancelled the stream.
+        }
+      };
+      send(keepAlive);
+      timer = setInterval(() => send(keepAlive), keepAliveMs);
+      answer(aborted, (progress) => send(lineOf({ progress })))
+        .catch((error: unknown): MealEstimateLine => {
           logger.error({ err: error }, 'A meal estimate failed');
-          return { error: 'unavailable' as const };
+          return { error: 'unavailable' };
         })
-        .then((value) => {
+        .then((line) => {
           clearInterval(timer);
+          send(lineOf(line));
           try {
-            controller.enqueue(encoder.encode(JSON.stringify(value)));
             controller.close();
           } catch {
             // The browser went away and cancelled the stream.
@@ -157,8 +177,8 @@ const streamed = (
   });
   return new Response(body, {
     headers: {
-      'content-type': 'application/json',
-      // no-transform keeps Next's compression and the proxy's from holding the keep-alives back.
+      'content-type': 'application/x-ndjson',
+      // no-transform keeps Next's compression and the proxy's from holding the lines back.
       'cache-control': 'no-store, no-transform',
       'x-accel-buffering': 'no',
     },
@@ -207,12 +227,13 @@ export const mealEstimateRoute =
       return failed('UNSUPPORTED_PHOTO', 415);
     }
     const reader = { db, userId: caller.userId };
-    return streamed(request.signal, logger, async (aborted) => {
+    return streamed(request.signal, logger, async (aborted, onProgress) => {
       const result = await estimateMeal({
         photos,
         description: fields.description,
         foods: mealEstimatorFoods(reader),
         signal: aborted,
+        onProgress,
         ...(fields.previous === undefined ? {} : { previous: fields.previous }),
       });
       if (!result.estimated) {
@@ -226,9 +247,11 @@ export const mealEstimateRoute =
         );
         return { error: result.failure };
       }
-      return mealDraft(
-        result.estimate,
-        await resolveMealMatches(reader, result.estimate),
-      );
+      return {
+        draft: mealDraft(
+          result.estimate,
+          await resolveMealMatches(reader, result.estimate),
+        ),
+      };
     });
   };
