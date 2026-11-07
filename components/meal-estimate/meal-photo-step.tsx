@@ -18,6 +18,10 @@ import {
   type EstimateError,
   requestMealEstimate,
 } from '@/components/meal-estimate/estimate';
+import {
+  EstimateActivity,
+  useEstimateActivity,
+} from '@/components/meal-estimate/estimate-activity';
 import { Button } from '@/components/ui/button';
 import {
   type MealDraft,
@@ -130,6 +134,7 @@ export function MealPhotoStep({
     state.step === 'uploading' ||
     state.step === 'estimating';
   const room = maxMealPhotos - photos.length;
+  const { activity, onEstimating, reset } = useEstimateActivity();
 
   const add = async (originals: File[]) => {
     setState({ step: 'preparing' });
@@ -149,6 +154,7 @@ export function MealPhotoStep({
   };
 
   const estimate = async () => {
+    reset();
     setState({ step: 'uploading', sent: 0 });
     const result = await requestMealEstimate(
       { photos: photos.map(({ blob }) => blob), description },
@@ -156,6 +162,7 @@ export function MealPhotoStep({
         setState(
           sent < 1 ? { step: 'uploading', sent } : { step: 'estimating' },
         ),
+      onEstimating,
     );
     if (result.estimated) {
       onEstimated(result.draft);
@@ -228,9 +235,7 @@ export function MealPhotoStep({
         <UploadProgress sent={state.sent} label="Sending the photos" />
       ) : null}
       {state.step === 'estimating' ? (
-        <p role="status" className="text-center text-muted-foreground text-sm">
-          Looking at your meal…
-        </p>
+        <EstimateActivity activity={activity} idle="Looking at your meal" />
       ) : null}
       {busy ? null : (
         <Button

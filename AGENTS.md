@@ -535,10 +535,14 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   failures `failureOf` maps errors to). Tests drive it with `MockLanguageModelV4` from
   `ai/test`. `createMealEstimator({ model })` (`meal-estimator.ts`, ADR
   [0016](docs/adr/0016-estimate-meals-with-an-agent-over-the-users-own-search.md)) is
-  `estimateMeal({ photos, description, foods, previous?, signal? })`, which never throws either: the
-  `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10) `unreadable`. It is a tool
-  loop with `prompts/meal.ts` and two tools over `foods`, a `MealEstimatorFoods` port:
-  `searchFoods` and `getFood`, each call logged at debug level with its query, never a photo. An
+  `estimateMeal({ photos, description, foods, previous?, signal?, onProgress? })`, which never
+  throws either: the `MealEstimate` or the same failures, one past `maxEstimatorSteps` (10)
+  `unreadable`. It is a tool loop through `streamText` with `prompts/meal.ts` and two tools over
+  `foods`, a `MealEstimatorFoods` port: `searchFoods` and `getFood`, each call logged at debug
+  level with its query, never a photo. An error part in the stream is thrown, for `failureOf`.
+  `onProgress` is told each `MealEstimateProgress` (`lib/domain/diary/meal-estimate.ts`) as it
+  happens: `thinking` (the reasoning summary, asked of OpenAI with `reasoningSummary: 'auto'`),
+  `searching`, `reading` a food found, `answering`, and `checking` before the repair round. An
   estimate naming a food or recipe the port's `resolveMatches` cannot find (`unresolvedItems`)
   gets one repair round, those lines sent back with `repairRequest`, capped at `maxRepairSteps` (5).
   `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
@@ -568,10 +572,11 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `description` (`maxMealDescriptionLength`, 500) and an optional `previous` JSON
   (`previousEstimateSchema`, `lib/domain/diary/meal-estimate.ts`). It answers `401`, `503` while
   the estimator is off, `400` on a bad part, `413` for a photo over `maxPhotoBytes`, `415` for one
-  that is not a JPEG or WebP, and otherwise `200` at once, streamed: a newline every `keepAliveMs`
-  (10 s) so a proxy's timeout (Cloudflare's 100 s, a `524`) never fires on a long estimate, then
-  the `MealDraft`, resolved on the server with `mealDraft` over `resolveMealMatches`, or the
-  estimator's failure as `{ error }`, logged without the photos. Leading whitespace is still JSON.
+  that is not a JPEG or WebP, and otherwise `200` at once, streamed as newline-delimited JSON
+  (`MealEstimateLine`): a line `{ progress }` for each `MealEstimateProgress`, a blank line every
+  `keepAliveMs` (10 s) so a proxy's timeout (Cloudflare's 100 s, a `524`) never fires on a long
+  estimate, then `{ draft }`, the `MealDraft` resolved on the server with `mealDraft` over
+  `resolveMealMatches`, or the estimator's failure as `{ error }`, logged without the photos.
   `cache-control: no-transform` keeps Next's and the proxy's compression from buffering it. The
   browser going away cancels the stream and aborts the model through the request's `signal`.
   The route in `app/api/meal-estimate/` only wires it to the server.
@@ -588,7 +593,10 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `MealPhotoStep` (*Take a photo* or *Choose photos*, up to `maxMealPhotos`, each through
   `shrinkPhoto` with `mealPhoto` (1,024 px at quality 0.75, smaller than a label's), with a
   thumbnail and remove, a description, *Estimate*: `requestMealEstimate` (`estimate.ts`) posts
-  the form to `/api/meal-estimate` with upload progress, then *Looking at your meal…*; failures
+  the form to `/api/meal-estimate` with upload progress (`postWithProgress` with `onText`, reading
+  the lines as they arrive), then `EstimateActivity` (`estimate-activity.tsx`): what the estimator
+  is on (*Looking at your meal…* until it says), the last paragraph of its thinking, the steps
+  done and the seconds spent, folded by `withProgress`; failures
   as `LabelCapture` shows them, *Try again* keeping the photos) and
   `MealDraftReview`: the totals of the draft over one row per item (name, source badge, *Recipe*
   or *Estimate*, grams, kcal), unsure and unresolved rows flagged *Check* with their notes. A
@@ -599,7 +607,8 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   grams; *Add item* searches and appends; `draftOfItems` keeps the totals. *Log meal* is
   `diary.addMeal` of `mealDraftToEntries`, then a toast and the sheet closes. `MealFeedback`
   (`meal-feedback.tsx`) under the rows is *Ask for changes* and *Send*: the kept photos, the
-  description and `previous` (the draft as edited and the feedback) through `requestMealEstimate`.
+  description and `previous` (the draft as edited and the feedback) through `requestMealEstimate`,
+  with the same `EstimateActivity` (*Revising the meal…*).
   `MealEstimate` counts the rounds, remounts the review on the revised draft with
   `draftChanges` marking rows *Changed* or *New*, and *Undo* brings back the draft that was sent;
   past `maxFeedbackRounds` the field is disabled and says so. Tests answer

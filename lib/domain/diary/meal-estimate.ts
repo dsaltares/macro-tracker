@@ -182,6 +182,16 @@ export const previousEstimateSchema = z.strictObject({
 
 export type PreviousEstimate = z.infer<typeof previousEstimateSchema>;
 
+// What the estimator is doing while it works, streamed to the browser so a long estimate shows
+// it is getting somewhere: the model's reasoning summary as it writes it, each search and food it
+// reads, the answer being written, and the repair round over lines that did not resolve.
+export type MealEstimateProgress =
+  | { kind: 'thinking'; text: string }
+  | { kind: 'searching'; query: string }
+  | { kind: 'reading'; name: string }
+  | { kind: 'answering' }
+  | { kind: 'checking'; names: string[] };
+
 export type ItemAssessment = Pick<
   DraftItemFields,
   'confidence' | 'unsure' | 'note'

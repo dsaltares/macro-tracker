@@ -1,8 +1,8 @@
 import {
-  generateText,
   type LanguageModel,
   type ModelMessage,
   stepCountIs,
+  streamText,
   tool,
 } from 'ai';
 import { z } from 'zod';
@@ -11,6 +11,7 @@ import type { RecipeSummary } from '../db/recipes.ts';
 import {
   type MealDraft,
   type MealEstimate,
+  type MealEstimateProgress,
   mealEstimateSchema,
   type ResolvedMatches,
   unresolvedItems,
@@ -61,7 +62,11 @@ export type MealEstimateRequest = {
   previous?: PreviousEstimate;
   // Aborted when the browser goes away, so the model stops spending on an answer nobody reads.
   signal?: AbortSignal;
+  // Told what the estimator is doing as it does it; never told anything about the photos.
+  onProgress?: (progress: MealEstimateProgress) => void;
 };
+
+type Report = (progress: MealEstimateProgress) => void;
 
 export type MealEstimateResult =
   | { estimated: true; estimate: MealEstimate }
@@ -81,7 +86,7 @@ const mealEstimateOutput = strictOutput('meal_estimate', mealEstimateSchema);
 
 const logger = getLogger('meal-estimator');
 
-const toolsOver = (foods: MealEstimatorFoods) => ({
+const toolsOver = (foods: MealEstimatorFoods, report: Report) => ({
   searchFoods: tool({
     description:
       "Search the user's own foods and recipes and the reference foods by name. Each food has its source, its energy and macros per 100 g and its default portion; each recipe has its servings and cooked weight.",
@@ -90,6 +95,7 @@ const toolsOver = (foods: MealEstimatorFoods) => ({
     }),
     execute: ({ query }) => {
       logger.debug({ tool: 'searchFoods', query }, 'meal estimator tool call');
+      report({ kind: 'searching', query });
       return foods.searchFoods(query);
     },
   }),
@@ -99,7 +105,12 @@ const toolsOver = (foods: MealEstimatorFoods) => ({
     inputSchema: z.object({ id: z.string().describe("The food's id") }),
     execute: async ({ id }) => {
       logger.debug({ tool: 'getFood', id }, 'meal estimator tool call');
-      return (await foods.getFood(id)) ?? { found: false };
+      const food = await foods.getFood(id);
+      if (food === null) {
+        return { found: false };
+      }
+      report({ kind: 'reading', name: food.name });
+      return food;
     },
   }),
 });
@@ -130,21 +141,50 @@ const messagesOf = ({
   ];
 };
 
-const estimateWith = (
+// OpenAI keeps a reasoning model's thinking to itself, but sends a summary of it when asked;
+// other providers ignore the option.
+const reasoningSummaries = { openai: { reasoningSummary: 'auto' } };
+
+const ignoreErrors = () => {};
+
+// Streamed rather than generated so the reasoning summary and each step reach the browser as
+// they happen. An error mid-stream is thrown, as generateText would, for failureOf to map.
+const estimateWith = async (
   model: LanguageModel,
   { foods, signal }: MealEstimateRequest,
+  report: Report,
   messages: ModelMessage[],
   maxSteps: number,
-) =>
-  generateText({
+) => {
+  const result = streamText({
     model,
     output: mealEstimateOutput,
     instructions: mealInstructions,
-    tools: toolsOver(foods),
+    tools: toolsOver(foods, report),
     stopWhen: stepCountIs(maxSteps),
     messages,
+    providerOptions: reasoningSummaries,
+    onError: ignoreErrors,
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
+  for await (const part of result.fullStream) {
+    if (part.type === 'error') {
+      throw part.error;
+    }
+    if (part.type === 'reasoning-delta' && part.text !== '') {
+      report({ kind: 'thinking', text: part.text });
+    } else if (part.type === 'text-start') {
+      report({ kind: 'answering' });
+    }
+  }
+  const [output, response] = await Promise.all([
+    result.output,
+    result.response,
+  ]);
+  return { output, messages: response.messages };
+};
+
+const ignoreProgress: Report = () => {};
 
 export const createMealEstimator = ({
   model,
@@ -154,9 +194,11 @@ export const createMealEstimator = ({
   estimateMeal: async (request) => {
     try {
       const messages = messagesOf(request);
+      const report = request.onProgress ?? ignoreProgress;
       const first = await estimateWith(
         model,
         request,
+        report,
         messages,
         maxEstimatorSteps,
       );
@@ -171,12 +213,14 @@ export const createMealEstimator = ({
         { unresolved: unresolved.map(({ name }) => name) },
         'meal estimator repair round',
       );
+      report({ kind: 'checking', names: unresolved.map(({ name }) => name) });
       const repaired = await estimateWith(
         model,
         request,
+        report,
         [
           ...messages,
-          ...first.response.messages,
+          ...first.messages,
           { role: 'user', content: repairRequest(unresolved) },
         ],
         maxRepairSteps,

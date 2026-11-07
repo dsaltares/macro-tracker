@@ -158,6 +158,18 @@ const draftOfSeeded = (
 const seedDraft = async (extra: unknown[] = []) =>
   draftOfSeeded(await seedFoods(), { extra });
 
+// The route answers newline-delimited JSON: a keep-alive, progress lines, then the draft.
+const drafted = (draft: MealDraft) =>
+  new HttpResponse(
+    [
+      '',
+      JSON.stringify({ progress: { kind: 'searching', query: 'eggs' } }),
+      JSON.stringify({ draft }),
+      '',
+    ].join('\n'),
+    { headers: { 'content-type': 'application/x-ndjson' } },
+  );
+
 const answering = (...responses: Response[]) => {
   const posted: FormData[] = [];
   api.use(
@@ -291,7 +303,7 @@ describe('MealPhotoStep', () => {
   });
 
   it('sends the shrunk photos and the description', async () => {
-    const posted = answering(HttpResponse.json(await seedDraft()));
+    const posted = answering(drafted(await seedDraft()));
     const { user } = renderSheet();
 
     await estimate(user);
@@ -309,7 +321,7 @@ describe('MealPhotoStep', () => {
   it('shows a failure and tries again with the same photos', async () => {
     const posted = answering(
       HttpResponse.json({ error: 'unavailable' }, { status: 503 }),
-      HttpResponse.json(await seedDraft()),
+      drafted(await seedDraft()),
     );
     const { user } = renderSheet();
 
@@ -332,10 +344,10 @@ describe('MealPhotoStep', () => {
   });
 
   it('offers no retry when the photos were refused', async () => {
-    // The route streams the estimator's failure after a 200, behind keep-alive whitespace.
+    // The route streams the estimator's failure after a 200, behind keep-alive lines.
     answering(
-      new HttpResponse('\n\n{"error":"rejected"}', {
-        headers: { 'content-type': 'application/json' },
+      new HttpResponse('\n\n{"error":"rejected"}\n', {
+        headers: { 'content-type': 'application/x-ndjson' },
       }),
     );
     const { user } = renderSheet();
@@ -355,7 +367,7 @@ describe('MealPhotoStep', () => {
 
 describe('MealDraftReview', () => {
   it("shows the draft's items and totals, flagging the unsure ones", async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     const { user } = renderSheet();
 
     const review = await estimate(user);
@@ -382,7 +394,7 @@ describe('MealDraftReview', () => {
   });
 
   it('updates the totals when an amount is edited', async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     const { user } = renderSheet();
     await estimate(user);
 
@@ -399,7 +411,7 @@ describe('MealDraftReview', () => {
   });
 
   it("edits a guess's amounts and stops flagging it", async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     const { user } = renderSheet();
     await estimate(user);
 
@@ -415,7 +427,7 @@ describe('MealDraftReview', () => {
   });
 
   it('removes a row from the totals and from what is logged', async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     const onClose = vi.fn();
     const { user } = renderSheet(true, onClose);
     await estimate(user);
@@ -435,7 +447,7 @@ describe('MealDraftReview', () => {
   });
 
   it('adds an item from the search', async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     const { user } = renderSheet();
     await estimate(user);
 
@@ -459,7 +471,7 @@ describe('MealDraftReview', () => {
 
   it('replaces an unresolved row with a food, keeping the grams', async () => {
     answering(
-      HttpResponse.json(
+      drafted(
         await seedDraft([
           {
             kind: 'food',
@@ -495,7 +507,7 @@ describe('MealDraftReview', () => {
   });
 
   it('refuses to replace a row with a recipe without ingredients', async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     await createRecipe(
       api.database(),
       'user-1',
@@ -515,7 +527,7 @@ describe('MealDraftReview', () => {
   });
 
   it('keeps the draft when logging it fails', async () => {
-    answering(HttpResponse.json(await seedDraft()));
+    answering(drafted(await seedDraft()));
     api.fails('diary.addMeal');
     const { user } = renderSheet();
     await estimate(user);
@@ -527,7 +539,7 @@ describe('MealDraftReview', () => {
   });
 
   it('logs the meal and the day view shows it', async () => {
-    const posted = answering(HttpResponse.json(await seedDraft()));
+    const posted = answering(drafted(await seedDraft()));
     const { user } = renderUi(<DiaryDay mealEstimates />, {
       wrap: (children) =>
         api.wrap(
@@ -586,8 +598,8 @@ describe('MealFeedback', () => {
   it('sends the photos, the edited draft and the feedback, marking what changed', async () => {
     const foods = await seedFoods();
     const posted = answering(
-      HttpResponse.json(draftOfSeeded(foods)),
-      HttpResponse.json(draftOfSeeded(foods, { eggCount: 4, toastGrams: 160 })),
+      drafted(draftOfSeeded(foods)),
+      drafted(draftOfSeeded(foods, { eggCount: 4, toastGrams: 160 })),
     );
     const { user } = renderSheet();
     await estimate(user);
@@ -622,8 +634,8 @@ describe('MealFeedback', () => {
   it('marks a line the revision added', async () => {
     const foods = await seedFoods();
     answering(
-      HttpResponse.json(draftOfSeeded(foods)),
-      HttpResponse.json(
+      drafted(draftOfSeeded(foods)),
+      drafted(
         draftOfSeeded(foods, {
           extra: [
             {
@@ -651,8 +663,8 @@ describe('MealFeedback', () => {
   it('undoes a revision back to the draft as it was sent', async () => {
     const foods = await seedFoods();
     answering(
-      HttpResponse.json(draftOfSeeded(foods)),
-      HttpResponse.json(draftOfSeeded(foods, { eggCount: 4 })),
+      drafted(draftOfSeeded(foods)),
+      drafted(draftOfSeeded(foods, { eggCount: 4 })),
     );
     const { user } = renderSheet();
     await estimate(user);
@@ -670,7 +682,7 @@ describe('MealFeedback', () => {
 
   it('keeps the draft when a revision fails', async () => {
     answering(
-      HttpResponse.json(await seedDraft()),
+      drafted(await seedDraft()),
       HttpResponse.json({ error: 'unavailable' }, { status: 503 }),
     );
     const { user } = renderSheet();
@@ -692,7 +704,7 @@ describe('MealFeedback', () => {
     const foods = await seedFoods();
     const posted = answering(
       ...[2, 3, 4, 5].map((eggCount) =>
-        HttpResponse.json(draftOfSeeded(foods, { eggCount })),
+        drafted(draftOfSeeded(foods, { eggCount })),
       ),
     );
     const { user } = renderSheet();
