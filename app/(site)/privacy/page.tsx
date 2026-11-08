@@ -75,7 +75,7 @@ const recipients = [
 const retention = [
   {
     key: 'account',
-    what: 'Your account, profile, diary, body weight, foods, recipes, goals and API keys',
+    what: 'Your account, profile, diary, body weight, foods, recipes, goals, API keys and AI request records',
     period: 'Until you delete them or your account, and then no longer',
   },
   {
@@ -219,6 +219,14 @@ export default function PrivacyPage() {
               how far it got and a summary of what it brought). The Cronometer
               email and password you give for it are sent to Cronometer to sign
               in for that import alone, and never stored.
+            </li>
+            <li>
+              <strong>A record of each AI request</strong>: when you scan a
+              label or estimate a meal, a record of each call we make to OpenAI
+              for it (the model, how many tokens it used and what it cost, what
+              it answered, and the searches of your foods it made and what they
+              found), so we can keep what the feature costs in check. It never
+              holds the photos or your description of the meal.
             </li>
           </ul>
 

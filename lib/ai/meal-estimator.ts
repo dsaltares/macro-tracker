@@ -20,6 +20,14 @@ import type { Portion } from '../domain/foods/portions.ts';
 import type { Source } from '../domain/foods/sources.ts';
 import { getLogger } from '../logger.ts';
 import {
+  failedLlmCall,
+  ignoreLlmCalls,
+  type LlmCallPurpose,
+  llmCallOfStep,
+  modelInfoOf,
+  type RecordLlmCall,
+} from './llm-calls.ts';
+import {
   mealInstructions,
   mealRequest,
   previousAnswer,
@@ -64,6 +72,8 @@ export type MealEstimateRequest = {
   signal?: AbortSignal;
   // Told what the estimator is doing as it does it; never told anything about the photos.
   onProgress?: (progress: MealEstimateProgress) => void;
+  // Told every call to the model, with its tokens, cost, answer and tool calls.
+  recordCall?: RecordLlmCall;
 };
 
 type Report = (progress: MealEstimateProgress) => void;
@@ -147,14 +157,50 @@ const reasoningSummaries = { openai: { reasoningSummary: 'auto' } };
 
 const ignoreErrors = () => {};
 
+type Run = {
+  runId: string;
+  purpose: LlmCallPurpose;
+  recordCall: RecordLlmCall;
+};
+
 // Streamed rather than generated so the reasoning summary and each step reach the browser as
-// they happen. An error mid-stream is thrown, as generateText would, for failureOf to map.
+// they happen. An error mid-stream is thrown, as generateText would, for failureOf to map,
+// once the call that failed is recorded.
 const estimateWith = async (
+  model: LanguageModel,
+  request: MealEstimateRequest,
+  report: Report,
+  messages: ModelMessage[],
+  maxSteps: number,
+  run: Run,
+) => {
+  let steps = 0;
+  try {
+    return await streamWith(model, request, report, messages, maxSteps, {
+      ...run,
+      recordCall: (call) => {
+        steps += 1;
+        return run.recordCall(call);
+      },
+    });
+  } catch (error) {
+    await run.recordCall(
+      failedLlmCall(
+        { ...run, step: steps, ...modelInfoOf(model) },
+        messageOf(error),
+      ),
+    );
+    throw error;
+  }
+};
+
+const streamWith = async (
   model: LanguageModel,
   { foods, signal }: MealEstimateRequest,
   report: Report,
   messages: ModelMessage[],
   maxSteps: number,
+  { runId, purpose, recordCall }: Run,
 ) => {
   const result = streamText({
     model,
@@ -165,6 +211,7 @@ const estimateWith = async (
     messages,
     providerOptions: reasoningSummaries,
     onError: ignoreErrors,
+    onStepEnd: (step) => recordCall(llmCallOfStep({ runId, purpose }, step)),
     ...(signal === undefined ? {} : { abortSignal: signal }),
   });
   for await (const part of result.fullStream) {
@@ -195,12 +242,21 @@ export const createMealEstimator = ({
     try {
       const messages = messagesOf(request);
       const report = request.onProgress ?? ignoreProgress;
+      const run = {
+        runId: crypto.randomUUID(),
+        recordCall: request.recordCall ?? ignoreLlmCalls,
+      };
       const first = await estimateWith(
         model,
         request,
         report,
         messages,
         maxEstimatorSteps,
+        {
+          ...run,
+          purpose:
+            request.previous === undefined ? 'meal-estimate' : 'meal-revision',
+        },
       );
       const unresolved = unresolvedItems(
         first.output,
@@ -224,6 +280,7 @@ export const createMealEstimator = ({
           { role: 'user', content: repairRequest(unresolved) },
         ],
         maxRepairSteps,
+        { ...run, purpose: 'meal-repair' },
       );
       return { estimated: true, estimate: repaired.output };
     } catch (error) {

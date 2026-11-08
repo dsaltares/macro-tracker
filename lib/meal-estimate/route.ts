@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { Logger } from 'pino';
 import type { EstimateMeal } from '../ai/meal-estimator.ts';
 import type { AiFailure } from '../ai/structured-output.ts';
+import { llmCallRecorder } from '../db/llm-calls.ts';
 import {
   mealEstimatorFoods,
   resolveMealMatches,
@@ -234,6 +235,7 @@ export const mealEstimateRoute =
         foods: mealEstimatorFoods(reader),
         signal: aborted,
         onProgress,
+        recordCall: llmCallRecorder({ ...reader, logger }),
         ...(fields.previous === undefined ? {} : { previous: fields.previous }),
       });
       if (!result.estimated) {

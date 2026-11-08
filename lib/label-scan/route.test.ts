@@ -1,11 +1,22 @@
 import pino from 'pino';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { migratedDatabasePerTest } from '@/test/db';
 import type { LabelReadingResult, ReadLabel } from '../ai/label-reader.ts';
+import type { LlmCall } from '../ai/llm-calls.ts';
 import type { LabelReading } from '../domain/foods/label-reading.ts';
 import { maxPhotoBytes } from '../photo-upload.ts';
 import { labelScanRoute } from './route.ts';
 
 const signedInHeader = 'x-test-user';
+
+const database = migratedDatabasePerTest();
+
+beforeEach(async () => {
+  await database()
+    .insertInto('users')
+    .values({ id: 'user-1', name: 'user-1', email: 'user-1@example.test' })
+    .execute();
+});
 
 const reading: LabelReading = {
   productName: { value: 'Oat biscuits', confidence: 0.95 },
@@ -49,6 +60,7 @@ const route = (
     warn,
     handle: labelScanRoute({
       readLabel,
+      db: database(),
       logger,
       resolveCaller: async (headers) => {
         const userId = headers.get(signedInHeader);
@@ -114,7 +126,9 @@ describe('the label scan route', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual(reading);
-    expect(readLabel).toHaveBeenCalledWith(photo);
+    expect(readLabel).toHaveBeenCalledWith(photo, {
+      recordCall: expect.any(Function),
+    });
   });
 
   it('reads a photo of exactly the largest size', async () => {
@@ -203,4 +217,42 @@ describe('the label scan route', () => {
       );
     },
   );
+
+  it("records the reader's model call as the caller's", async () => {
+    const call: LlmCall = {
+      runId: 'run-1',
+      purpose: 'label-reading',
+      step: 0,
+      provider: 'openai.responses',
+      model: 'gpt-5.4-mini',
+      inputTokens: 800,
+      cachedInputTokens: null,
+      outputTokens: 200,
+      reasoningTokens: null,
+      costUsd: 0.0015,
+      finishReason: 'stop',
+      response: '{}',
+      reasoning: null,
+      toolCalls: null,
+      error: null,
+      durationMs: 900,
+    };
+
+    await route(async (_photo, options) => {
+      await options?.recordCall?.(call);
+      return { read: true, reading };
+    }).handle(post(webp()));
+
+    expect(
+      await database().selectFrom('llm_calls').selectAll().execute(),
+    ).toMatchObject([
+      {
+        run_id: 'run-1',
+        user_id: 'user-1',
+        purpose: 'label-reading',
+        output_tokens: 200,
+        tool_calls: null,
+      },
+    ]);
+  });
 });
