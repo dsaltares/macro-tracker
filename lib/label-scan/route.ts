@@ -1,5 +1,8 @@
+import type { Kysely } from 'kysely';
 import type { Logger } from 'pino';
 import type { LabelReadingFailure, ReadLabel } from '../ai/label-reader.ts';
+import { llmCallRecorder } from '../db/llm-calls.ts';
+import type { Database } from '../db/schema.ts';
 import {
   aiFailureStatuses,
   declaredLength,
@@ -22,11 +25,12 @@ const failed = (error: LabelScanError, status: number) =>
 export type LabelScanRouteOptions = {
   readLabel: ReadLabel | null;
   resolveCaller: (headers: Headers) => Promise<Caller | null>;
+  db: Kysely<Database>;
   logger: Logger;
 };
 
 export const labelScanRoute =
-  ({ readLabel, resolveCaller, logger }: LabelScanRouteOptions) =>
+  ({ readLabel, resolveCaller, db, logger }: LabelScanRouteOptions) =>
   async (request: Request) => {
     const caller = await resolveCaller(request.headers);
     if (caller === null) {
@@ -46,7 +50,9 @@ export const labelScanRoute =
     if (!isJpegOrWebp(photo)) {
       return failed('UNSUPPORTED_PHOTO', 415);
     }
-    const result = await readLabel(photo);
+    const result = await readLabel(photo, {
+      recordCall: llmCallRecorder({ db, userId: caller.userId, logger }),
+    });
     if (!result.read) {
       logger.warn(
         {

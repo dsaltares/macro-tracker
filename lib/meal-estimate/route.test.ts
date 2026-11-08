@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
+import type { LlmCall } from '../ai/llm-calls.ts';
 import type { EstimateMeal, MealEstimateResult } from '../ai/meal-estimator.ts';
 import { insertFood } from '../db/foods.ts';
 import {
@@ -80,6 +81,31 @@ const estimate: MealEstimate = {
     },
   ],
   notes: ['The milk could be oat milk'],
+};
+
+const modelCall: LlmCall = {
+  runId: 'run-1',
+  purpose: 'meal-estimate',
+  step: 0,
+  provider: 'openai.responses',
+  model: 'gpt-5.4-mini',
+  inputTokens: 1000,
+  cachedInputTokens: 0,
+  outputTokens: 500,
+  reasoningTokens: 100,
+  costUsd: 0.003,
+  finishReason: 'tool-calls',
+  response: null,
+  reasoning: 'Porridge.',
+  toolCalls: [
+    {
+      toolName: 'searchFoods',
+      input: { query: 'oats' },
+      output: { foods: [] },
+    },
+  ],
+  error: null,
+  durationMs: 1200,
 };
 
 const estimates =
@@ -214,7 +240,29 @@ describe('the meal estimate route', () => {
       }),
       signal: expect.any(AbortSignal),
       onProgress: expect.any(Function),
+      recordCall: expect.any(Function),
     });
+  });
+
+  it("records the estimator's model calls as the caller's", async () => {
+    const response = await route(async ({ recordCall }) => {
+      await recordCall?.(modelCall);
+      return { estimated: true, estimate };
+    }).handle(post());
+    await response.text();
+
+    expect(
+      await database().selectFrom('llm_calls').selectAll().execute(),
+    ).toMatchObject([
+      {
+        run_id: 'run-1',
+        user_id: 'user-1',
+        purpose: 'meal-estimate',
+        input_tokens: 1000,
+        cost_usd: 0.003,
+        tool_calls: JSON.stringify(modelCall.toolCalls),
+      },
+    ]);
   });
 
   it("leaves another user's food unresolved", async () => {

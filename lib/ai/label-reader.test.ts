@@ -1,6 +1,6 @@
 import { APICallError } from 'ai';
 import { MockLanguageModelV4 } from 'ai/test';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { LabelReading } from '../domain/foods/label-reading.ts';
 import { createLabelReader } from './label-reader.ts';
 
@@ -154,5 +154,46 @@ describe('createLabelReader', () => {
     const result = await readLabel(image);
 
     expect(Object.keys(result)).toEqual(['read', 'failure', 'message']);
+  });
+
+  it('records its call with its tokens and answer', async () => {
+    const recordCall = vi.fn(async () => {});
+    const { readLabel } = createLabelReader({
+      model: answering(JSON.stringify(reading)),
+    });
+
+    await readLabel(image, { recordCall });
+
+    expect(recordCall).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        purpose: 'label-reading',
+        step: 0,
+        model: 'mock-model-id',
+        inputTokens: 1,
+        outputTokens: 1,
+        finishReason: 'stop',
+        response: JSON.stringify(reading),
+        toolCalls: null,
+        error: null,
+      }),
+    );
+  });
+
+  it('records a call that failed, and never the photo', async () => {
+    const recordCall = vi.fn(async () => {});
+    const { readLabel } = createLabelReader({
+      model: failingWith(apiError(400)),
+    });
+
+    await readLabel(image, { recordCall });
+
+    expect(recordCall).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        purpose: 'label-reading',
+        finishReason: 'error',
+        error: 'Provider responded 400',
+        response: null,
+      }),
+    );
   });
 });

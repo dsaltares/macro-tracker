@@ -552,14 +552,24 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   caller. `resolveMealMatches` reads the live
   foods and live, non-empty recipes an estimate names, for `mealDraft`. `previous` is `{ draft, feedback }`,
   sent as the model's earlier answer and the user's correction; the photos are sent again.
-  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
+  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. Both take a
+  `recordCall` (`RecordLlmCall`, `llm-calls.ts`; `readLabel(image, { recordCall })` and the
+  estimate request's), told an `LlmCall` for each step the model answers (`llmCallOfStep`
+  over the SDK's `onStepEnd`: tokens, cached and reasoning tokens, `costOf` from `pricing.ts`'s
+  `modelPrices` in dollars per million tokens, `null` for a model not listed, the answer, the
+  reasoning summary and each tool call with its input and output) and one `failedLlmCall` when a
+  run fails, all of a request under one `runId`, by `purpose` (`meal-estimate`, `meal-revision`,
+  `meal-repair`, `label-reading`). Never the prompt, so never a photo or the description.
+  `llmCallRecorder({ db, userId, logger })` (`lib/db/llm-calls.ts`) writes them to `llm_calls`,
+  cascading with the user, and logs and drops a row it cannot write. Both routes pass one.
+  `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values
   per 100 g winning over those per serving, the first of a nutrient read twice winning. It keeps
   the printed entry behind each nutrient (`printed`, `perServing`) for the form to show beside a
   value; `isUnsure` is a confidence below `unsureBelow` (0.8).
 - `lib/label-scan/route.ts` — `POST /api/label-scan`, a route handler, not tRPC, since the body is
-  bytes. `labelScanRoute({ readLabel, resolveCaller, logger })` answers `401` without a session,
+  bytes. `labelScanRoute({ readLabel, resolveCaller, db, logger })` answers `401` without a session,
   `503` while label scanning is off, `413` past 8 MB (`maxPhotoBytes`, by the declared length and
   again while reading the body), `415` for anything but a JPEG or WebP by its leading bytes, and
   otherwise the `LabelReading` or the reader's failure, logged without the photo. The route in

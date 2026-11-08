@@ -1,4 +1,5 @@
 import type { ColumnType, Generated } from 'kysely';
+import type { LlmCallPurpose } from '../ai/llm-calls.ts';
 import type { BodyMetric } from '../domain/body/measurements.ts';
 import type { EntryKind, Meal } from '../domain/diary/entries.ts';
 import type {
@@ -239,6 +240,28 @@ export type HistoryImportsTable = {
   finished_at: string | null;
 };
 
+export type LlmCallsTable = {
+  id: string;
+  run_id: string;
+  user_id: string;
+  purpose: LlmCallPurpose;
+  step: number;
+  provider: string;
+  model: string;
+  input_tokens: number | null;
+  cached_input_tokens: number | null;
+  output_tokens: number | null;
+  reasoning_tokens: number | null;
+  cost_usd: number | null;
+  finish_reason: string | null;
+  response: string | null;
+  reasoning: string | null;
+  tool_calls: string | null;
+  error: string | null;
+  duration_ms: number | null;
+  created_at: string;
+};
+
 export type Database = {
   meta: MetaTable;
   foods: FoodsTable;
@@ -260,4 +283,5 @@ export type Database = {
   recipe_ingredients: RecipeIngredientsTable;
   api_keys: ApiKeysTable;
   history_imports: HistoryImportsTable;
+  llm_calls: LlmCallsTable;
 };

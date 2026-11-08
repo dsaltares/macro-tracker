@@ -43,6 +43,7 @@ const everyMigration = [
   '0015-api-keys',
   '0016-history-imports',
   '0017-hidden-foods',
+  '0018-llm-calls',
 ];
 
 const everyTable = [
@@ -63,6 +64,7 @@ const everyTable = [
   'foods_fts_idx',
   'goals',
   'history_imports',
+  'llm_calls',
   'meta',
   'profiles',
   'recipe_ingredients',
@@ -175,11 +177,15 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0018-llm-calls']);
+    const beforeLlmCalls = everyTable.filter((table) => table !== 'llm_calls');
+    expect(await tableNames(db)).toEqual(beforeLlmCalls);
+
     expect(await migrateDown(db)).toEqual(['0017-hidden-foods']);
-    expect(await tableNames(db)).toEqual(everyTable);
+    expect(await tableNames(db)).toEqual(beforeLlmCalls);
 
     expect(await migrateDown(db)).toEqual(['0016-history-imports']);
-    const beforeHistoryImports = everyTable.filter(
+    const beforeHistoryImports = beforeLlmCalls.filter(
       (table) => table !== 'history_imports',
     );
     expect(await tableNames(db)).toEqual(beforeHistoryImports);
@@ -236,7 +242,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0017-hidden-foods']);
+    expect(await migrateToLatest(db)).toEqual(['0018-llm-calls']);
   });
 
   it('reads back what is written to meta', async () => {

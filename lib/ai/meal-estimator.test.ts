@@ -13,6 +13,7 @@ import type {
   MealDraft,
   MealEstimate,
 } from '../domain/diary/meal-estimate.ts';
+import type { LlmCall } from './llm-calls.ts';
 import {
   createMealEstimator,
   type MealEstimatorFoods,
@@ -536,6 +537,171 @@ describe('createMealEstimator', () => {
       });
     },
   );
+  describe('recording its calls', () => {
+    const recording = () => {
+      const calls: LlmCall[] = [];
+      const recordCall = vi.fn(async (call: LlmCall) => {
+        calls.push(call);
+      });
+      return { calls, recordCall };
+    };
+
+    it('records every step with its tokens, cost, tool calls and answer, as one run', async () => {
+      const { calls, recordCall } = recording();
+      const cachedUsage = {
+        inputTokens: {
+          total: 10_000,
+          noCache: 2_000,
+          cacheRead: 8_000,
+          cacheWrite: undefined,
+        },
+        outputTokens: { total: 500, text: 100, reasoning: 400 },
+      };
+      const model = new MockLanguageModelV4({
+        provider: 'openai.responses',
+        modelId: 'gpt-5.4-mini',
+        doStream: [
+          thinkingFirst(
+            'A bowl of porridge.',
+            callingTool('searchFoods', { query: 'oats' }),
+          ),
+          answer(estimate),
+        ].map((step) => ({
+          stream: convertArrayToReadableStream(
+            partsOf({ ...step, usage: cachedUsage }),
+          ),
+        })),
+      });
+
+      await createMealEstimator({ model }).estimateMeal({
+        photos: [photo],
+        description: null,
+        foods: {
+          ...noFoods,
+          searchFoods: async () => ({ foods: [], recipes: [] }),
+        },
+        recordCall,
+      });
+
+      const cost = (2_000 * 0.75 + 8_000 * 0.075 + 500 * 4.5) / 1_000_000;
+      expect(calls).toEqual([
+        {
+          runId: expect.any(String),
+          purpose: 'meal-estimate',
+          step: 0,
+          provider: 'openai.responses',
+          model: 'gpt-5.4-mini',
+          inputTokens: 10_000,
+          cachedInputTokens: 8_000,
+          outputTokens: 500,
+          reasoningTokens: 400,
+          costUsd: expect.closeTo(cost, 10),
+          finishReason: 'tool-calls',
+          response: null,
+          reasoning: 'A bowl of porridge.',
+          toolCalls: [
+            {
+              toolName: 'searchFoods',
+              input: { query: 'oats' },
+              output: { foods: [], recipes: [] },
+            },
+          ],
+          error: null,
+          durationMs: expect.any(Number),
+        },
+        expect.objectContaining({
+          purpose: 'meal-estimate',
+          step: 1,
+          finishReason: 'stop',
+          response: JSON.stringify(estimate),
+          toolCalls: null,
+        }),
+      ]);
+      expect(calls[1]?.runId).toBe(calls[0]?.runId);
+    });
+
+    it('records the repair round under the same run', async () => {
+      const { calls, recordCall } = recording();
+      const model = answering(answer(madeUp), answer(repaired));
+
+      await createMealEstimator({ model }).estimateMeal({
+        photos: [photo],
+        description: null,
+        foods: resolvingOnly('oats'),
+        recordCall,
+      });
+
+      expect(calls.map(({ purpose, step }) => [purpose, step])).toEqual([
+        ['meal-estimate', 0],
+        ['meal-repair', 0],
+      ]);
+      expect(new Set(calls.map(({ runId }) => runId)).size).toBe(1);
+    });
+
+    it('records a correction as a revision', async () => {
+      const { calls, recordCall } = recording();
+      const model = answering(answer(estimate));
+
+      await createMealEstimator({ model }).estimateMeal({
+        photos: [photo],
+        description: null,
+        foods: noFoods,
+        previous: {
+          draft: { items: [], totals: {}, notes: [] },
+          feedback: 'There was no honey',
+        },
+        recordCall,
+      });
+
+      expect(calls).toMatchObject([{ purpose: 'meal-revision', step: 0 }]);
+    });
+
+    it('records a call that failed, with its error and no cost', async () => {
+      const { calls, recordCall } = recording();
+      const model = failingWith(new Error('The provider went away'));
+
+      await createMealEstimator({ model }).estimateMeal({
+        photos: [photo],
+        description: null,
+        foods: noFoods,
+        recordCall,
+      });
+
+      expect(calls).toEqual([
+        expect.objectContaining({
+          purpose: 'meal-estimate',
+          step: 0,
+          model: 'mock-model-id',
+          inputTokens: null,
+          costUsd: null,
+          finishReason: 'error',
+          error: 'The provider went away',
+        }),
+      ]);
+    });
+
+    it('records each step past the step limit, then the run that answered nothing', async () => {
+      const { calls, recordCall } = recording();
+      const model = answering(
+        ...Array.from({ length: maxEstimatorSteps }, () =>
+          callingTool('searchFoods', { query: 'oats' }),
+        ),
+      );
+
+      await createMealEstimator({ model }).estimateMeal({
+        photos: [photo],
+        description: null,
+        foods: noFoods,
+        recordCall,
+      });
+
+      expect(calls).toHaveLength(maxEstimatorSteps + 1);
+      expect(calls.at(-1)).toMatchObject({
+        step: maxEstimatorSteps,
+        finishReason: 'error',
+      });
+    });
+  });
 });
 
 describe('the meal estimator over the database', () => {
