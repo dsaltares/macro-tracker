@@ -9,8 +9,10 @@ import {
   rollingWindowStart,
   trendDays,
 } from '../domain/trends/aggregations.ts';
+import { llmUsage, llmUsageWindow } from '../domain/trends/llm-usage.ts';
 import { diaryEntries } from './diary.ts';
 import { findGoalsOver } from './goals.ts';
+import { llmCallsOverQuery } from './llm-calls.ts';
 import type { Database } from './schema.ts';
 
 export type TrendRange = { from: string; to: string };
@@ -59,4 +61,18 @@ export const trendNutrients = async (
   ]);
   const days = dailyTotals(from, to, entries).map(withGoals(goals));
   return { from, to, ...nutrientAverages(days) };
+};
+
+// The model calls a user's requests made on each date of a range, in their time zone.
+export const trendLlmUsage = async (
+  db: Kysely<Database>,
+  userId: string,
+  { from, to, timeZone }: TrendRange & { timeZone: string },
+) => {
+  const calls = await llmCallsOverQuery(
+    db,
+    userId,
+    llmUsageWindow(from, to),
+  ).execute();
+  return { from, to, ...llmUsage(from, to, timeZone, calls) };
 };

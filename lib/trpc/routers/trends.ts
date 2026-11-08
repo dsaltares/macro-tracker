@@ -1,5 +1,9 @@
-import { trendNutrients } from '../../db/trends.ts';
-import { trendRange, trendRangeSchema } from '../../services/trends.ts';
+import { trendLlmUsage, trendNutrients } from '../../db/trends.ts';
+import {
+  llmUsageRangeSchema,
+  trendRange,
+  trendRangeSchema,
+} from '../../services/trends.ts';
 import { accountProcedure, router } from '../trpc.ts';
 
 export const trendsRouter = router({
@@ -11,4 +15,7 @@ export const trendsRouter = router({
     .query(({ ctx, input }) =>
       trendNutrients(ctx.db, ctx.caller.userId, input),
     ),
+  llmUsage: accountProcedure
+    .input(llmUsageRangeSchema)
+    .query(({ ctx, input }) => trendLlmUsage(ctx.db, ctx.caller.userId, input)),
 });

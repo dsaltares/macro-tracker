@@ -231,6 +231,17 @@ describe('TrendsOverview', () => {
     expect(figureIn('Weight')).toBeNull();
   });
 
+  it('ends with the AI usage over the range', async () => {
+    await seedTwoDays();
+    render();
+
+    expect(
+      await within(await findSection('AI usage')).findByText(
+        'No AI requests in the last 30 days.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('says when the trends could not be loaded', async () => {
     api.fails('trends.range');
     render();

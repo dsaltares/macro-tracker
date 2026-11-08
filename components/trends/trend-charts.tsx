@@ -139,3 +139,87 @@ export function MacroChartPlot({ rows }: { rows: readonly MacroRow[] }) {
     </ChartContainer>
   );
 }
+
+// Model ids hold dots, which a CSS custom property cannot, so the series are keyed by position.
+export type LlmUsageSeries = { key: string; label: string };
+
+export type LlmUsageRow = { date: string } & Record<string, number | string>;
+
+const seriesColours: readonly [string, ...string[]] = [
+  'var(--chart-1)',
+  'var(--chart-3)',
+  'var(--chart-5)',
+  'var(--chart-2)',
+  'var(--chart-4)',
+];
+
+export function LlmUsageChartPlot({
+  rows,
+  series,
+  formatValue,
+}: {
+  rows: readonly LlmUsageRow[];
+  series: readonly LlmUsageSeries[];
+  formatValue: (value: number) => string;
+}) {
+  const config: ChartConfig = Object.fromEntries(
+    series.map(({ key, label }, index) => [
+      key,
+      {
+        label,
+        color: seriesColours[index % seriesColours.length] ?? seriesColours[0],
+      },
+    ]),
+  );
+
+  return (
+    <ChartContainer
+      aria-hidden
+      config={config}
+      className="aspect-auto h-56 w-full"
+    >
+      <ComposedChart
+        accessibilityLayer={false}
+        data={rows}
+        margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+      >
+        {dateAxis}
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          width={56}
+          tickFormatter={formatValue}
+        />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(_, payload) => {
+                const date = payload[0]?.payload?.date;
+                return typeof date === 'string' ? formatDay(date) : null;
+              }}
+              formatter={(value, name) => (
+                <div className="flex w-full justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    {config[String(name)]?.label ?? name}
+                  </span>
+                  <span className="font-medium font-mono tabular-nums">
+                    {formatValue(Number(value))}
+                  </span>
+                </div>
+              )}
+            />
+          }
+        />
+        {series.map(({ key }) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            stackId="models"
+            fill={`var(--color-${key})`}
+            isAnimationActive={false}
+          />
+        ))}
+      </ComposedChart>
+    </ChartContainer>
+  );
+}

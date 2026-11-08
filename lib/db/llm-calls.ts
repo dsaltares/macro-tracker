@@ -78,3 +78,22 @@ export const llmCallsOfRun = (db: Kysely<Database>, runId: string) =>
     .orderBy('created_at')
     .orderBy('id')
     .execute();
+
+// A user's calls made in `[since, until)`, as the trends read them.
+export const llmCallsOverQuery = (
+  db: Kysely<Database>,
+  userId: string,
+  { since, until }: { since: string; until: string },
+) =>
+  db
+    .selectFrom('llm_calls')
+    .select([
+      'model',
+      'created_at as createdAt',
+      'input_tokens as inputTokens',
+      'output_tokens as outputTokens',
+      'cost_usd as costUsd',
+    ])
+    .where('user_id', '=', userId)
+    .where('created_at', '>=', since)
+    .where('created_at', '<', until);

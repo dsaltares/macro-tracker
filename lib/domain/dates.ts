@@ -28,17 +28,34 @@ export const dateSchema = z
   .refine(isDate, { message: 'Not a date' })
   .meta({ format: 'date', description: 'A day as YYYY-MM-DD.' });
 
-export const today = (clock: Clock, timeZone: string) => {
+const isTimeZone = (timeZone: string) => {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const timeZoneSchema = z
+  .string()
+  .refine(isTimeZone, { message: 'Not a time zone' });
+
+// The day an ISO instant falls on in a time zone.
+export const dateAt = (instant: string, timeZone: string) => {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(new Date(clock.now()));
+  }).formatToParts(new Date(instant));
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((candidate) => candidate.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 };
+
+export const today = (clock: Clock, timeZone: string) =>
+  dateAt(clock.now(), timeZone);
 
 export const addDays = (date: string, days: number) =>
   fromUtcMidnight(utcMidnight(date) + days * millisecondsPerDay);

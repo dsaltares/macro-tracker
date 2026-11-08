@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  dateAt,
   daysBetween,
   formatDay,
   formatDayMonth,
   formatMonthYear,
   isDate,
   localDateOf,
+  timeZoneSchema,
   today,
 } from './dates.ts';
 
@@ -35,6 +37,22 @@ describe('isDate', () => {
     expect(isDate('20/10/2026')).toBe(false);
     expect(isDate('2026-10-20T00:00:00Z')).toBe(false);
     expect(isDate('')).toBe(false);
+  });
+});
+
+describe('dateAt', () => {
+  it('is the day an instant falls on in a time zone', () => {
+    expect(dateAt('2026-10-20T23:30:00.000Z', 'UTC')).toBe('2026-10-20');
+    expect(dateAt('2026-10-20T23:30:00.000Z', 'Europe/Madrid')).toBe(
+      '2026-10-21',
+    );
+  });
+});
+
+describe('timeZoneSchema', () => {
+  it('takes an IANA time zone and refuses anything else', () => {
+    expect(timeZoneSchema.safeParse('Europe/Madrid').success).toBe(true);
+    expect(timeZoneSchema.safeParse('Mars/Olympus').success).toBe(false);
   });
 });
 

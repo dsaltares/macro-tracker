@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { timeZoneSchema } from '../dates.ts';
 
 export const historySources = ['cronometer'] as const;
 
@@ -69,20 +70,11 @@ export type HistoryImportSummary = z.infer<typeof historyImportSummarySchema>;
 export const interruptedHistoryImport =
   'The server restarted while the import was running. Start it again: it skips the days it already imported.';
 
-export const isTimeZone = (timeZone: string) => {
-  try {
-    new Intl.DateTimeFormat('en', { timeZone });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 export const startHistoryImportSchema = z.object({
   source: z.enum(historySources),
   email: z.string().trim().min(1, 'Enter your Cronometer email'),
   password: z.string().min(1, 'Enter your Cronometer password'),
-  timeZone: z.string().refine(isTimeZone, { message: 'Not a time zone' }),
+  timeZone: timeZoneSchema,
 });
 
 export type StartHistoryImport = z.infer<typeof startHistoryImportSchema>;
