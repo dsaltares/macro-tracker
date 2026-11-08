@@ -542,21 +542,25 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `foods`, a `MealEstimatorFoods` port: `searchFoods` and `getFood`, each call logged at debug
   level with its query, never a photo. An error part in the stream is thrown, for `failureOf`.
   `onProgress` is told each `MealEstimateProgress` (`lib/domain/diary/meal-estimate.ts`) as it
-  happens: `thinking` (the reasoning summary, asked of OpenAI with `reasoningSummary: 'auto'`),
+  happens: `thinking` (the reasoning summary, asked of OpenAI with `reasoningSummary: 'auto'`,
+  beside a `promptCacheKey` shared by every estimate so each step's resent prefix bills cached),
   `searching`, `reading` a food found, `answering`, and `checking` before the repair round. An
   estimate naming a food or recipe the port's `resolveMatches` cannot find (`unresolvedItems`)
   gets one repair round, those lines sent back with `repairRequest`, capped at `maxRepairSteps` (5).
   `mealEstimatorFoods({ db, userId })` (`lib/db/meal-estimator-foods.ts`) is the port over the
-  caller: `searchFoods`' first page and the live recipes whose names hold every word
+  caller: the first `estimatorSearchSize` (10) of `searchFoods`' first page and the live recipes whose names hold every word
   (`nameMatchesEveryTerm`), a live food with its portions, and `resolveMealMatches` over the
   caller. `resolveMealMatches` reads the live
   foods and live, non-empty recipes an estimate names, for `mealDraft`. `previous` is `{ draft, feedback }`,
   sent as the model's earlier answer and the user's correction; the photos are sent again.
-  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key. Both take a
+  `getMealEstimator()` (`server.ts`) is the server's, `null` without a key, always on
+  `mealEstimatorModel` (`model.ts`, `gpt-6.1-terra`) whatever `AI_MODEL` says. Both take a
   `recordCall` (`RecordLlmCall`, `llm-calls.ts`; `readLabel(image, { recordCall })` and the
   estimate request's), told an `LlmCall` for each step the model answers (`llmCallOfStep`
   over the SDK's `onStepEnd`: tokens, cached and reasoning tokens, `costOf` from `pricing.ts`'s
-  `modelPrices` in dollars per million tokens, `null` for a model not listed, the answer, the
+  `modelPrices` in dollars per million tokens, at a model's `longContext` rates for a call over
+  `longContextTokens` (272K) of input, `null` for a model not listed (`0020-llm-call-costs`
+  priced the calls recorded before their model was), the answer, the
   reasoning summary and each tool call with its input and output) and one `failedLlmCall` when a
   run fails, all of a request under one `runId`, by `purpose` (`meal-estimate`, `meal-revision`,
   `meal-repair`, `label-reading`). Never the prompt, so never a photo or the description.

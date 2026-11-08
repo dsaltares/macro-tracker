@@ -9,6 +9,11 @@ export const defaultModels = {
   openai: 'gpt-5.4-mini',
 } as const satisfies Record<AiProvider, string>;
 
+// The meal estimator runs on this model whatever AI_MODEL says: a tool loop that sends the photos
+// on every step costs several calls a meal, and Terra reads plates and calls tools for half of
+// Sol's price. Priced in pricing.ts.
+export const mealEstimatorModel = 'gpt-6.1-terra';
+
 export type AiSettings = {
   provider?: string | undefined;
   model?: string | undefined;

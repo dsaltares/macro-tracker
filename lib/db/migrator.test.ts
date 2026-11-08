@@ -45,6 +45,7 @@ const everyMigration = [
   '0017-hidden-foods',
   '0018-llm-calls',
   '0019-llm-calls-by-user',
+  '0020-llm-call-costs',
 ];
 
 const everyTable = [
@@ -175,8 +176,87 @@ describe.each(targets)('migrations %s', (_, url) => {
     expect(await preferences()).toEqual(kept);
   });
 
+  it('prices the model calls recorded with no cost whose model has a price now', async () => {
+    await migrateToLatest(db);
+    await undo(db, '0020-llm-call-costs');
+    await db
+      .insertInto('users')
+      .values({ id: 'user-1', name: 'user-1', email: 'user-1@example.test' })
+      .execute();
+    const call = {
+      run_id: 'run-1',
+      user_id: 'user-1',
+      purpose: 'meal-estimate' as const,
+      step: 0,
+      provider: 'openai.responses',
+      cached_input_tokens: 0,
+      reasoning_tokens: 0,
+      finish_reason: 'stop',
+      response: null,
+      reasoning: null,
+      tool_calls: null,
+      error: null,
+      duration_ms: 1,
+      created_at: '2026-11-08T12:00:00.000Z',
+    };
+    await db
+      .insertInto('llm_calls')
+      .values([
+        {
+          ...call,
+          id: 'sol',
+          model: 'gpt-6.1-sol',
+          input_tokens: 100_000,
+          output_tokens: 0,
+          cost_usd: null,
+        },
+        {
+          ...call,
+          id: 'unknown',
+          model: 'gpt-0',
+          input_tokens: 1,
+          output_tokens: 1,
+          cost_usd: null,
+        },
+        {
+          ...call,
+          id: 'failed',
+          model: 'gpt-6.1-sol',
+          input_tokens: null,
+          output_tokens: null,
+          cost_usd: null,
+        },
+        {
+          ...call,
+          id: 'priced',
+          model: 'gpt-6.1-sol',
+          input_tokens: 1,
+          output_tokens: 1,
+          cost_usd: 0.5,
+        },
+      ])
+      .execute();
+
+    await migrateToLatest(db);
+
+    const costs = await db
+      .selectFrom('llm_calls')
+      .select(['id', 'cost_usd'])
+      .orderBy('id')
+      .execute();
+    expect(costs).toEqual([
+      { id: 'failed', cost_usd: null },
+      { id: 'priced', cost_usd: 0.5 },
+      { id: 'sol', cost_usd: expect.closeTo(0.2) },
+      { id: 'unknown', cost_usd: null },
+    ]);
+  });
+
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
+
+    expect(await migrateDown(db)).toEqual(['0020-llm-call-costs']);
+    expect(await tableNames(db)).toEqual(everyTable);
 
     expect(await migrateDown(db)).toEqual(['0019-llm-calls-by-user']);
     expect(await tableNames(db)).toEqual(everyTable);
@@ -246,7 +326,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0019-llm-calls-by-user']);
+    expect(await migrateToLatest(db)).toEqual(['0020-llm-call-costs']);
   });
 
   it('reads back what is written to meta', async () => {

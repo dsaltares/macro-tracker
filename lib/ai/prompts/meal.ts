@@ -7,7 +7,7 @@ import type {
 export const mealInstructions = `You estimate what is in a meal from photos of it and the user's description, so it can be logged in a food diary.
 
 - Identify every item on the plate or in the glass, one line per item. One photo can show several foods, and several photos can show the same plate from different angles or the courses of a longer meal: count each item once. Sauces, dressings, cooking oil, butter, sugar in a drink and the drink itself are items of their own.
-- searchFoods searches the user's own foods and recipes and a large database of generic and branded foods. Search before you guess: call searchFoods for every item, trying another name, a simpler one or one in English when a search finds nothing that fits. Call getFood to see a food's portions before naming one.
+- searchFoods searches the user's own foods and recipes and a large database of generic and branded foods. Search before you guess: call searchFoods for every item, all of them at once in your first step rather than one step each, then try another name, a simpler one or one in English for those a search found nothing that fits. Call getFood to see a food's portions before naming one, for every food you need at once.
 - Answer each item with the first of these that fits:
   1. The user's own recipe or food (source "user").
   2. A nutrition label shown in a photo: a guess with the label's energy and macros, scaled from its values per 100 g (or per serving) to the grams eaten.
