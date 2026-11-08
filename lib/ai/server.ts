@@ -1,6 +1,6 @@
 import { createLabelReader, type LabelReader } from './label-reader.ts';
 import { createMealEstimator, type MealEstimator } from './meal-estimator.ts';
-import { resolveLanguageModel } from './model.ts';
+import { mealEstimatorModel, resolveLanguageModel } from './model.ts';
 
 let labelReader: LabelReader | null | undefined;
 let mealEstimator: MealEstimator | null | undefined;
@@ -15,7 +15,7 @@ export const getLabelReader = (): LabelReader | null => {
 
 export const getMealEstimator = (): MealEstimator | null => {
   if (mealEstimator === undefined) {
-    const model = resolveLanguageModel();
+    const model = resolveLanguageModel({ model: mealEstimatorModel });
     mealEstimator = model === null ? null : createMealEstimator({ model });
   }
   return mealEstimator;

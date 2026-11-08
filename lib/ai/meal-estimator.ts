@@ -151,9 +151,13 @@ const messagesOf = ({
   ];
 };
 
-// OpenAI keeps a reasoning model's thinking to itself, but sends a summary of it when asked;
-// other providers ignore the option.
-const reasoningSummaries = { openai: { reasoningSummary: 'auto' } };
+// OpenAI keeps a reasoning model's thinking to itself, but sends a summary of it when asked.
+// Every step resends the instructions, the photos and the steps before it, so one cache key for
+// every estimate keeps them on the servers that cached that prefix, billed at the cached rate.
+// Other providers ignore the options.
+const openAiOptions = {
+  openai: { reasoningSummary: 'auto', promptCacheKey: 'meal-estimator' },
+};
 
 const ignoreErrors = () => {};
 
@@ -209,7 +213,7 @@ const streamWith = async (
     tools: toolsOver(foods, report),
     stopWhen: stepCountIs(maxSteps),
     messages,
-    providerOptions: reasoningSummaries,
+    providerOptions: openAiOptions,
     onError: ignoreErrors,
     onStepEnd: (step) => recordCall(llmCallOfStep({ runId, purpose }, step)),
     ...(signal === undefined ? {} : { abortSignal: signal }),

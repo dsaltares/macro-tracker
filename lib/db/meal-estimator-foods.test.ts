@@ -2,7 +2,10 @@ import type { Insertable } from 'kysely';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
 import { insertFood } from './foods.ts';
-import { mealEstimatorFoods } from './meal-estimator-foods.ts';
+import {
+  estimatorSearchSize,
+  mealEstimatorFoods,
+} from './meal-estimator-foods.ts';
 import type { RecipesTable } from './schema.ts';
 
 vi.mock('../logger.ts', () => ({ getLogger: () => ({ debug: vi.fn() }) }));
@@ -75,6 +78,17 @@ beforeEach(async () => {
 });
 
 describe('mealEstimatorFoods', () => {
+  it('answers only the best matches of a search', async () => {
+    for (let index = 0; index < estimatorSearchSize + 5; index += 1) {
+      await userFood('alice', `Lentil soup ${index}`);
+    }
+
+    const { foods } = await foodsOf('alice').searchFoods('lentil soup');
+
+    expect(foods).toHaveLength(estimatorSearchSize);
+    expect(foods[0]).toMatchObject({ id: alicesSoup });
+  });
+
   it('searches the caller’s foods and their live recipes matching every word', async () => {
     const { foods, recipes } = await foodsOf('alice').searchFoods('lentil');
 

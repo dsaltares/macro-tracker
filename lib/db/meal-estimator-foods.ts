@@ -15,6 +15,10 @@ import type { Database } from './schema.ts';
 
 const firstPage = 0;
 
+// The best matches of a search, not the page the app shows: every food sent to the model is
+// sent again on each step after it.
+export const estimatorSearchSize = 10;
+
 export const mealEstimatorFoods = ({
   db,
   userId,
@@ -28,7 +32,7 @@ export const mealEstimatorFoods = ({
       listRecipes(db, userId),
     ]);
     return {
-      foods,
+      foods: foods.slice(0, estimatorSearchSize),
       recipes: recipes.filter(({ name }) => nameMatchesEveryTerm(name, query)),
     };
   },
