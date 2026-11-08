@@ -50,6 +50,7 @@ import {
   latestHistoryImportQuery,
   runningHistoryImportQuery,
 } from './history-imports.ts';
+import { llmCallsOverQuery } from './llm-calls.ts';
 import { migrateToLatest } from './migrator.ts';
 import { profileQuery } from './profiles.ts';
 import {
@@ -701,5 +702,15 @@ describe('query plans', () => {
 
   it("reads a user's account by id with a search", () => {
     expectSearch(accountQuery(db, 'u').compile(), 'users');
+  });
+
+  it("reads a user's model calls over a range with a search", () => {
+    expectSearch(
+      llmCallsOverQuery(db, 'u', {
+        since: '2026-10-01T00:00:00.000Z',
+        until: '2026-11-01T00:00:00.000Z',
+      }).compile(),
+      'llm_calls',
+    );
   });
 });

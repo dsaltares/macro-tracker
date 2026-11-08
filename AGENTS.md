@@ -562,6 +562,13 @@ TS (strict), Yarn 4, Node 24, Next.js 16 App Router, React 19.
   `meal-repair`, `label-reading`). Never the prompt, so never a photo or the description.
   `llmCallRecorder({ db, userId, logger })` (`lib/db/llm-calls.ts`) writes them to `llm_calls`,
   cascading with the user, and logs and drops a row it cannot write. Both routes pass one.
+  `trends.llmUsage` (`{ from, to, timeZone }`) reads them back for the Trends page's last
+  section, `LlmUsageSection` (`components/trends/llm-usage-section.tsx`): `llmCallsOverQuery`
+  over `llmUsageWindow` (a day either side, on `(user_id, created_at)`), then `llmUsage`
+  (`lib/domain/trends/llm-usage.ts`) puts each call on the date it falls on in the browser's time
+  zone and sums calls, input and output tokens and cost by date and model. The cost leaves out
+  calls to a model with no price, and says how many. `LlmUsageChartPlot` stacks the models by
+  day, one measure at a time, keyed by position since model ids hold dots.
   `LabelReading` and `labelReadingToFood` are in `lib/domain/foods/label-reading.ts`:
   the table as printed, each amount with its unit and a confidence, turned into a user food's
   fields per 100 g by `normaliseNutrients` and rounded as `per100gOfEntered` rounds, the values

@@ -10,6 +10,7 @@ import { WeightTrendFigure } from '@/components/body/weight-chart';
 import { ChartSkeleton } from '@/components/chart-skeleton';
 import { nutrientNames } from '@/components/nutrients/nutrient-names';
 import { formatShare } from '@/components/nutrients/progress';
+import { LlmUsageSection } from '@/components/trends/llm-usage-section';
 import { macros } from '@/components/trends/macros';
 import { useTrendEnd } from '@/components/trends/use-trend-end';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -163,6 +164,11 @@ export function TrendsOverview() {
           points={weightPoints}
           rangeLabel={range.label}
           loading={weights.isPending}
+        />
+        <LlmUsageSection
+          from={trend.data.from}
+          to={trend.data.to}
+          rangeLabel={range.label}
         />
       </>
     );

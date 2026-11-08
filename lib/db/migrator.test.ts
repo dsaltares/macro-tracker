@@ -44,6 +44,7 @@ const everyMigration = [
   '0016-history-imports',
   '0017-hidden-foods',
   '0018-llm-calls',
+  '0019-llm-calls-by-user',
 ];
 
 const everyTable = [
@@ -177,6 +178,9 @@ describe.each(targets)('migrations %s', (_, url) => {
   it('rolls back one migration on the way down', async () => {
     await migrateToLatest(db);
 
+    expect(await migrateDown(db)).toEqual(['0019-llm-calls-by-user']);
+    expect(await tableNames(db)).toEqual(everyTable);
+
     expect(await migrateDown(db)).toEqual(['0018-llm-calls']);
     const beforeLlmCalls = everyTable.filter((table) => table !== 'llm_calls');
     expect(await tableNames(db)).toEqual(beforeLlmCalls);
@@ -242,7 +246,7 @@ describe.each(targets)('migrations %s', (_, url) => {
     await migrateToLatest(db);
     await migrateDown(db);
 
-    expect(await migrateToLatest(db)).toEqual(['0018-llm-calls']);
+    expect(await migrateToLatest(db)).toEqual(['0019-llm-calls-by-user']);
   });
 
   it('reads back what is written to meta', async () => {

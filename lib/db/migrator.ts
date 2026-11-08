@@ -19,6 +19,7 @@ import * as apiKeys from './migrations/0015-api-keys.ts';
 import * as historyImports from './migrations/0016-history-imports.ts';
 import * as hiddenFoods from './migrations/0017-hidden-foods.ts';
 import * as llmCalls from './migrations/0018-llm-calls.ts';
+import * as llmCallsByUser from './migrations/0019-llm-calls-by-user.ts';
 import type { Database } from './schema.ts';
 
 const migrations: Record<string, Migration> = {
@@ -40,6 +41,7 @@ const migrations: Record<string, Migration> = {
   '0016-history-imports': historyImports,
   '0017-hidden-foods': hiddenFoods,
   '0018-llm-calls': llmCalls,
+  '0019-llm-calls-by-user': llmCallsByUser,
 };
 
 const createMigrator = (db: Kysely<Database> = getDatabase()) =>

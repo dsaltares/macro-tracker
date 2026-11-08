@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { migratedDatabasePerTest } from '@/test/db';
+import { insertLlmCall } from '../../db/llm-calls.ts';
 import { addDays } from '../../domain/dates.ts';
 import type { Profile } from '../../domain/profile.ts';
 import { createCaller } from '../root.ts';
@@ -254,6 +255,98 @@ describe('trends.nutrients', () => {
   });
 });
 
+const recordCall = (
+  userId: string,
+  createdAt: string,
+  { model = 'gpt-5.4-mini', costUsd = 0.01 as number | null } = {},
+) =>
+  insertLlmCall(
+    database(),
+    userId,
+    {
+      runId: 'run-1',
+      purpose: 'meal-estimate',
+      step: 0,
+      provider: 'openai.responses',
+      model,
+      inputTokens: 1000,
+      cachedInputTokens: 0,
+      outputTokens: 100,
+      reasoningTokens: 0,
+      costUsd,
+      finishReason: 'stop',
+      response: null,
+      reasoning: null,
+      toolCalls: null,
+      error: null,
+      durationMs: 1000,
+    },
+    { now: () => createdAt, nextId: () => `call-${++ids}` },
+  );
+
+describe('trends.llmUsage', () => {
+  beforeEach(async () => {
+    await recordCall('user-1', `${addDays(from, -1)}T23:30:00.000Z`);
+    await recordCall('user-1', `${from}T08:00:00.000Z`);
+    await recordCall('user-1', `${to}T08:00:00.000Z`, {
+      model: 'other',
+      costUsd: null,
+    });
+    await recordCall('user-1', `${to}T22:30:00.000Z`);
+    await recordCall('user-2', `${to}T08:00:00.000Z`);
+  });
+
+  it("answers the caller's calls by date and model, in their time zone", async () => {
+    const usage = await as('user-1').trends.llmUsage({
+      from,
+      to,
+      timeZone: 'UTC',
+    });
+
+    expect(usage.days).toHaveLength(fixtureDays);
+    expect(Object.keys(usage.days.at(-1)?.byModel ?? {})).toEqual([
+      'other',
+      'gpt-5.4-mini',
+    ]);
+    expect(usage.models).toEqual([
+      {
+        model: 'gpt-5.4-mini',
+        calls: 2,
+        inputTokens: 2000,
+        outputTokens: 200,
+        costUsd: 0.02,
+        unpricedCalls: 0,
+      },
+      {
+        model: 'other',
+        calls: 1,
+        inputTokens: 1000,
+        outputTokens: 100,
+        costUsd: null,
+        unpricedCalls: 1,
+      },
+    ]);
+    expect(usage.totals).toMatchObject({ calls: 3, unpricedCalls: 1 });
+  });
+
+  it('moves the calls near midnight with the time zone', async () => {
+    const usage = await as('user-1').trends.llmUsage({
+      from,
+      to,
+      timeZone: 'Europe/Madrid',
+    });
+
+    expect(usage.days[0]?.byModel['gpt-5.4-mini']?.calls).toBe(2);
+    expect(usage.totals.calls).toBe(3);
+  });
+
+  it('refuses a time zone that is not one', async () => {
+    await expect(
+      as('user-1').trends.llmUsage({ from, to, timeZone: 'Mars/Olympus' }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+});
+
 describe('the range', () => {
   it('refuses a range that ends before it starts', async () => {
     await expect(
@@ -288,5 +381,8 @@ describe('the range', () => {
     await expect(as(null).trends.nutrients({ from, to })).rejects.toMatchObject(
       { code: 'UNAUTHORIZED' },
     );
+    await expect(
+      as(null).trends.llmUsage({ from, to, timeZone: 'UTC' }),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
